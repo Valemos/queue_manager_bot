@@ -75,7 +75,7 @@ class QueueBot:
         
     def start(self):
         self.updater.start_polling()
-        print('started')
+        # print('started')
         self.updater.idle()
 
     def h_message_text(self,update,context):
@@ -83,7 +83,7 @@ class QueueBot:
         if self.msg_request[0] is None:
             return
          
-        print("requested:",self.msg_request)
+        # print("request:",self.msg_request)
         
         if self.msg_request[1] == 0 or self.msg_request[1] == 1:
             if update.message.from_user.id == self.msg_request[0]:
@@ -106,7 +106,7 @@ class QueueBot:
                     
                 except Exception:
                     logger.warning('Update "%s" caused error', update)
-                    print('{0} \nUpdate caused error'.format(str(update)))
+                    # print('{0} \nUpdate caused error'.format(str(update)))
                     
                 finally:
                     self.msg_request = (None,None)
@@ -121,10 +121,9 @@ class QueueBot:
                         update.message.reply_text(return_msg)
                     else:
                         update.message.reply_text('Владелец успешно установлен')
-                    
-                    self.msg_request = (None,None)
                 else:
-                    update.message.reply_text('Сообщение не переслано')
+                    update.message.reply_text('Сообщение ни от кого не переслано, отмена')
+                self.msg_request = (None,None)
 
         elif self.msg_request[1] == 3:
             if update.message.from_user.id == self.msg_request[0]:
@@ -134,10 +133,10 @@ class QueueBot:
                         update.message.reply_text(return_msg)
                     else:
                         update.message.reply_text('Владелец успешно удален')
-                    
-                    self.msg_request = (None,None)
                 else:
-                    update.message.reply_text('Сообщение не переслано')
+                    update.message.reply_text('Сообщение ни от кого не переслано')
+                    
+                self.msg_request = (None,None)
 
         elif self.msg_request[1] == 4:
             if update.message.from_user.id == self.msg_request[0]:
@@ -159,10 +158,9 @@ class QueueBot:
     # Handlers
     def h_add_new_owner(self, update, context):
         if self.check_user_have_access(update.message.from_user.id, self.owners_access):
-            if self.new_owner_req_user_id is None:                
+            if self.msg_request[0] is None:              
                 update.message.reply_text('Перешлите сообщение нового владельца боту')
-                self.new_owner_req_user_id = update.message.from_user.id
-                self.command_requested = True
+                self.msg_request = (update.message.from_user.id, self.request_codes[(self.cmd_set_owner, None)])
             else:
                 update.message.reply_text('Уже запрошено, пришлите сообщение нового владельца')
         else:
@@ -170,10 +168,9 @@ class QueueBot:
 
     def h_del_owner(self, update, context):
         if self.check_user_have_access(update.message.from_user.id, self.owners_access):
-            if self.del_owner_req_user_id is None:                
+            if self.msg_request[0] is None:           
                 update.message.reply_text('Перешлите сообщение нового владельца боту')
-                self.del_owner_req_user_id = update.message.from_user.id
-                self.command_requested = True
+                self.msg_request = (update.message.from_user.id, self.request_codes[(self.cmd_del_owner, None)])
             else:
                 update.message.reply_text('Уже запрошено, пришлите сообщение нового владельца')
         else:
@@ -294,16 +291,15 @@ class QueueBot:
                         
             else:
                 logger.warning('In update "%s" command: %s not vallid', update, query.data)
-                print('In update \"{0}\" command: {1} not vallid'.format(update, query.data))
+                # print('In update \"{0}\" command: {1} not vallid'.format(update, query.data))
         else:
             update.message.reply_text(self.msg_permission_denied)
             
     def h_error(self,update,context):
         logger.warning('Update "%s" caused error "%s"', update, context.error) 
-        
-        
-        
-# Генерация очереди
+    
+    # Генерация очереди
+    
     def gen_random_queue(self,items):
         if len(items)>0:
             shuff_items = list(items)
@@ -380,13 +376,13 @@ class QueueBot:
 
     # Администрирование
 
-    # Передача прав редактирования еще одному человеку
+    # Передача прав редактирования
     def add_new_bot_owner(self, user_id, new_owner_id, new_access_level = 1):
         if self.check_user_have_access(user_id,self.owners_access):
             if new_access_level >= 0:
                 if self.owners_access[user_id] < new_access_level:
                     self.owners_access[new_owner_id] = new_access_level
-                    print('owner added: ', new_owner_id, 'access_level:', new_access_level)
+                    # print('owner added: ', new_owner_id, 'access_level:', new_access_level)
                     return None
                 else:
                     return self.msg_permission_denied
@@ -400,7 +396,7 @@ class QueueBot:
             try:
                 if self.owners_access[user_id] < self.owners_access[del_owner_id]:
                     del self.owners_access[del_owner_id]
-                    print('owner deleted: ', del_owner_id)
+                    # print('owner deleted: ', del_owner_id)
                     return None
                 else:
                     return self.msg_permission_denied
@@ -409,7 +405,6 @@ class QueueBot:
         else:
             return self.msg_permission_denied
 
-    
     def check_user_have_access(self,user_id, access_levels_dict, access_level = 1):
         if user_id in access_levels_dict:
             if access_levels_dict[user_id]<=access_level:
