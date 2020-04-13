@@ -1,1 +1,1 @@
-bot: RunBot.py
+worker: python D:\coding\JupiterNB\Telegram_Bot\RunBot.py
