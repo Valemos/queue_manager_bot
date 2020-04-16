@@ -61,6 +61,7 @@ class QueueBot:
         self.msg_code_not_valid = 'Внутренняя ошибка: Уровень доступа имеет неверный формат'
         self.msg_owner_not_found = 'Не владелец'
         self.msg_set_students = 'Чтобы установить список, введите новый список студентов\nон должен состоять из строк с именами студентов'
+        self.msg_queue_finished = 'Очередь завершена'
 
         # stores user who requested
         self.msg_request = (None,None) # first - user id; second - request code
@@ -322,7 +323,7 @@ class QueueBot:
                 cur_item, next_item = self.get_cur_and_next(cur_pos, queue)
 
                 if cur_item is None:
-                    return 'Очередь завершена'
+                    return self.msg_queue_finished
 
                 str_list.append('Сдает:')
                 str_list.append('{0} - {1}'.format(cur_pos + 1, cur_item))
@@ -341,7 +342,7 @@ class QueueBot:
             else:
                 return 'Очередь:\n'+'\n'.join([str(i)+' - '+str(queue[i]) for i in range(len(queue))])
         else:
-            return 'Очереди нет.'
+            return self.msg_queue_finished
 
     # Удаление из очереди
     def del_from_queue(self,queue,pos):
@@ -380,7 +381,7 @@ class QueueBot:
         if next_stud is not None: 
             msg = msg + '\nГотовится - {0}'.format(next_stud)
             
-        return msg if msg!='' else 'Завершено'
+        return msg if msg!='' else self.msg_queue_finished
     
     # Администрирование
 
