@@ -52,7 +52,7 @@ class QueueBot:
             [InlineKeyboardButton('Предыдущий',callback_data=self.cmd_move_queue+':'+self.cmd_args_move_queue[0])]
         ])
 
-        self.owners_access = {448309618:0}
+        self.owners_access = {448309618:0, 364109973:1, 286511343:1}
         self.main_students_list = []
         self.cur_queue = []
         self.cur_queue_pos = 0
@@ -180,6 +180,8 @@ class QueueBot:
         if len(self.owners_access)==0:
             self.owners_access[update.message.from_user.id]=0
             update.message.reply_text('Первый владелец добавлен - '+update.message.from_user.username)
+        elif self.check_user_have_access(update.effective_user.id, self.owners_access):
+            update.message.reply_text('Бот уже запущен.');
 
     def h_create_random_queue(self,update,context):
         if self.check_user_have_access(update.effective_user.id,self.owners_access):
@@ -188,7 +190,7 @@ class QueueBot:
             else:
                 update.effective_chat.send_message('Удалить предыдущую очередь и создать новую?',reply_markup=self.keyb_reply_create_random_queue)
         else:
-            update.effective_chat.send_message(self.msg_permission_denied)
+            update.message.reply_text(self.msg_permission_denied)
             
     def h_create_queue(self,update,context):
         if self.check_user_have_access(update.effective_user.id,self.owners_access):
@@ -197,7 +199,7 @@ class QueueBot:
             else:
                 update.effective_chat.send_message('Удалить предыдущую очередь и создать новую?',reply_markup = self.keyb_reply_create_queue)
         else:
-            update.effective_chat.send_message(self.msg_permission_denied)
+            update.message.reply_text(self.msg_permission_denied)
 
     def h_edit_queue(self,update,context):
         if self.check_user_have_access(update.message.from_user.id, self.owners_access):
@@ -218,13 +220,7 @@ class QueueBot:
         
         cur_stud, next_stud = self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)
         
-        msg = ''
-        if cur_stud is not None: 
-            msg = 'Сдает - {0}'.format(cur_stud)
-        if next_stud is not None: 
-            msg = msg + '\nГотовится - {0}'.format(next_stud)
-
-        update.message.reply_text(msg)
+        update.message.reply_text(self.get_cur_and_next_str(cur_stud, next_stud))
         
     def parce_query_cmd(self,command):
         try:
@@ -244,11 +240,14 @@ class QueueBot:
                         if self.cur_queue_pos > 0:
                             self.cur_queue_pos = self.cur_queue_pos - 1
                             query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos),reply_markup=self.keyb_move_queue)
+                            update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
+                            
                     elif args==self.cmd_args_move_queue[1]:
                         # move next
                         if self.cur_queue_pos < len(self.cur_queue):
-                            self.cur_queue_pos = self.cur_queue_pos+1
+                            self.cur_queue_pos = self.cur_queue_pos + 1
                             query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos),reply_markup=self.keyb_move_queue)
+                            update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
                 
                 elif cmd == self.cmd_add_students:
                     if args=='True':
@@ -373,7 +372,16 @@ class QueueBot:
             return queue[pos], None
         else:
             return None, None
-
+    
+    def get_cur_and_next_str(self, cur_stud, next_stud):
+        msg = ''
+        if cur_stud is not None: 
+            msg = 'Сдает - {0}'.format(cur_stud)
+        if next_stud is not None: 
+            msg = msg + '\nГотовится - {0}'.format(next_stud)
+            
+        return msg if msg!='' else 'Завершено'
+    
     # Администрирование
 
     # Передача прав редактирования
@@ -405,7 +413,7 @@ class QueueBot:
         else:
             return self.msg_permission_denied
 
-    def check_user_have_access(self,user_id, access_levels_dict, access_level = 1):
+    def check_user_have_access(self, user_id, access_levels_dict, access_level = 1):
         if user_id in access_levels_dict:
             if access_levels_dict[user_id]<=access_level:
                 return True
