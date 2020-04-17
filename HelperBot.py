@@ -387,8 +387,8 @@ class QueueBot:
        
     def h_i_finished(self, update, context):
         cur_user_id = update.effective_user.id
-        
-        if cur_user_id in self.registered_students.values():
+        print(self.registered_students)
+        if cur_user_id in self.registered_students.keys():
             if cur_user_id == self.cur_queue[self.cur_queue_pos]:
                 self.cur_queue_pos += 1
                 update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
@@ -412,7 +412,7 @@ class QueueBot:
         if len(items)>0:
             shuff_items = []
             for i in items:
-                if i in self.registered_students: shuff_items.append((i, self.registered_students[i]))
+                if i in self.registered_students.values(): shuff_items.append((i, self.registered_students[i]))
                 else: shuff_items.append((i, None))
             
             rnd.shuffle(shuff_items)
@@ -511,6 +511,9 @@ class QueueBot:
     # Администрирование
 
     # Передача прав редактирования
+    def add_bot_user():
+        pass
+        
     def add_new_bot_owner(self, user_id, new_owner_id, new_access_level = None):
         if self.check_user_have_access(user_id,self.users_access_table):
             if new_access_level >= 0:
