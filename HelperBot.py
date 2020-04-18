@@ -1,6 +1,6 @@
 import random as rnd
-from pathlib import Path
-import pickle
+# from pathlib import Path
+# import pickle
 
 from telegram.ext import Updater, InlineQueryHandler, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -36,7 +36,26 @@ class QueueBot:
         self.cmd_set_owner = 'set_owner'
         self.cmd_del_owner = 'del_owner'
         self.cmd_modify_registered = 'mod_registered'
-        self.cmd_args_modify_registered = ['show_list','add_users','reg_one_user','del_users']
+        self.cmd_args_modify_registered = ['show_list','add_users','reg_one_user','del_users', 'rename_all']
+        
+        
+        # stores user who requested
+        self.msg_request = (None, None) # first - user id; second - request code
+        self.requests_by_code = {
+            0 : (self.cmd_create_queue, self.cmd_args_create_queue[0]), # regular queue
+            1 : (self.cmd_create_queue, self.cmd_args_create_queue[1]), # random queue
+            2 : (self.cmd_set_owner, None),
+            3 : (self.cmd_del_owner, None),
+            4 : (self.cmd_modify_queue, self.cmd_args_modify_queue[4]),
+            8 : (self.cmd_modify_queue, self.cmd_args_modify_queue[5]),
+            9 : (self.cmd_modify_queue, self.cmd_args_modify_queue[6]),
+            5 : (self.cmd_modify_registered, self.cmd_args_modify_registered[1]),
+            6 : (self.cmd_modify_registered, self.cmd_args_modify_registered[2]),
+            7 : (self.cmd_modify_registered, self.cmd_args_modify_registered[3]),
+            10 : (self.cmd_modify_registered, self.cmd_args_modify_registered[4])
+        }
+        self.request_codes = dict([(req,code) for code,req in self.requests_by_code.items()])
+        
         
 
         self.keyb_reply_create_queue = InlineKeyboardMarkup([[InlineKeyboardButton('Создать очередь',callback_data=self.cmd_create_queue+':'+self.cmd_args_create_queue[0])],
@@ -62,8 +81,9 @@ class QueueBot:
 
         self.keyb_modify_registered = InlineKeyboardMarkup([
             [InlineKeyboardButton('Показать зарегистрированных',        callback_data=self.cmd_modify_registered+':'+self.cmd_args_modify_registered[0])],
-            [InlineKeyboardButton('Добавить список пользователей(ID)',  callback_data=self.cmd_modify_registered+':'+self.cmd_args_modify_registered[1])],
             [InlineKeyboardButton('Зарегистрировать пользователя',      callback_data=self.cmd_modify_registered+':'+self.cmd_args_modify_registered[2])],
+            [InlineKeyboardButton('Добавить список пользователей(с ID)',callback_data=self.cmd_modify_registered+':'+self.cmd_args_modify_registered[1])],
+            [InlineKeyboardButton('Переименовать всех пользователей',   callback_data=self.cmd_modify_registered+':'+self.cmd_args_modify_registered[4])],
             [InlineKeyboardButton('Удалить несколько пользователей',    callback_data=self.cmd_modify_registered+':'+self.cmd_args_modify_registered[3])]
         ])
 
@@ -81,22 +101,6 @@ class QueueBot:
         self.msg_del_registered_students = 'Чтобы удалить несколько пользователей, введите их позиции в списке каждую в новой строке'
         self.msg_get_user_message = 'Перешлите сообщение пользователя'
         self.msg_queue_finished = 'Очередь завершена'
-
-        # stores user who requested
-        self.msg_request = (None, None) # first - user id; second - request code
-        self.requests_by_code = {
-            0 : (self.cmd_create_queue, self.cmd_args_create_queue[0]), # regular queue
-            1 : (self.cmd_create_queue, self.cmd_args_create_queue[1]), # random queue
-            2 : (self.cmd_set_owner, None),
-            3 : (self.cmd_del_owner, None),
-            4 : (self.cmd_modify_queue, self.cmd_args_modify_queue[4]),
-            8 : (self.cmd_modify_queue, self.cmd_args_modify_queue[5]),
-            9 : (self.cmd_modify_queue, self.cmd_args_modify_queue[6]),
-            5 : (self.cmd_modify_registered, self.cmd_args_modify_registered[1]),
-            6 : (self.cmd_modify_registered, self.cmd_args_modify_registered[2]),
-            7 : (self.cmd_modify_registered, self.cmd_args_modify_registered[3])
-        }
-        self.request_codes = dict([(req,code) for code,req in self.requests_by_code.items()])
         
         self.load_defaults_from_file()
         
@@ -104,8 +108,7 @@ class QueueBot:
     def load_defaults_from_file(self):
         
         self.users_access_table = {448309618:0, 364109973:1, 286511343:1}
-        self.registered_students = {"Антон н":448309618,
-                                    "Koval Dana":364109973}
+        self.registered_students = {384393685: 'Бажина', 147730673: 'Бондаренко', 268827096: 'Велика', 367600018: 'Воловик', 389790621: 'Головін', 388380895: 'Гумницький', 405860821: 'Дєрюгін', 462141441: 'Дурда', 371810080: 'Желєзнова', 362678602: 'Іванів', 286511343: 'Кангін', 364109973: 'Коваль', 471381559: 'Козінцева', 503372489: 'Колесник', 303129888: 'Колпаков', 270545679: 'Люлька', 446640979: 'Науменко', 374461550: 'Нікітін', 291886099: 'Переяславський', 329258867: 'Попелюк', 385423144: 'Северин', 2721312: 'Сіркович', 448309618: 'Скрипник', 484978364: 'Солоха', 488914074: 'Таран', 1049366904: 'Токар', 467329564: 'Трифанов', 312570475: 'Харитонова', 377375847: 'Цимбалюк', 591500379: 'Чорний'}
         
     def start(self):
         self.updater.start_polling()
@@ -130,9 +133,11 @@ class QueueBot:
                             self.cur_queue_pos = self.cur_queue_pos + 1
                             query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos),reply_markup=self.keyb_move_queue)
                             update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
+                    
                     elif args==self.cmd_args_move_queue[2]:
                         self.refresh_cur_queue()
-                        query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos),reply_markup=self.keyb_move_queue)
+                        query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup = self.keyb_move_queue)
+                        update.callback_query.answer()
                 
                 elif cmd == self.cmd_add_students:
                     if args=='True':
@@ -175,7 +180,7 @@ class QueueBot:
                         
                 elif cmd == self.cmd_modify_registered:
                     if args == self.cmd_args_modify_registered[0]: # show
-                        str_list = [name+' - '+str(st_id) for name, st_id in self.registered_students.items()]
+                        str_list = [name+'-'+str(st_id) for st_id, name in self.registered_students.items()]
                         update.effective_chat.send_message('Все известные пользователи:\n'+'\n'.join(str_list))
                     elif args == self.cmd_args_modify_registered[1]: # add list
                         update.effective_chat.send_message(self.msg_set_registered_students)
@@ -186,6 +191,9 @@ class QueueBot:
                     elif args == self.cmd_args_modify_registered[3]: # delete list
                         update.effective_chat.send_message(self.msg_del_registered_students)
                         self.msg_request = (update.effective_user.id, self.request_codes[(cmd,args)])
+                    elif args == self.cmd_args_modify_registered[4]: # rename all
+                        update.effective_chat.send_message('Введите список новых имен для всех пользователей')
+                        self.msg_request = (update.effective_user.id, self.request_codes[(cmd,args)])
                         
             else:
                 logger.warning('In update "%s" command: %s not vallid', update, query.data)
@@ -193,6 +201,7 @@ class QueueBot:
         else:
             if cmd == self.cmd_move_queue:
                 if args==self.cmd_args_move_queue[2]:
+                    self.refresh_cur_queue()
                     query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos),reply_markup=self.keyb_move_queue)
             else:
                 update.message.reply_text(self.msg_permission_denied)
@@ -288,10 +297,11 @@ class QueueBot:
         elif self.msg_request[1] == 9:
             try:
                 user_str = update.message.text.split(' ')
-                cur_pos, set_pos = int(user_str[0]), int(user_str[1])
+                cur_pos, set_pos = int(user_str[0])-1, int(user_str[1])-1
                 
-                assert cur_pos>0 and cur_pos<=len(self.cur_queue) and set_pos>0 and set_pos<=len(self.cur_queue)
-                
+                assert  cur_pos >= 0 and cur_pos < len(self.cur_queue) and \
+                        set_pos >= 0 and set_pos < len(self.cur_queue)
+                        
                 self.cur_queue.insert(set_pos, self.cur_queue.pop(cur_pos))
                 update.effective_chat.send_message('Студент перемещен')
             except Exception:
@@ -319,19 +329,21 @@ class QueueBot:
                     err_list.append(line)
                     
             for u in new_users:
-                self.add_bot_user(u[1], u[0])
+                self.set_bot_user(u[1], u[0])
                 
             
             if len(err_list) > 0: update.effective_chat.send_message('Ошибка возникла в этих строках:\n'+'\n'.join(err_list))
             if len(new_users) > 0: update.effective_chat.send_message('Пользователи добавлены')
+            self.msg_request = (None, None)
         
         elif self.msg_request[1] == 6: # add one
             if update.message.forward_from is not None:
-                self.add_bot_user(update.message.forward_from.id, update.message.forward_from.full_name)
+                self.set_bot_user(update.message.forward_from.id, update.message.forward_from.full_name)
                 update.message.reply_text('Пользователь зарегистрирован')
             else:
                 update.message.reply_text('Сообщение ни от кого не переслано, отмена')
-           
+            self.msg_request = (None, None)
+            
         elif self.msg_request[1] == 7: # del list
             del_users_str = update.message.text.split('\n')
             
@@ -351,7 +363,24 @@ class QueueBot:
             
             if len(err_list) > 0: update.effective_chat.send_message('Ошибка в этих значениях:\n'+'\n'.join(err_list))
             if len(del_users) > 0: update.effective_chat.send_message('Пользователи удалены')
+            self.msg_request = (None, None)
         
+        elif self.msg_request[1] == 10: # rename all
+            new_users_str_lines = []
+            if '\n' in update.message.text:
+                new_users_str_lines = update.message.text.split('\n')
+            else:
+                new_users_str_lines = [update.message.text]
+            
+            all_keys = list(self.registered_students.keys())
+            i = 0
+            for name_i in range(max(len(new_users_str_lines), len(self.registered_students))):
+                self.set_bot_user(all_keys[i], new_users_str_lines[name_i])
+                i+=1
+            
+            update.effective_chat.send_message('Пользователи изменены')
+            self.msg_request = (None, None)
+            
     def h_add_new_owner(self, update, context):
         if self.check_user_have_access(update.message.from_user.id, self.users_access_table):
             if self.msg_request[0] is None:              
@@ -426,7 +455,7 @@ class QueueBot:
        
     def h_i_finished(self, update, context):
         cur_user_id = update.effective_user.id
-        if cur_user_id in self.registered_students.values():
+        if cur_user_id in self.registered_students.keys():
             if self.cur_queue_pos>=0 and self.cur_queue_pos<len(self.cur_queue):
                 if cur_user_id == self.cur_queue[self.cur_queue_pos][1]:
                     self.cur_queue_pos += 1
@@ -453,7 +482,7 @@ class QueueBot:
         if len(items)>0:
             shuff_items = []
             for i in items:
-                if i in self.registered_students.keys(): shuff_items.append((i, self.registered_students[i]))
+                if i in self.registered_students.values(): shuff_items.append((i, self.get_id_by_name(self.registered_students, i)))
                 else: shuff_items.append((i, None))
             
             rnd.shuffle(shuff_items)
@@ -466,8 +495,10 @@ class QueueBot:
             lst = []
             
             for i in items:
-                if i in self.registered_students.keys(): lst.append((i, self.registered_students[i]))
+                if i in self.registered_students.values(): lst.append((i, self.get_id_by_name(self.registered_students, i)))
                 else: lst.append((i, None))
+            
+            print(lst)
             
             return lst
         else:
@@ -480,8 +511,11 @@ class QueueBot:
     def refresh_cur_queue(self):
         for idx in range(len(self.cur_queue)):
             i = self.cur_queue[idx][0]
-            if i in self.registered_students.keys(): self.cur_queue[idx] = (i, self.registered_students[i])
+            if i in self.registered_students.values(): self.cur_queue[idx] = lst.append((i, self.get_id_by_name(self.registered_students, i)))
             else: self.cur_queue[idx] = (i, None)
+
+    def get_id_by_name(self, dct, name):
+        return list(dct.keys())[list(dct.values()).index(name)]
 
     def get_queue_str(self, queue, cur_pos = None):
         if len(queue) > 0:
@@ -558,8 +592,8 @@ class QueueBot:
     # Администрирование
 
     # Передача прав редактирования
-    def add_bot_user(self, user_id, user_name):
-        self.registered_students[user_name] = user_id
+    def set_bot_user(self, user_id, user_name):
+        self.registered_students[user_id] = user_name
         
     def add_new_bot_owner(self, user_id, new_owner_id, new_access_level = None):
         if self.check_user_have_access(user_id,self.users_access_table):
