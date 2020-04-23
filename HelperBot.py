@@ -67,7 +67,7 @@ class QueueBot:
             [InlineKeyboardButton('Поставить студента на позицию',  callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[6])],
             [InlineKeyboardButton('Переместить студента в конец',   callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[4])],
             [InlineKeyboardButton('Удалить студента',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[5])],
-            [InlineKeyboardButton('Добавить студента',              callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[7])], # dodelat
+            [InlineKeyboardButton('Добавить студента',              callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[7])],
             [InlineKeyboardButton('Показать очередь',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[0])],
             [InlineKeyboardButton('Установить новую очередь',       callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[1])],
             [InlineKeyboardButton('Очистить очередь',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[3])]
@@ -305,7 +305,7 @@ class QueueBot:
                 self.msg_request = (None, None)
         
         elif self.msg_request[1] == 10:
-            self.cur_queue.append((update.message.text, self.get_id_by_name(self.registered_students, update.message.text)))
+            self.cur_queue.append(self.find_similar(update.message.text))
             update.effective_chat.send_message('Студент установлен')
             self.msg_request = (None, None)
         
@@ -441,13 +441,13 @@ class QueueBot:
         cur_user_id = update.effective_user.id
         if cur_user_id in self.registered_students.keys():
             if self.cur_queue_pos>=0 and self.cur_queue_pos<len(self.cur_queue):
-                if cur_user_id == self.cur_queue[self.cur_queue_pos][1]:
+                if self.similar(self.registered_students[cur_user_id], self.cur_queue[self.cur_queue_pos][0]):
                     self.cur_queue_pos += 1
                     update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
                 else:
-                    update.message.reply_text('Вы не сдаете сейчас.')
+                    update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_students[cur_user_id]))
             else:
-                update.message.reply_text('Вы не сдаете сейчас.')
+                update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_students[cur_user_id]))
         else:
             update.message.reply_text('Неизвестный пользователь. Вы не можете использовать данную команду. Зарегистрируйтесь у администратора')
             
@@ -473,18 +473,33 @@ class QueueBot:
             return shuff_items
         else:
             return []
-            
+    
     def gen_queue(self, items):
         if len(items)>0:
             lst = []
             
             for i in items:
-                if i in self.registered_students.values(): lst.append((i, self.get_id_by_name(self.registered_students, i)))
-                else: lst.append((i, None))
+                lst.append(self.find_similar(i))
+                print(i, lst[-1])
                 
             return lst
         else:
             return []
+    
+    def find_similar(self, name):
+        for st_id, st_name in self.registered_students.items():
+            if self.similar(name, st_name):
+                return (st_name, st_id)
+        return (name, None)
+    
+    def similar(self, first, second):
+        if not len(first) == len(second):
+            return False
+        if first[0]!=second[0]:
+            return False
+        elif len(first) - sum(l1==l2 for l1, l2 in zip(first[1:], second[1:])) > 3:
+            return False
+        return True
 
     def delete_cur_queue(self):
         self.cur_queue = []
