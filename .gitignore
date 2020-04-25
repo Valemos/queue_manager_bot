@@ -1,0 +1,6 @@
+.ipynb_checkpoints/*
+HelperBot.ipynb
+__pycache__/*
+file.txt
+help_script.py
+serializer.py

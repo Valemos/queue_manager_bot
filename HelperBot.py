@@ -1,35 +1,53 @@
 import random as rnd
-# from pathlib import Path
-# import pickle
+from pathlib import Path
+import pickle
 
-from telegram.ext import Updater, InlineQueryHandler, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 class QueueBot:
     
-    def __init__(self,bot_token):
+    def __init__(self, bot_token = None):
+        
+        self.default_owner_file_path = Path('users_data.data')
+        self.default_registered_file_path = Path('registered_data.data')
+        self.default_token_file_path = Path('token.data')
+        
+        #  init bot commands
+        
+        if bot_token is None:
+            bot_token = self.get_token_from_file()
+        
         self.updater = Updater(bot_token, use_context=True)
 
-        self.updater.dispatcher.add_handler(CommandHandler('start', self.h_start))
-        self.updater.dispatcher.add_handler(CommandHandler('get_queue', self.h_check_queue_status))
-        self.updater.dispatcher.add_handler(CommandHandler('i_finished', self.h_i_finished))
-        self.updater.dispatcher.add_handler(CommandHandler('current_and_next', self.h_get_cur_and_next_students))
-        self.updater.dispatcher.add_handler(CommandHandler('new_queue', self.h_create_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('new_random_queue', self.h_create_random_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('edit_queue', self.h_edit_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('edit_registered', self.h_edit_registered))
-        self.updater.dispatcher.add_handler(CommandHandler('owner', self.h_add_new_owner))
-        self.updater.dispatcher.add_handler(CommandHandler('del_owner', self.h_del_owner))
-        self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.h_message_text))
-        self.updater.dispatcher.add_handler(CallbackQueryHandler(self.h_keyboard_chosen))
-        self.updater.dispatcher.add_error_handler(self.h_error)
+        self.updater.dispatcher.add_handler(CommandHandler('start', self.__h_start))
+        self.updater.dispatcher.add_handler(CommandHandler('get_queue', self.__h_check_queue_status))
+        self.updater.dispatcher.add_handler(CommandHandler('i_finished', self.__h_i_finished))
+        self.updater.dispatcher.add_handler(CommandHandler('current_and_next', self.__h_get_cur_and_next_students))
+        self.updater.dispatcher.add_handler(CommandHandler('new_queue', self.__h_create_queue))
+        self.updater.dispatcher.add_handler(CommandHandler('new_random_queue', self.__h_create_random_queue))
+        self.updater.dispatcher.add_handler(CommandHandler('edit_queue', self.__h_edit_queue))
+        self.updater.dispatcher.add_handler(CommandHandler('edit_registered', self.__h_edit_registered))
+        self.updater.dispatcher.add_handler(CommandHandler('owner', self.__h_add_new_owner))
+        self.updater.dispatcher.add_handler(CommandHandler('del_owner', self.__h_del_owner))
+        self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.__h_message_text))
+        self.updater.dispatcher.add_handler(CallbackQueryHandler(self.__h_keyboard_chosen))
+        self.updater.dispatcher.add_error_handler(self.__h_error)
 
 
         # ':' needed for correct commands split
         self.cmd_create_queue = 'create_queue'
         self.cmd_args_create_queue = ['simple','random']
         self.cmd_modify_queue = 'modify_queue'
-        self.cmd_args_modify_queue = ['show_list','change_list','add_one_student','clear_list','move_to_end','del_student','set_student_pos','add_student']
+        self.cmd_args_modify_queue = ['show_list', 
+                                      'change_list', 
+                                      'add_one_student', 
+                                      'clear_list', 
+                                      'move_to_end', 
+                                      'del_student', 
+                                      'set_student_pos', 
+                                      'add_student', 
+                                      'swap_students']
         self.cmd_move_queue = 'move_queue'
         self.cmd_args_move_queue = ['prev','next','refresh']
         self.cmd_set_owner = 'set_owner'
@@ -49,11 +67,12 @@ class QueueBot:
             8 : (self.cmd_modify_queue, self.cmd_args_modify_queue[5]),
             9 : (self.cmd_modify_queue, self.cmd_args_modify_queue[6]),
             10: (self.cmd_modify_queue, self.cmd_args_modify_queue[7]),
+            11: (self.cmd_modify_queue, self.cmd_args_modify_queue[8]),
             5 : (self.cmd_modify_registered, self.cmd_args_modify_registered[1]),
             6 : (self.cmd_modify_registered, self.cmd_args_modify_registered[2]),
             7 : (self.cmd_modify_registered, self.cmd_args_modify_registered[3]),
         }
-        self.request_codes = dict([(req,code) for code,req in self.requests_by_code.items()])
+        self.request_codes = {req:code for code,req in self.requests_by_code.items()}
         
         
 
@@ -64,8 +83,9 @@ class QueueBot:
                                                         [InlineKeyboardButton('Отмена',callback_data=self.cmd_create_queue+':'+'False')]])
 
         self.keyb_modify_queue = InlineKeyboardMarkup([
-            [InlineKeyboardButton('Поставить студента на позицию',  callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[6])],
             [InlineKeyboardButton('Переместить студента в конец',   callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[4])],
+            [InlineKeyboardButton('Поменять местами',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[8])],
+            [InlineKeyboardButton('Поставить студента на позицию',  callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[6])],
             [InlineKeyboardButton('Удалить студента',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[5])],
             [InlineKeyboardButton('Добавить студента',              callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[7])],
             [InlineKeyboardButton('Показать очередь',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[0])],
@@ -102,18 +122,76 @@ class QueueBot:
         self.msg_queue_finished = 'Очередь завершена'
         
         self.load_defaults_from_file()
-        
+                
     # loads default values from external file
     def load_defaults_from_file(self):
+
+        if not self.default_owner_file_path.exists():
+            self.default_owner_file_path.touch()
+
+        if not self.default_registered_file_path.exists():
+            self.default_registered_file_path.touch()
+
+        try:
+            with self.default_owner_file_path.open('rb') as fr:
+                self.users_access_table = pickle.load(fr)
+                
+            with self.default_registered_file_path.open('rb') as fr:
+                self.registered_students = pickle.load(fr)
+                
+        except pickle.UnpicklingError:
+            print('Error while loading default files')
         
-        self.users_access_table = {448309618:0, 364109973:1, 286511343:1}
-        self.registered_students = {384393685: 'Бажина', 147730673: 'Бондаренко', 268827096: 'Велика', 367600018: 'Воловик', 389790621: 'Головін', 388380895: 'Гумницький', 405860821: 'Дєрюгін', 462141441: 'Дурда', 371810080: 'Желєзнова', 362678602: 'Іванів', 286511343: 'Кангін', 364109973: 'Коваль', 471381559: 'Козінцева', 503372489: 'Колесник', 303129888: 'Колпаков', 270545679: 'Люлька', 383225713: 'Москаленко', 446640979: 'Науменко', 374461550: 'Нікітін', 291886099: 'Переяславський', 329258867: 'Попелюк', 385423144: 'Северин', 502721312: 'Сіркович', 448309618: 'Скрипник', 484978364: 'Солоха', 488914074: 'Таран', 1049366904: 'Токар', 467329564: 'Трифанов', 312570475: 'Харитонова', 377375847: 'Цимбалюк', 591500379: 'Чорний'}
+    def serialize_settings_to_file(self):
+        self.save_owners_to_file()
+        self.save_registered_to_file()
+            
+    def save_owners_to_file(self):
+        try:
+            with self.default_owner_file_path.open('wb+') as fw:
+                pickle.dump(self.users_access_table, fw)
+        except pickle.PicklingError:
+            print('Error while loading defaults to files')
+        
+    def save_registered_to_file(self):
+        try:
+            with self.default_registered_file_path.open('wb+') as fw:
+                pickle.dump(self.registered_students, fw)
+        except pickle.PicklingError:
+            print('Error while loading defaults to files')
+          
+    def get_token_from_file(self, path = None):
+        if path is None:
+            path = Path(self.default_token_file_path)
+        
+        try:
+            with self.default_token_file_path.open('rb') as fr:
+                return fr.read().decode('utf-8')
+            
+        except Exception:
+            print('Error while loading token file')
+        
+    def write_token_to_file(self, token, path = None):
+        if path is None:
+            path = Path(self.default_token_file_path)
+        
+        if not path.exists():
+            path.touch()
+        
+        try:
+            with path.open('wb') as fw:
+                fw.write(token.encode('utf-8'))
+            
+        except Exception:
+            print('Error while loading token to file')
+        
+            
         
     def start(self):
         self.updater.start_polling()
         self.updater.idle()
 
-    def h_keyboard_chosen(self, update, context):
+    def __h_keyboard_chosen(self, update, context):
         query = update.callback_query
         if self.check_user_have_access(query.from_user.id,self.users_access_table):
             cmd, args = self.parce_query_cmd(query.data)
@@ -134,14 +212,14 @@ class QueueBot:
                             update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
                     
                     elif args==self.cmd_args_move_queue[2]:
-                        self.refresh_cur_queue()
+                        self.__refresh_cur_queue()
                         new_queue_str = self.get_queue_str(self.cur_queue,self.cur_queue_pos)
                         if query.message.text != new_queue_str:
                             query.edit_message_text(new_queue_str, reply_markup = self.keyb_move_queue)
                 
                 elif cmd == self.cmd_create_queue:
                     if args != 'False':
-                        self.delete_cur_queue()
+                        self.__delete_cur_queue()
                         update.effective_chat.send_message(self.msg_set_students)
                         self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
                     else:
@@ -157,25 +235,33 @@ class QueueBot:
                         self.msg_request = (update.effective_user.id, self.request_codes[(self.cmd_create_queue, self.cmd_args_create_queue[0])])
                         
                     elif args==self.cmd_args_modify_queue[3]:
-                        self.delete_cur_queue()
+                        self.__delete_cur_queue()
                         update.effective_chat.send_message('Очередь удалена')
                         
                     elif args==self.cmd_args_modify_queue[4]:
+                        update.effective_chat.send_message(self.get_queue_str(self.cur_queue))
                         update.effective_chat.send_message('Пришлите номер студента в очереди')
                         self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
                         
                     elif args==self.cmd_args_modify_queue[5]:
+                        update.effective_chat.send_message(self.get_queue_str(self.cur_queue))
                         update.effective_chat.send_message('Пришлите номер студента в очереди')
                         self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
                    
                     elif args==self.cmd_args_modify_queue[6]:
+                        update.effective_chat.send_message(self.get_queue_str(self.cur_queue))
                         update.effective_chat.send_message('Пришлите номер студента в очереди и через пробел номер новой позиции')
                         self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
                         
                     elif args==self.cmd_args_modify_queue[7]:
+                        update.effective_chat.send_message(self.get_queue_str(self.cur_queue))
                         update.effective_chat.send_message('Пришлите имя нового студента, он будет добавлен в конец очереди')
                         self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
                     
+                    elif args==self.cmd_args_modify_queue[8]:
+                        update.effective_chat.send_message(self.get_queue_str(self.cur_queue))
+                        update.effective_chat.send_message('Пришлите номера двух студентов через пробел')
+                        self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
                         
                 elif cmd == self.cmd_modify_registered:
                     if args == self.cmd_args_modify_registered[0]: # show
@@ -204,14 +290,14 @@ class QueueBot:
         else:
             if cmd == self.cmd_move_queue:
                 if args==self.cmd_args_move_queue[2]:
-                    self.refresh_cur_queue()
+                    self.__refresh_cur_queue()
                     query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos),reply_markup=self.keyb_move_queue)
             else:
                 update.message.reply_text(self.msg_permission_denied)
         
         update.callback_query.answer()
         
-    def h_message_text(self, update, context):
+    def __h_message_text(self, update, context):
         
         if update.message.from_user.id != self.msg_request[0]:
             return
@@ -309,6 +395,21 @@ class QueueBot:
             update.effective_chat.send_message('Студент установлен')
             self.msg_request = (None, None)
         
+        elif self.msg_request[1] == 11:
+            try:
+                user_str = update.message.text.split(' ')
+                cur_pos, swap_pos = int(user_str[0])-1, int(user_str[1])-1
+                
+                assert  cur_pos >= 0 and cur_pos < len(self.cur_queue) and \
+                        swap_pos >= 0 and swap_pos < len(self.cur_queue)
+                        
+                self.cur_queue[cur_pos], self.cur_queue[swap_pos] = self.cur_queue[swap_pos], self.cur_queue[cur_pos]
+                update.effective_chat.send_message('Студенты перемещены')
+            except Exception:
+                update.effective_chat.send_message('Ошибка в значениях')
+            finally:
+                self.msg_request = (None, None)
+        
         elif self.msg_request[1] == 5: # add list
             new_users_str_lines = []
             if '\n' in update.message.text:
@@ -365,7 +466,7 @@ class QueueBot:
             if len(del_users) > 0: update.effective_chat.send_message('Пользователи удалены')
             self.msg_request = (None, None)
         
-    def h_add_new_owner(self, update, context):
+    def __h_add_new_owner(self, update, context):
         if self.check_user_have_access(update.message.from_user.id, self.users_access_table):
             if self.msg_request[0] is None:              
                 update.message.reply_text(self.msg_get_user_message)
@@ -375,7 +476,7 @@ class QueueBot:
         else:
             update.message.reply_text(self.msg_permission_denied)
 
-    def h_del_owner(self, update, context):
+    def __h_del_owner(self, update, context):
         if self.check_user_have_access(update.message.from_user.id, self.users_access_table):
             if self.msg_request[0] is None:           
                 update.message.reply_text(self.msg_get_user_message)
@@ -385,7 +486,7 @@ class QueueBot:
         else:
             update.message.reply_text(self.msg_permission_denied)
 
-    def h_start(self,update, context):
+    def __h_start(self,update, context):
         if len(self.users_access_table)==0:
             self.users_access_table[update.message.from_user.id]=0
             update.message.reply_text('Первый владелец добавлен - '+update.message.from_user.username)
@@ -393,9 +494,9 @@ class QueueBot:
             # add initializing every admin of chat as owner
             
         elif self.check_user_have_access(update.effective_user.id, self.users_access_table):
-            update.message.reply_text('Бот уже запущен.');
+            update.message.reply_text('Бот уже запущен.')
 
-    def h_create_random_queue(self, update, context):
+    def __h_create_random_queue(self, update, context):
         if self.check_user_have_access(update.effective_user.id,self.users_access_table):
             if len(self.cur_queue) == 0:
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',reply_markup=self.keyb_reply_create_random_queue)
@@ -404,7 +505,7 @@ class QueueBot:
         else:
             update.message.reply_text(self.msg_permission_denied)
             
-    def h_create_queue(self, update, context):
+    def __h_create_queue(self, update, context):
         if self.check_user_have_access(update.effective_user.id,self.users_access_table):
             if len(self.cur_queue) == 0:
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',reply_markup=self.keyb_reply_create_queue)
@@ -413,19 +514,19 @@ class QueueBot:
         else:
             update.message.reply_text(self.msg_permission_denied)
 
-    def h_edit_queue(self, update, context):
+    def __h_edit_queue(self, update, context):
         if self.check_user_have_access(update.message.from_user.id, self.users_access_table):
             update.message.reply_text('Редактирование очереди', reply_markup=self.keyb_modify_queue)
         else:
             update.message.reply_text(self.msg_permission_denied)
         
-    def h_edit_registered(self, update, context):
+    def __h_edit_registered(self, update, context):
         if self.check_user_have_access(update.message.from_user.id, self.users_access_table):
             update.effective_chat.send_message('Редактирование пользователей', reply_markup=self.keyb_modify_registered)
         else:
             update.message.reply_text(self.msg_permission_denied)
         
-    def h_check_queue_status(self, update, context):
+    def __h_check_queue_status(self, update, context):
         if len(self.cur_queue)==0:
             if self.check_user_have_access(update.effective_user.id, self.users_access_table):
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',reply_markup = self.keyb_reply_create_queue)
@@ -434,10 +535,10 @@ class QueueBot:
         else:
             update.effective_chat.send_message(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup=self.keyb_move_queue)
 
-    def h_get_cur_and_next_students(self, update, context):
+    def __h_get_cur_and_next_students(self, update, context):
         update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
        
-    def h_i_finished(self, update, context):
+    def __h_i_finished(self, update, context):
         cur_user_id = update.effective_user.id
         if cur_user_id in self.registered_students.keys():
             if self.cur_queue_pos>=0 and self.cur_queue_pos<len(self.cur_queue):
@@ -451,6 +552,9 @@ class QueueBot:
         else:
             update.message.reply_text('Неизвестный пользователь. Вы не можете использовать данную команду. Зарегистрируйтесь у администратора')
             
+    def __h_error(self, update, context):    
+        print('Error:\n{0}'.format(context.error))
+
     def parce_query_cmd(self,command):
         try:
             items = command.split(':')
@@ -458,21 +562,18 @@ class QueueBot:
         except Exception:
             return None,None
             
-    def h_error(self, update, context):    
-        print('Error:\n{0}'.format(context.error))
     
     # Генерация очереди
     def gen_random_queue(self,items):
         if len(items)>0:
             shuff_items = []
             for i in items:
-                if i in self.registered_students.values(): shuff_items.append((i, self.get_id_by_name(self.registered_students, i)))
-                else: shuff_items.append((i, None))
+                shuff_items.append(self.find_similar(i))
             
             rnd.shuffle(shuff_items)
             return shuff_items
-        else:
-            return []
+        
+        return []
     
     def gen_queue(self, items):
         if len(items)>0:
@@ -480,11 +581,10 @@ class QueueBot:
             
             for i in items:
                 lst.append(self.find_similar(i))
-                print(i, lst[-1])
                 
             return lst
-        else:
-            return []
+        
+        return []
     
     def find_similar(self, name):
         for st_id, st_name in self.registered_students.items():
@@ -501,11 +601,11 @@ class QueueBot:
             return False
         return True
 
-    def delete_cur_queue(self):
+    def __delete_cur_queue(self):
         self.cur_queue = []
         self.cur_queue_pos = 0
 
-    def refresh_cur_queue(self):
+    def __refresh_cur_queue(self):
         for idx in range(len(self.cur_queue)):
             i = self.cur_queue[idx][0] # name of student in i
             
@@ -545,8 +645,8 @@ class QueueBot:
                 return '\n'.join(str_list)
             else:
                 return 'Очередь:\n'+'\n'.join([self.get_queue_student_str(i, queue) for i in range(len(queue))])
-        else:
-            return self.msg_queue_finished
+        
+        return self.msg_queue_finished
     
     def get_queue_student_str(self, stud_pos, queue):
         return '{0} - {1}'.format(stud_pos+1, queue[stud_pos][0])
@@ -564,12 +664,12 @@ class QueueBot:
 
     # Переключить очередь вперед
     def move_queue_next(self,pos,queue):
-        cur_item,next_item = get_cur_and_next(pos+1,queue)
+        cur_item,next_item = self.get_cur_and_next(pos+1,queue)
         return pos+1,cur_item,next_item
 
     # Переключить очередь назад
     def move_queue_prev(self,pos,queue):
-        cur_item,next_item = get_cur_and_next(pos-1,queue)
+        cur_item,next_item = self.get_cur_and_next(pos-1,queue)
         return pos-1,cur_item,next_item
 
     # Получить текущего и следующего человека в очереди
@@ -578,8 +678,8 @@ class QueueBot:
             return queue[pos], queue[pos+1]
         elif pos == len(queue)-1:
             return queue[pos], None
-        else:
-            return None, None
+        
+        return None, None
     
     def get_cur_and_next_str(self, cur_stud, next_stud):
         msg = ''
@@ -595,20 +695,21 @@ class QueueBot:
     # Передача прав редактирования
     def set_bot_user(self, user_id, user_name):
         self.registered_students[user_id] = user_name
+        self.save_registered_to_file()
         
     def add_new_bot_owner(self, user_id, new_owner_id, new_access_level = None):
         if self.check_user_have_access(user_id,self.users_access_table):
             if new_access_level >= 0:
                 if new_access_level == None:
                     self.users_access_table[new_owner_id] = self.users_access_table[user_id] + 1
-                    # print('owner added: ', new_owner_id, 'access_level:', self.users_access_table[new_owner_id])
+                    self.save_owners_to_file()
                     return None
                 elif self.users_access_table[user_id] < new_access_level:
                     self.users_access_table[new_owner_id] = new_access_level
-                    # print('owner added: ', new_owner_id, 'access_level:', new_access_level)
+                    self.save_owners_to_file()
                     return None
-                else:
-                    return self.msg_permission_denied
+                
+                return self.msg_permission_denied
             else:
                 return self.msg_code_not_valid
         else:
@@ -619,7 +720,7 @@ class QueueBot:
             try:
                 if self.users_access_table[user_id] < self.users_access_table[del_owner_id]:
                     del self.users_access_table[del_owner_id]
-                    # print('owner deleted: ', del_owner_id)
+                    self.save_owners_to_file()
                     return None
                 else:
                     return self.msg_permission_denied
