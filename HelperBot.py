@@ -193,31 +193,33 @@ class QueueBot:
 
     def __h_keyboard_chosen(self, update, context):
         query = update.callback_query
-        if self.check_user_have_access(query.from_user.id,self.users_access_table):
-            cmd, args = self.parce_query_cmd(query.data)
-            if cmd is not None:
-                if cmd == self.cmd_move_queue:
-                    if args==self.cmd_args_move_queue[0]:
-                        # move prev
-                        if self.cur_queue_pos > 0:
-                            self.cur_queue_pos = self.cur_queue_pos - 1
-                            query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup=self.keyb_move_queue)
-                            update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
-                            
-                    elif args==self.cmd_args_move_queue[1]:
-                        # move next
-                        if self.cur_queue_pos < len(self.cur_queue):
-                            self.cur_queue_pos = self.cur_queue_pos + 1
-                            query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup = self.keyb_move_queue)
-                            update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
+        cmd, args = self.parce_query_cmd(query.data)
+
+        # commands with no access rquired
+        if cmd == self.cmd_move_queue:
+            if args==self.cmd_args_move_queue[0]:
+                # move prev
+                if self.cur_queue_pos > 0:
+                    self.cur_queue_pos = self.cur_queue_pos - 1
+                    query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+                    update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
                     
-                    elif args==self.cmd_args_move_queue[2]:
-                        self.__refresh_cur_queue()
-                        new_queue_str = self.get_queue_str(self.cur_queue,self.cur_queue_pos)
-                        if query.message.text != new_queue_str:
-                            query.edit_message_text(new_queue_str, reply_markup = self.keyb_move_queue)
-                
-                elif cmd == self.cmd_create_queue:
+            elif args==self.cmd_args_move_queue[1]:
+                # move next
+                if self.cur_queue_pos < len(self.cur_queue):
+                    self.cur_queue_pos = self.cur_queue_pos + 1
+                    query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup = self.keyb_move_queue)
+                    update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
+            
+            elif args==self.cmd_args_move_queue[2]:
+                self.__refresh_cur_queue()
+                new_queue_str = self.get_queue_str(self.cur_queue,self.cur_queue_pos)
+                if query.message.text != new_queue_str:
+                    query.edit_message_text(new_queue_str, reply_markup = self.keyb_move_queue)
+            
+        elif self.check_user_have_access(query.from_user.id,self.users_access_table):
+            if cmd is not None:
+                if cmd == self.cmd_create_queue:
                     if args != 'False':
                         self.__delete_cur_queue()
                         update.effective_chat.send_message(self.msg_set_students)
@@ -288,12 +290,7 @@ class QueueBot:
                 print('In update \"{0}\" command: {1} not valid'.format(update, query.data))
                 
         else:
-            if cmd == self.cmd_move_queue:
-                if args==self.cmd_args_move_queue[2]:
-                    self.__refresh_cur_queue()
-                    query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos),reply_markup=self.keyb_move_queue)
-            else:
-                update.message.reply_text(self.msg_permission_denied)
+            update.message.reply_text(self.msg_permission_denied)
         
         update.callback_query.answer()
         
