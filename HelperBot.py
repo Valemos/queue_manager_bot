@@ -1,6 +1,7 @@
 import random as rnd
 from pathlib import Path
 import pickle
+from logger import logger
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -9,15 +10,18 @@ class QueueBot:
     
     def __init__(self, bot_token = None):
         
-        self.default_owner_file_path = Path('users_data.data')
-        self.default_registered_file_path = Path('registered_data.data')
-        self.default_token_file_path = Path('token.data')
+        self.default_owner_file_path = Path('data/users_data.data')
+        self.default_registered_file_path = Path('data/registered_data.data')
+        self.default_token_file_path = Path('data/token.data')
+        self.default_queue_file_path = Path('data/queue.data')
+        
+        self.logger = logger()
         
         #  init bot commands
         
         if bot_token is None:
             bot_token = self.get_token_from_file()
-        
+            
         self.updater = Updater(bot_token, use_context=True)
 
         self.updater.dispatcher.add_handler(CommandHandler('start', self.__h_start))
@@ -86,7 +90,7 @@ class QueueBot:
             [InlineKeyboardButton('Переместить студента в конец',   callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[4])],
             [InlineKeyboardButton('Поменять местами',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[8])],
             [InlineKeyboardButton('Поставить студента на позицию',  callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[6])],
-            [InlineKeyboardButton('Удалить студента',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[5])],
+            [InlineKeyboardButton('Удалить студентов',              callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[5])],
             [InlineKeyboardButton('Добавить студента',              callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[7])],
             [InlineKeyboardButton('Показать очередь',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[0])],
             [InlineKeyboardButton('Установить новую очередь',       callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[1])],
@@ -107,7 +111,7 @@ class QueueBot:
         ])
 
         self.users_access_table = {}
-        self.registered_students = {} # key - name value - id
+        self.registered_students = {} # key - id value - name
         self.cur_students_list = []
         self.cur_queue = []
         self.cur_queue_pos = 0
@@ -117,49 +121,75 @@ class QueueBot:
         self.msg_owner_not_found = 'Не владелец'
         self.msg_set_students = 'Введите новый список студентов\nон должен состоять из строк с именами студентов'
         self.msg_set_registered_students = 'Введите новый список студентов он должен состоять из строк\nв формате: имя_студента-telegram_id'
-        self.msg_del_registered_students = 'Чтобы удалить несколько пользователей, введите их позиции в списке каждую в новой строке'
+        self.msg_del_registered_students = 'Чтобы удалить несколько пользователей, введите их позиции в списке через пробел'
         self.msg_get_user_message = 'Перешлите сообщение пользователя'
         self.msg_queue_finished = 'Очередь завершена'
         
         self.load_defaults_from_file()
                 
+    def __del__(self):
+        self.logger.log('destructor call')
+        
+        if self.cur_queue_pos == len(self.cur_queue):
+            self.__delete_cur_queue()
+        
     # loads default values from external file
     def load_defaults_from_file(self):
+        try:
+            self.load_owners_from_file()
+            self.load_registered_from_file()
+            self.load_queue_from_file()
+                
+        except Exception:
+            print('Error while loading default files')
+            self.logger.log('cannot deserialize files or they are empty')
 
+    def load_owners_from_file(self):
         if not self.default_owner_file_path.exists():
             self.default_owner_file_path.touch()
+        
+        with self.default_owner_file_path.open('rb') as fr:
+                self.users_access_table = pickle.load(fr)
 
+    def load_registered_from_file(self):
         if not self.default_registered_file_path.exists():
             self.default_registered_file_path.touch()
-
-        try:
-            with self.default_owner_file_path.open('rb') as fr:
-                self.users_access_table = pickle.load(fr)
-                
-            with self.default_registered_file_path.open('rb') as fr:
-                self.registered_students = pickle.load(fr)
-                
-        except pickle.UnpicklingError:
-            print('Error while loading default files')
         
-    def serialize_settings_to_file(self):
-        self.save_owners_to_file()
-        self.save_registered_to_file()
-            
+        with self.default_registered_file_path.open('rb') as fr:
+            self.registered_students = pickle.load(fr)
+
+    def load_queue_from_file(self):
+        if not self.default_queue_file_path.exists():
+            self.default_queue_file_path.touch()
+        
+        with self.default_queue_file_path.open('rb') as fr:
+            self.cur_queue = pickle.load(fr)
+        
     def save_owners_to_file(self):
         try:
             with self.default_owner_file_path.open('wb+') as fw:
                 pickle.dump(self.users_access_table, fw)
         except pickle.PicklingError:
-            print('Error while loading defaults to files')
+            print('Error while loading owners to file')
+            self.logger.log('cannot serialize owners: '+repr(self.users_access_table))
         
     def save_registered_to_file(self):
         try:
             with self.default_registered_file_path.open('wb+') as fw:
                 pickle.dump(self.registered_students, fw)
         except pickle.PicklingError:
-            print('Error while loading defaults to files')
+            print('Error while loading registered to file')
+            self.logger.log('cannot serialize registered: '+repr(self.registered_students))
           
+    def save_queue_to_file(self):
+        try:
+            with self.default_queue_file_path.open('wb+') as fw:
+                pickle.dump(self.cur_queue, fw)
+        except pickle.PicklingError:
+            print('Error while loading queue to file')
+            self.logger.log('cannot serialize queue: '+repr(self.cur_queue))
+          
+            
     def get_token_from_file(self, path = None):
         if path is None:
             path = Path(self.default_token_file_path)
@@ -170,6 +200,7 @@ class QueueBot:
             
         except Exception:
             print('Error while loading token file')
+            self.logger.log('cannot load token')
         
     def write_token_to_file(self, token, path = None):
         if path is None:
@@ -184,24 +215,27 @@ class QueueBot:
             
         except Exception:
             print('Error while loading token to file')
-        
+            self.logger.log('cannot write token')
             
         
     def start(self):
         self.updater.start_polling()
         self.updater.idle()
+        
+    def stop(self):
+        self.updater.stop()
 
     def __h_keyboard_chosen(self, update, context):
         query = update.callback_query
         cmd, args = self.parce_query_cmd(query.data)
-
-        # commands with no access rquired
+        
+        # commands with no access required
         if cmd == self.cmd_move_queue:
             if args==self.cmd_args_move_queue[0]:
                 # move prev
                 if self.cur_queue_pos > 0:
                     self.cur_queue_pos = self.cur_queue_pos - 1
-                    query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+                    query.edit_message_text(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
                     update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
                     
             elif args==self.cmd_args_move_queue[1]:
@@ -217,7 +251,10 @@ class QueueBot:
                 if query.message.text != new_queue_str:
                     query.edit_message_text(new_queue_str, reply_markup = self.keyb_move_queue)
             
-        elif self.check_user_have_access(query.from_user.id,self.users_access_table):
+        elif self.check_user_have_access(query.from_user.id, self.users_access_table):
+            
+            self.logger.log(str(update.effective_user.id)+' - '+query.data)
+            
             if cmd is not None:
                 if cmd == self.cmd_create_queue:
                     if args != 'False':
@@ -247,7 +284,7 @@ class QueueBot:
                         
                     elif args==self.cmd_args_modify_queue[5]:
                         update.effective_chat.send_message(self.get_queue_str(self.cur_queue))
-                        update.effective_chat.send_message('Пришлите номер студента в очереди')
+                        update.effective_chat.send_message('Пришлите номер студентов в очереди через пробел')
                         self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
                    
                     elif args==self.cmd_args_modify_queue[6]:
@@ -288,6 +325,7 @@ class QueueBot:
                         
             else:
                 print('In update \"{0}\" command: {1} not valid'.format(update, query.data))
+                self.logger.log('In update \"{0}\" command: {1} not valid'.format(update, query.data))
                 
         else:
             update.message.reply_text(self.msg_permission_denied)
@@ -299,12 +337,16 @@ class QueueBot:
         if update.message.from_user.id != self.msg_request[0]:
             return
         
+        self.logger.log(self.msg_request)
+        
         if self.msg_request[1] == 0 or self.msg_request[1] == 1:
             
             if '\n' in update.message.text:
                 self.cur_students_list = update.message.text.split('\n')
+                self.save_queue_to_file()
             else:
                 self.cur_students_list = [update.message.text]
+                self.save_queue_to_file()
                 
             self.cur_students_list = [i for i in self.cur_students_list if not i=='']
             
@@ -314,7 +356,7 @@ class QueueBot:
                 self.cur_queue = self.gen_queue(self.cur_students_list)
             elif self.msg_request[1] == 1:
                 self.cur_queue = self.gen_random_queue(self.cur_students_list)
-                
+            
             update.effective_chat.send_message(self.get_queue_str(self.cur_queue), reply_markup = self.keyb_move_queue)
             self.msg_request = (None,None)
             
@@ -357,20 +399,31 @@ class QueueBot:
                 self.msg_request = (None,None)
         
         elif self.msg_request[1] == 8:
-            try:
-                move_pos = int(update.message.text)-1
-                if move_pos >= len(self.cur_queue) or move_pos < 0:
-                    update.effective_chat.send_message('Не номер из очереди. Отмена операции')
-                    self.msg_request = (None, None)
-                    return
-                
-                self.cur_queue.pop(move_pos)
-                
-                update.effective_chat.send_message('Студент удален')
-            except ValueError:
-                update.effective_chat.send_message('Не номер из очереди. Отмена операции')
-            finally:
-                self.msg_request = (None, None)
+            del_users_str = []
+            if ' ' in update.message.text:
+                del_users_str = update.message.text.split(' ')
+            else:
+                del_users_str = [update.message.text]
+            
+            err_list = []
+            del_users = []
+            
+            for pos_str in del_users_str:
+                try:
+                    pos = int(pos_str)
+                    if pos>0 and pos<=len(self.cur_queue):
+                        del_users.append(pos)
+                    else:
+                        err_list.append(str(pos))
+                except Exception:
+                    err_list.append(pos_str)
+            
+            for el in [self.cur_queue[i-1] for i in del_users]:
+                self.cur_queue.remove(el)
+            
+            if len(err_list) > 0: update.effective_chat.send_message('Ошибка возникла в этих значениях:\n'+' '.join(err_list))
+            if len(del_users) > 0: update.effective_chat.send_message('Пользователи удалены')
+            self.msg_request = (None, None)
         
         elif self.msg_request[1] == 9:
             try:
@@ -381,6 +434,7 @@ class QueueBot:
                         set_pos >= 0 and set_pos < len(self.cur_queue)
                         
                 self.cur_queue.insert(set_pos, self.cur_queue.pop(cur_pos))
+                self.save_queue_to_file()
                 update.effective_chat.send_message('Студент перемещен')
             except Exception:
                 update.effective_chat.send_message('Ошибка в значениях')
@@ -389,6 +443,7 @@ class QueueBot:
         
         elif self.msg_request[1] == 10:
             self.cur_queue.append(self.find_similar(update.message.text))
+            self.save_queue_to_file()
             update.effective_chat.send_message('Студент установлен')
             self.msg_request = (None, None)
         
@@ -401,6 +456,7 @@ class QueueBot:
                         swap_pos >= 0 and swap_pos < len(self.cur_queue)
                         
                 self.cur_queue[cur_pos], self.cur_queue[swap_pos] = self.cur_queue[swap_pos], self.cur_queue[cur_pos]
+                self.save_queue_to_file()
                 update.effective_chat.send_message('Студенты перемещены')
             except Exception:
                 update.effective_chat.send_message('Ошибка в значениях')
@@ -442,19 +498,29 @@ class QueueBot:
                 update.message.reply_text('Сообщение ни от кого не переслано, отмена')
             self.msg_request = (None, None)
             
-        elif self.msg_request[1] == 7: # del list
-            del_users_str = update.message.text.split('\n')
+        elif self.msg_request[1] == 7: # del list                    
+            del_users_str = []
+            if ' ' in update.message.text:
+                del_users_str = update.message.text.split(' ')
+            else:
+                del_users_str = [update.message.text]
             
             err_list = []
             del_users = []
-            for i in range(len(del_users_str)):
-                try:
-                    del_users.append(int(del_users_str[i]))
-                except Exception:
-                    err_list.append(del_users_str[i])
             
+            for pos_str in del_users_str:
+                try:
+                    pos = int(pos_str)
+                    if pos>0 and pos<=len(self.registered_students):
+                        del_users.append(pos)
+                    else:
+                        err_list.append(str(pos))
+                        
+                except Exception:
+                    err_list.append(pos_str)
+                    
             all_user_keys = list(self.registered_students.keys())
-            delete_keys = set([all_user_keys[i-1] for i in del_users if i>0 and i<=len(all_user_keys)])
+            delete_keys = set([all_user_keys[i-1] for i in del_users])
             
             for i in delete_keys:
                 del self.registered_students[i]
@@ -530,7 +596,7 @@ class QueueBot:
             else:
                 update.effective_chat.send_message('Очереди нет.')
         else:
-            update.effective_chat.send_message(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+            update.effective_chat.send_message(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
 
     def __h_get_cur_and_next_students(self, update, context):
         update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
@@ -549,8 +615,9 @@ class QueueBot:
         else:
             update.message.reply_text('Неизвестный пользователь. Вы не можете использовать данную команду. Зарегистрируйтесь у администратора')
             
-    def __h_error(self, update, context):    
-        print('Error:\n{0}'.format(context.error))
+    def __h_error(self, update, context): 
+        print('Error: {0}'.format(context.error))
+        self.logger.log(context.error)
 
     def parce_query_cmd(self,command):
         try:
@@ -601,13 +668,14 @@ class QueueBot:
     def __delete_cur_queue(self):
         self.cur_queue = []
         self.cur_queue_pos = 0
-
+        self.save_queue_to_file()
+    
     def __refresh_cur_queue(self):
         for idx in range(len(self.cur_queue)):
             i = self.cur_queue[idx][0] # name of student in i
             
             if i in self.registered_students.values(): self.cur_queue[idx] = (i, self.get_id_by_name(self.registered_students, i))
-            else: self.cur_queue[idx] = (i, None)
+            else: F[idx] = (i, None)
 
     def get_id_by_name(self, dct, name):
         try:
@@ -648,26 +716,6 @@ class QueueBot:
     def get_queue_student_str(self, stud_pos, queue):
         return '{0} - {1}'.format(stud_pos+1, queue[stud_pos][0])
 
-    # Удаление из очереди
-    def del_from_queue(self,queue,pos):
-        new_queue = list(queue)
-        new_queue.pop(pos)
-        return [(i+1,new_queue[i][1]) for i in range(len(new_queue))]
-
-    # Добавить человека в конец очереди
-    def add_to_end(self,item,queue):
-        queue.append((len(queue)+1,item))
-        return queue
-
-    # Переключить очередь вперед
-    def move_queue_next(self,pos,queue):
-        cur_item,next_item = self.get_cur_and_next(pos+1,queue)
-        return pos+1,cur_item,next_item
-
-    # Переключить очередь назад
-    def move_queue_prev(self,pos,queue):
-        cur_item,next_item = self.get_cur_and_next(pos-1,queue)
-        return pos-1,cur_item,next_item
 
     # Получить текущего и следующего человека в очереди
     def get_cur_and_next(self, pos, queue):
