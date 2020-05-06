@@ -247,7 +247,7 @@ class QueueBot:
             
             elif args==self.cmd_args_move_queue[2]:
                 self.__refresh_cur_queue()
-                new_queue_str = self.get_queue_str(self.cur_queue,self.cur_queue_pos)
+                new_queue_str = self.get_queue_str(self.cur_queue, self.cur_queue_pos)
                 if query.message.text != new_queue_str:
                     query.edit_message_text(new_queue_str, reply_markup = self.keyb_move_queue)
             
@@ -675,7 +675,7 @@ class QueueBot:
             i = self.cur_queue[idx][0] # name of student in i
             
             if i in self.registered_students.values(): self.cur_queue[idx] = (i, self.get_id_by_name(self.registered_students, i))
-            else: F[idx] = (i, None)
+            else: self.cur_queue[idx] = (i, None)
 
     def get_id_by_name(self, dct, name):
         try:
