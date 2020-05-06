@@ -5,3 +5,4 @@ file.txt
 help_script.py
 serializer.py
 logs.txt
+data/queue.data
