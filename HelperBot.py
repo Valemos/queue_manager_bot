@@ -126,14 +126,6 @@ class QueueBot:
         self.msg_queue_finished = 'Очередь завершена'
         
         self.load_defaults_from_file()
-                
-    def __del__(self):
-        self.logger.log('destructor call')
-        
-        if self.cur_queue_pos == len(self.cur_queue):
-            self.__delete_cur_queue()
-        else:
-            self.save_queue_to_file()
         
     # loads default values from external file
     def load_defaults_from_file(self):
@@ -223,9 +215,14 @@ class QueueBot:
     def start(self):
         self.updater.start_polling()
         self.updater.idle()
+        self.logger.log('start')
         
     def stop(self):
-        self.updater.stop()
+        if self.cur_queue_pos == len(self.cur_queue):
+            self.__delete_cur_queue()
+        else:
+            self.save_queue_to_file()
+        self.logger.log('stop')
 
     def __h_keyboard_chosen(self, update, context):
         query = update.callback_query

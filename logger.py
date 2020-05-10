@@ -7,6 +7,10 @@ class logger:
     def __init__(self, log_path = None):
         if log_path is None:
             log_path = Path('logs.txt')
+            
+        if not log_path.exists():
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.touch(exist_ok=True)
        
         self.log_file_path = log_path
         

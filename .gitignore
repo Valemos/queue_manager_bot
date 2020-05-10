@@ -8,3 +8,4 @@ data/queue.data
 other_logs/*
 logs.txt
 .pylint.d/*
+run_test_bot.py
