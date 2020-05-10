@@ -132,6 +132,8 @@ class QueueBot:
         
         if self.cur_queue_pos == len(self.cur_queue):
             self.__delete_cur_queue()
+        else:
+            self.save_queue_to_file()
         
     # loads default values from external file
     def load_defaults_from_file(self):

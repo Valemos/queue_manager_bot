@@ -4,5 +4,7 @@ __pycache__/*
 file.txt
 help_script.py
 serializer.py
-logs.txt
 data/queue.data
+other_logs/*
+logs.txt
+.pylint.d/*
