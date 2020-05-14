@@ -2,6 +2,7 @@ import random as rnd
 from pathlib import Path
 import pickle
 from logger import logger
+import atexit
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -14,6 +15,7 @@ class QueueBot:
         self.default_registered_file_path = Path('data/registered_data.data')
         self.default_token_file_path = Path('data/token.data')
         self.default_queue_file_path = Path('data/queue.data')
+        self.default_bot_state_file_path = Path('data/bot_state.data')
         
         self.logger = logger()
         
@@ -127,12 +129,15 @@ class QueueBot:
         
         self.load_defaults_from_file()
         
+        atexit.register(self.stop)
+        
     # loads default values from external file
     def load_defaults_from_file(self):
         try:
             self.load_owners_from_file()
             self.load_registered_from_file()
             self.load_queue_from_file()
+            self.load_bot_state_from_file()
                 
         except Exception:
             print('Error while loading default files')
@@ -158,6 +163,22 @@ class QueueBot:
         
         with self.default_queue_file_path.open('rb') as fr:
             self.cur_queue = pickle.load(fr)
+        
+    def load_bot_state_from_file(self):
+        if not self.default_bot_state_file_path.exists():
+            self.default_bot_state_file_path.touch()
+        
+        with self.default_bot_state_file_path.open('rb') as fr:
+            self.cur_queue_pos = int.from_bytes(fr.read(4), 'big')
+        
+    def save_bot_state_to_file(self):
+        try:
+            with self.default_bot_state_file_path.open('wb+') as fw:
+                fw.write(self.cur_queue_pos.to_bytes(4, 'big'))
+                
+        except pickle.PicklingError:
+            print('Error while loading owners to file')
+            self.logger.log('cannot serialize bot state')
         
     def save_owners_to_file(self):
         try:
@@ -220,9 +241,11 @@ class QueueBot:
     def stop(self):
         if self.cur_queue_pos == len(self.cur_queue):
             self.__delete_cur_queue()
+            self.save_queue_to_file()
         else:
             self.save_queue_to_file()
-        self.logger.log('stop')
+            self.save_bot_state_to_file()
+        self.logger.log('stopped')
 
     def __h_keyboard_chosen(self, update, context):
         query = update.callback_query
@@ -353,8 +376,10 @@ class QueueBot:
             
             if self.msg_request[1] == 0:
                 self.cur_queue = self.gen_queue(self.cur_students_list)
+                self.cur_queue_pos = 0
             elif self.msg_request[1] == 1:
                 self.cur_queue = self.gen_random_queue(self.cur_students_list)
+                self.cur_queue_pos = 0
             
             update.effective_chat.send_message(self.get_queue_str(self.cur_queue), reply_markup = self.keyb_move_queue)
             self.msg_request = (None,None)
@@ -612,11 +637,12 @@ class QueueBot:
             else:
                 update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_students[cur_user_id]))
         else:
-            update.message.reply_text('Неизвестный пользователь. Вы не можете использовать данную команду. Зарегистрируйтесь у администратора')
+            update.message.reply_text('Неизвестный пользователь. Вы не можете использовать данную команду (возможно в вашем аккаунте ID закрыт для просмотра)')
             
     def __h_error(self, update, context): 
         print('Error: {0}'.format(context.error))
         self.logger.log(context.error)
+        self.logger.save_to_cloud()
 
     def parce_query_cmd(self,command):
         try:

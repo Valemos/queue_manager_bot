@@ -5,7 +5,7 @@ file.txt
 help_script.py
 serializer.py
 data/queue.data
-other_logs/*
-logs.txt
+data/bot_state.data
+logs/log.txt
 .pylint.d/*
 run_test_bot.py
