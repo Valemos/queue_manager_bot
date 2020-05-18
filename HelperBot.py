@@ -26,9 +26,11 @@ class QueueBot:
             
         self.updater = Updater(bot_token, use_context=True)
 
-        self.updater.dispatcher.add_handler(CommandHandler('start', self.__h_start))
-        self.updater.dispatcher.add_handler(CommandHandler('get_queue', self.__h_check_queue_status))
         self.updater.dispatcher.add_handler(CommandHandler('i_finished', self.__h_i_finished))
+        self.updater.dispatcher.add_handler(CommandHandler('remove_me', self.__h_remove_me))
+        self.updater.dispatcher.add_handler(CommandHandler('start', self.__h_start))
+        self.updater.dispatcher.add_handler(CommandHandler('stop', self.__h_stop))
+        self.updater.dispatcher.add_handler(CommandHandler('get_queue', self.__h_check_queue_status))
         self.updater.dispatcher.add_handler(CommandHandler('current_and_next', self.__h_get_cur_and_next_students))
         self.updater.dispatcher.add_handler(CommandHandler('new_queue', self.__h_create_queue))
         self.updater.dispatcher.add_handler(CommandHandler('new_random_queue', self.__h_create_random_queue))
@@ -117,6 +119,7 @@ class QueueBot:
         self.cur_students_list = []
         self.cur_queue = []
         self.cur_queue_pos = 0
+        self.last_queue_message = None
 
         self.msg_permission_denied = 'Нет разрешения'
         self.msg_code_not_valid = 'Внутренняя ошибка: Уровень доступа имеет неверный формат'
@@ -126,10 +129,11 @@ class QueueBot:
         self.msg_del_registered_students = 'Чтобы удалить несколько пользователей, введите их позиции в списке через пробел'
         self.msg_get_user_message = 'Перешлите сообщение пользователя'
         self.msg_queue_finished = 'Очередь завершена'
+        self.msg_unknown_user = 'Неизвестный пользователь. Вы не можете использовать данную команду (возможно в вашем аккаунте ID закрыт для просмотра)'
         
         self.load_defaults_from_file()
         
-        atexit.register(self.stop)
+        atexit.register(self.save_before_stop)
         
     # loads default values from external file
     def load_defaults_from_file(self):
@@ -234,18 +238,18 @@ class QueueBot:
             
         
     def start(self):
+        self.logger.log('start')
         self.updater.start_polling()
         self.updater.idle()
-        self.logger.log('start')
         
-    def stop(self):
+    def save_before_stop(self):
         if self.cur_queue_pos == len(self.cur_queue):
             self.__delete_cur_queue()
             self.save_queue_to_file()
         else:
             self.save_queue_to_file()
             self.save_bot_state_to_file()
-        self.logger.log('stopped')
+        self.logger.log('saved before stop')
 
     def __h_keyboard_chosen(self, update, context):
         query = update.callback_query
@@ -253,11 +257,13 @@ class QueueBot:
         
         # commands with no access required
         if cmd == self.cmd_move_queue:
+            assert not self.last_queue_message is None
+            
             if args==self.cmd_args_move_queue[0]:
                 # move prev
                 if self.cur_queue_pos > 0:
                     self.cur_queue_pos = self.cur_queue_pos - 1
-                    query.edit_message_text(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+                    self.last_queue_message.edit_text(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
                     update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
                     
             elif args==self.cmd_args_move_queue[1]:
@@ -573,16 +579,26 @@ class QueueBot:
         else:
             update.message.reply_text(self.msg_permission_denied)
 
-    def __h_start(self,update, context):
+    def __h_start(self, update, context):
         if len(self.users_access_table)==0:
-            self.users_access_table[update.message.from_user.id]=0
+            self.users_access_table[update.message.from_user.id] = 0
             update.message.reply_text('Первый владелец добавлен - '+update.message.from_user.username)
             
-            # add initializing every admin of chat as owner
+            for admin in update.effective_chat.get_administrators():
+                self.users_access_table[admin.user.id] = 1
+            
+            self.save_owners_to_file()
+            update.effective_chat.send_message('Администраторы добавлены')
             
         elif self.check_user_have_access(update.effective_user.id, self.users_access_table):
             update.message.reply_text('Бот уже запущен.')
 
+    def __h_stop(self, update, context):
+        if self.check_user_have_access(update.effective_user.id,self.users_access_table):
+            update.message.reply_text('Бот остановлен, и больше не принимает команд')
+            self.updater.stop()
+            exit()
+        
     def __h_create_random_queue(self, update, context):
         if self.check_user_have_access(update.effective_user.id,self.users_access_table):
             if len(self.cur_queue) == 0:
@@ -620,7 +636,11 @@ class QueueBot:
             else:
                 update.effective_chat.send_message('Очереди нет.')
         else:
-            update.effective_chat.send_message(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+            if self.last_queue_message == None:
+                self.last_queue_message = update.effective_chat.send_message(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+            else:
+                self.last_queue_message.delete()
+                self.last_queue_message = update.effective_chat.send_message(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
 
     def __h_get_cur_and_next_students(self, update, context):
         update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
@@ -637,8 +657,27 @@ class QueueBot:
             else:
                 update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_students[cur_user_id]))
         else:
-            update.message.reply_text('Неизвестный пользователь. Вы не можете использовать данную команду (возможно в вашем аккаунте ID закрыт для просмотра)')
+            update.message.reply_text(self.msg_unknown_user)
             
+    def __h_remove_me(self, update, context):
+    
+        cur_user_id = update.effective_user.id
+        
+        deleted = 0
+        for stud in self.cur_queue:
+            if stud[1] == cur_user_id:
+                self.cur_queue.remove(stud)
+                deleted += 1
+        
+        if deleted > 0:
+            self.save_queue_to_file()
+            update.message.reply_text('{0}, вы удалены из очереди'.format(self.registered_students[cur_user_id]))
+        elif cur_user_id in self.registered_students:
+            update.message.reply_text('{0}, вы не найдены в очереди'.format(self.registered_students[cur_user_id]))
+        else:
+            update.message.reply_text(self.msg_unknown_user)
+        
+        
     def __h_error(self, update, context): 
         print('Error: {0}'.format(context.error))
         self.logger.log(context.error)
@@ -732,7 +771,7 @@ class QueueBot:
                     for i in range(cur_pos + 2, len(queue)):
                         str_list.append(self.get_queue_student_str(i, queue))
                         
-                return '\n'.join(str_list)
+                return '\n'.join(str_list)+'\n\n чтобы выйти из очереди,\nпиши /remove_me'
             else:
                 return 'Очередь:\n'+'\n'.join([self.get_queue_student_str(i, queue) for i in range(len(queue))])
         
