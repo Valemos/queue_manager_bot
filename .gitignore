@@ -9,3 +9,4 @@ data/bot_state.data
 logs/log.txt
 .pylint.d/*
 run_test_bot.py
+show_data.py

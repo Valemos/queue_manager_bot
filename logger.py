@@ -22,9 +22,9 @@ class logger:
         with self.log_file_path.open('a+') as fw:
             fw.write('{0}: {1}\n'.format(datetime.datetime.now(), text))
             
-    def show_logs(self):
+    def get_logs(self):
         with self.log_file_path.open('r') as fr:
-            print(fr.read())
+            return fr.read()
             
     def delete_logs(self):
         self.log_file_path.open('w').close()
@@ -44,7 +44,7 @@ class logger:
 if __name__ == '__main__':
     if len(sys.argv) == 2:
         if sys.argv[1] == 'show':
-            print(logger().show_logs())
+            print(logger().get_logs())
         elif sys.argv[1] == 'clear':
             logger().delete_logs()
         elif sys.argv[1] == 'dump':

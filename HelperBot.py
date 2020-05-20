@@ -30,6 +30,7 @@ class QueueBot:
         self.updater.dispatcher.add_handler(CommandHandler('remove_me', self.__h_remove_me))
         self.updater.dispatcher.add_handler(CommandHandler('start', self.__h_start))
         self.updater.dispatcher.add_handler(CommandHandler('stop', self.__h_stop))
+        self.updater.dispatcher.add_handler(CommandHandler('logs', self.__h_show_logs))
         self.updater.dispatcher.add_handler(CommandHandler('get_queue', self.__h_check_queue_status))
         self.updater.dispatcher.add_handler(CommandHandler('current_and_next', self.__h_get_cur_and_next_students))
         self.updater.dispatcher.add_handler(CommandHandler('new_queue', self.__h_create_queue))
@@ -207,7 +208,6 @@ class QueueBot:
         except pickle.PicklingError:
             print('Error while loading queue to file')
             self.logger.log('cannot serialize queue: '+repr(self.cur_queue))
-          
             
     def get_token_from_file(self, path = None):
         if path is None:
@@ -235,7 +235,6 @@ class QueueBot:
         except Exception:
             print('Error while loading token to file')
             self.logger.log('cannot write token')
-            
         
     def start(self):
         self.logger.log('start')
@@ -599,6 +598,10 @@ class QueueBot:
             self.updater.stop()
             exit()
         
+    def __h_show_logs(self, update, context):
+        if self.check_user_have_access(update.effective_user.id, self.users_access_table, 0):
+            update.effective_chat.send_message(self.logger.get_logs)
+        
     def __h_create_random_queue(self, update, context):
         if self.check_user_have_access(update.effective_user.id,self.users_access_table):
             if len(self.cur_queue) == 0:
@@ -672,6 +675,7 @@ class QueueBot:
         if deleted > 0:
             self.save_queue_to_file()
             update.message.reply_text('{0}, вы удалены из очереди'.format(self.registered_students[cur_user_id]))
+            self.logger.log('removed {0}-{1} '.format(self.registered_students[cur_user_id], cur_user_id))
         elif cur_user_id in self.registered_students:
             update.message.reply_text('{0}, вы не найдены в очереди'.format(self.registered_students[cur_user_id]))
         else:
