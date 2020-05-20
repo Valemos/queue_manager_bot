@@ -262,22 +262,20 @@ class QueueBot:
                 if self.cur_queue_pos > 0:
                     self.cur_queue_pos = self.cur_queue_pos - 1
                     update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
-                    if not self.last_queue_message is None:
-                        self.last_queue_message.edit_text(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+                    query.edit_message_text(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
                     
             elif args==self.cmd_args_move_queue[1]:
                 # move next
                 if self.cur_queue_pos < len(self.cur_queue):
                     self.cur_queue_pos = self.cur_queue_pos + 1
                     update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
-                    if not self.last_queue_message is None:
-                        self.last_queue_message.edit_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup = self.keyb_move_queue)
+                    query.edit_message_text(self.get_queue_str(self.cur_queue,self.cur_queue_pos), reply_markup = self.keyb_move_queue)
             
             elif args==self.cmd_args_move_queue[2]:
                 self.__refresh_cur_queue()
                 new_queue_str = self.get_queue_str(self.cur_queue, self.cur_queue_pos)
-                if not self.last_queue_message is None and self.last_queue_message.text != new_queue_str:
-                    self.last_queue_message.edit_text(new_queue_str, reply_markup = self.keyb_move_queue)
+                if query.message.text != new_queue_str:
+                    query.edit_message_text(new_queue_str, reply_markup = self.keyb_move_queue)
             
         elif self.check_user_have_access(query.from_user.id, self.users_access_table):
             
@@ -662,6 +660,9 @@ class QueueBot:
                 update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_students[cur_user_id]))
         else:
             update.message.reply_text(self.msg_unknown_user)
+        
+        
+        self.logger.logs('{0} - {1}'.format(cur_user_id, self.cur_queue[self.cur_queue_pos]))
             
     def __h_remove_me(self, update, context):
     
