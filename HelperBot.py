@@ -594,14 +594,14 @@ class QueueBot:
             update.message.reply_text('Бот уже запущен.')
 
     def __h_stop(self, update, context):
-        if self.check_user_have_access(update.effective_user.id,self.users_access_table):
+        if self.check_user_have_access(update.effective_user.id, self.users_access_table):
             update.message.reply_text('Бот остановлен, и больше не принимает команд')
             self.updater.stop()
             exit()
         
     def __h_show_logs(self, update, context):
         if self.check_user_have_access(update.effective_user.id, self.users_access_table, 0):
-            update.effective_chat.send_message(self.logger.get_logs)
+            update.effective_chat.send_message(self.logger.get_logs())
         
     def __h_create_random_queue(self, update, context):
         if self.check_user_have_access(update.effective_user.id,self.users_access_table):
