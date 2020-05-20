@@ -132,7 +132,7 @@ class QueueBot:
         self.msg_get_user_message = 'Перешлите сообщение пользователя'
         self.msg_queue_finished = 'Очередь завершена'
         self.msg_unknown_user = 'Неизвестный пользователь. Вы не можете использовать данную команду (возможно в вашем аккаунте ID закрыт для просмотра)'
-        self.msg_queue_commands = 'чтобы выйти из очереди,\nпиши /remove_me\nчтобы попасть в конец очереди,\nпиши /add_me'
+        self.msg_queue_commands = 'когда сдашь,\n/i_finished\nчтобы выйти из очереди,\n/remove_me\nчтобы попасть в конец очереди,\n/add_me'
         
         self.load_defaults_from_file()
         
@@ -663,7 +663,7 @@ class QueueBot:
         else:
             update.message.reply_text(self.msg_unknown_user)
         
-        
+        self.save_bot_state_to_file()
         self.logger.logs('{0} - {1}'.format(cur_user_id, self.cur_queue[self.cur_queue_pos]))
             
     def __h_remove_me(self, update, context):
@@ -696,10 +696,13 @@ class QueueBot:
             self.cur_queue.append((self.registered_students[cur_user_id], cur_user_id))
         else:
             self.cur_queue.append((update.effective_user.full_name, None))
+
+        update.message.reply_text('Вы записаны в очередь'.format(*self.cur_queue[-1]))
             
         if not self.last_queue_message is None:
             self.last_queue_message.edit_text(self.get_queue_str(self.cur_queue, self.cur_queue_pos))
-
+        
+        self.save_queue_to_file()
         self.logger.log('added {0} - {1} '.format(*self.cur_queue[-1]))
         
     def __h_error(self, update, context): 
