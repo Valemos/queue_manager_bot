@@ -40,6 +40,9 @@ class logger:
             fw.write(fr.read())
             
         print('dumped into', file_name)
+        
+    def save_to_cloud(self):
+        pass
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:

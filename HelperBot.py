@@ -28,6 +28,7 @@ class QueueBot:
 
         self.updater.dispatcher.add_handler(CommandHandler('i_finished', self.__h_i_finished))
         self.updater.dispatcher.add_handler(CommandHandler('remove_me', self.__h_remove_me))
+        self.updater.dispatcher.add_handler(CommandHandler('add_me', self.__h_add_me_to_queue))
         self.updater.dispatcher.add_handler(CommandHandler('start', self.__h_start))
         self.updater.dispatcher.add_handler(CommandHandler('stop', self.__h_stop))
         self.updater.dispatcher.add_handler(CommandHandler('logs', self.__h_show_logs))
@@ -131,6 +132,7 @@ class QueueBot:
         self.msg_get_user_message = 'Перешлите сообщение пользователя'
         self.msg_queue_finished = 'Очередь завершена'
         self.msg_unknown_user = 'Неизвестный пользователь. Вы не можете использовать данную команду (возможно в вашем аккаунте ID закрыт для просмотра)'
+        self.msg_queue_commands = 'чтобы выйти из очереди,\nпиши /remove_me\nчтобы попасть в конец очереди,\nпиши /add_me'
         
         self.load_defaults_from_file()
         
@@ -677,12 +679,28 @@ class QueueBot:
         if deleted > 0:
             self.save_queue_to_file()
             update.message.reply_text('{0}, вы удалены из очереди'.format(self.registered_students[cur_user_id]))
-            self.logger.log('removed {0}-{1} '.format(self.registered_students[cur_user_id], cur_user_id))
+            self.logger.log('removed {0} - {1} '.format(self.registered_students[cur_user_id], cur_user_id))
         elif cur_user_id in self.registered_students:
             update.message.reply_text('{0}, вы не найдены в очереди'.format(self.registered_students[cur_user_id]))
         else:
             update.message.reply_text(self.msg_unknown_user)
         
+    def __h_add_me_to_queue(self, update, context):
+        cur_user_id = update.effective_user.id
+        
+        if (not cur_user_id is None) and (cur_user_id in self.registered_students):
+            for stud in self.cur_queue:
+                if stud[1] == cur_user_id:
+                    self.cur_queue.remove(stud)
+            
+            self.cur_queue.append((self.registered_students[cur_user_id], cur_user_id))
+        else:
+            self.cur_queue.append((update.effective_user.full_name, None))
+            
+        if not self.last_queue_message is None:
+            self.last_queue_message.edit_text(self.get_queue_str(self.cur_queue, self.cur_queue_pos))
+
+        self.logger.log('added {0} - {1} '.format(*self.cur_queue[-1]))
         
     def __h_error(self, update, context): 
         print('Error: {0}'.format(context.error))
@@ -777,7 +795,7 @@ class QueueBot:
                     for i in range(cur_pos + 2, len(queue)):
                         str_list.append(self.get_queue_student_str(i, queue))
                         
-                return '\n'.join(str_list)+'\n\n чтобы выйти из очереди,\nпиши /remove_me'
+                return '\n'.join(str_list)+'\n\n'+self.msg_queue_commands
             else:
                 return 'Очередь:\n'+'\n'.join([self.get_queue_student_str(i, queue) for i in range(len(queue))])
         
