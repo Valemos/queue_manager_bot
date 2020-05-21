@@ -25,7 +25,6 @@ class QueueBot:
         
         if bot_token is None:
             bot_token = self.get_token()
-            print(bot_token)
             
         if bot_token is None:
             self.logger.log('Fatal error: token is empty')
@@ -167,12 +166,15 @@ class QueueBot:
                 
     def load_owners_from_file(self):
         self.owners_table = self.varsaver.load(self.file_name_owner)
+        if self.owners_table is None: self.owners_table = {}
         
     def load_registered_from_file(self):
         self.registered_students = self.varsaver.load(self.file_name_registered)
-
+        if self.registered_students is None: self.registered_students = {}
+        
     def load_queue_from_file(self):
         self.cur_queue = self.varsaver.load(self.file_name_queue)
+        if self.cur_queue is None: self.cur_queue = []
         
     def load_bot_state_from_file(self):
         state = self.varsaver.load(self.file_name_bot_state)
