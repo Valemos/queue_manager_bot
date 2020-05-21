@@ -1,9 +1,9 @@
 import random as rnd
 from pathlib import Path
-import pickle
 from logger import logger
 from varsaver import VariableSaver
 import atexit
+import os
 
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
@@ -15,7 +15,6 @@ class QueueBot:
         
         self.file_name_owner = Path('owners.data')
         self.file_name_registered = Path('registered.data')
-        self.file_name_token = Path('token.data')
         self.file_name_queue = Path('queue.data')
         self.file_name_bot_state = Path('bot_state.data')
         
@@ -25,7 +24,11 @@ class QueueBot:
         #  init bot commands
         
         if bot_token is None:
-            bot_token = self.get_token_from_file()
+            bot_token = self.get_token()
+            
+        if bot_token is None:
+            self.logger.log('Fatal error: token is empty')
+            exit()
             
         self.updater = Updater(bot_token, use_context=True)
 
@@ -191,8 +194,8 @@ class QueueBot:
     def save_queue_to_file(self):
         self.varsaver.save(self.cur_queue, self.file_name_queue)
             
-    def get_token_from_file(self, path = None):
-        return self.varsaver.load(self.file_name_token)
+    def get_token(self, path = None):
+        return os.environ.get('TELEGRAM_TOKEN')
 
     def __h_keyboard_chosen(self, update, context):
         query = update.callback_query

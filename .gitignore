@@ -6,6 +6,7 @@ help_script.py
 serializer.py
 data/queue.data
 data/bot_state.data
+data/token.data
 logs/log.txt
 .pylint.d/*
 run_test_bot.py
