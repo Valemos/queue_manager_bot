@@ -29,7 +29,6 @@ class QueueBot:
             
         if bot_token is None:
             self.logger.log('Fatal error: token is empty')
-            exit(1)
             
         self.updater = Updater(bot_token, use_context=True)
 
@@ -150,12 +149,12 @@ class QueueBot:
         self.updater.idle()
         
     def save_before_stop(self):
-        if self.cur_queue_pos == len(self.cur_queue):
-            self.__delete_cur_queue()
-            self.save_queue_to_file()
-        else:
-            self.save_queue_to_file()
-            self.save_bot_state_to_file()
+        if not self.cur_queue_pos is None:
+            if self.cur_queue_pos == len(self.cur_queue):
+                self.__delete_cur_queue()
+                
+        self.save_queue_to_file()
+        self.save_bot_state_to_file()
         self.logger.log('saved before stop')
 
     # loads default values from external file
