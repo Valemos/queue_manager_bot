@@ -310,7 +310,7 @@ class QueueBot:
     def __h_message_text(self, update, context):
         
         if update.message.from_user.id != self.msg_request[0] or \
-            update.message.effective_chat.type != Chat.PRIVATE:
+            update.effective_chat.type != Chat.PRIVATE:
             return
         
         self.logger.log(self.msg_request)
