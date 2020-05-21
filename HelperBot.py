@@ -25,10 +25,11 @@ class QueueBot:
         
         if bot_token is None:
             bot_token = self.get_token()
+            print(bot_token)
             
         if bot_token is None:
             self.logger.log('Fatal error: token is empty')
-            exit()
+            exit(1)
             
         self.updater = Updater(bot_token, use_context=True)
 
