@@ -304,7 +304,8 @@ class QueueBot:
         
     def __h_message_text(self, update, context):
         
-        if update.message.from_user.id != self.msg_request[0]:
+        if update.message.from_user.id != self.msg_request[0] or \
+            update.message.effective_chat.type != Chat.PRIVATE:
             return
         
         self.logger.log(self.msg_request)
@@ -327,13 +328,15 @@ class QueueBot:
                 self.cur_queue = self.gen_random_queue(self.cur_students_list)
                 self.cur_queue_pos = 0
             
-            self.save_queue_to_file()
             update.effective_chat.send_message(self.get_queue_str(self.cur_queue), reply_markup = self.keyb_move_queue)
+                
+            self.save_queue_to_file()
+            self.__refresh_last_queue_msg()
             self.msg_request = (None,None)
             
         elif self.msg_request[1] == 2:
             if update.message.forward_from is not None:
-                return_msg = self.add_new_bot_owner(update.effective_user.id,update.message.forward_from.id, 1)
+                return_msg = self.add_new_bot_owner(update.effective_user.id, update.message.forward_from.id, 1)
                 if return_msg is not None:
                     update.message.reply_text(return_msg)
                 else:
@@ -362,7 +365,7 @@ class QueueBot:
                     return
                 
                 self.cur_queue.append(self.cur_queue.pop(move_pos))
-                
+                self.__refresh_last_queue_msg()
                 update.effective_chat.send_message('Студент добавлен в конец')
             except ValueError:
                 update.effective_chat.send_message('Не номер из очереди. Отмена операции')
@@ -394,6 +397,9 @@ class QueueBot:
             
             if len(err_list) > 0: update.effective_chat.send_message('Ошибка возникла в этих значениях:\n'+' '.join(err_list))
             if len(del_users) > 0: update.effective_chat.send_message('Пользователи удалены')
+            
+            self.save_queue_to_file()
+            self.__refresh_last_queue_msg()
             self.msg_request = (None, None)
         
         elif self.msg_request[1] == 9:
@@ -405,8 +411,11 @@ class QueueBot:
                         set_pos >= 0 and set_pos < len(self.cur_queue)
 
                 self.cur_queue.insert(set_pos, self.cur_queue.pop(cur_pos))
-                self.save_queue_to_file()
                 update.effective_chat.send_message('Студент перемещен')
+                
+                self.save_queue_to_file()
+                self.__refresh_last_queue_msg()
+
             except Exception:
                 update.effective_chat.send_message('Ошибка в значениях')
             finally:
@@ -414,8 +423,10 @@ class QueueBot:
         
         elif self.msg_request[1] == 10:
             self.cur_queue.append(self.find_similar(update.message.text))
-            self.save_queue_to_file()
             update.effective_chat.send_message('Студент установлен')
+            
+            self.save_queue_to_file()
+            self.__refresh_last_queue_msg()
             self.msg_request = (None, None)
         
         elif self.msg_request[1] == 11:
@@ -427,11 +438,13 @@ class QueueBot:
                         swap_pos >= 0 and swap_pos < len(self.cur_queue)
                         
                 self.cur_queue[cur_pos], self.cur_queue[swap_pos] = self.cur_queue[swap_pos], self.cur_queue[cur_pos]
-                self.save_queue_to_file()
                 update.effective_chat.send_message('Студенты перемещены')
+
             except Exception:
                 update.effective_chat.send_message('Ошибка в значениях')
             finally:
+                self.save_queue_to_file()
+                self.__refresh_last_queue_msg()
                 self.msg_request = (None, None)
         
         elif self.msg_request[1] == 5: # add list
@@ -459,6 +472,9 @@ class QueueBot:
             
             if len(err_list) > 0: update.effective_chat.send_message('Ошибка возникла в этих строках:\n'+'\n'.join(err_list))
             if len(new_users) > 0: update.effective_chat.send_message('Пользователи добавлены')
+            
+            self.save_queue_to_file()
+            self.__refresh_last_queue_msg()
             self.msg_request = (None, None)
         
         elif self.msg_request[1] == 6: # add one
@@ -467,6 +483,9 @@ class QueueBot:
                 update.message.reply_text('Пользователь зарегистрирован')
             else:
                 update.message.reply_text('Сообщение ни от кого не переслано, отмена')
+            
+            self.save_queue_to_file()
+            self.__refresh_last_queue_msg()
             self.msg_request = (None, None)
             
         elif self.msg_request[1] == 7: # del list                    
@@ -498,6 +517,9 @@ class QueueBot:
             
             if len(err_list) > 0: update.effective_chat.send_message('Ошибка в этих значениях:\n'+'\n'.join(err_list))
             if len(del_users) > 0: update.effective_chat.send_message('Пользователи удалены')
+            
+            self.save_queue_to_file()
+            self.__refresh_last_queue_msg()
             self.msg_request = (None, None)
         
     def __h_add_new_owner(self, update, context):
@@ -723,7 +745,7 @@ class QueueBot:
             new_text = self.get_queue_str(self.cur_queue, self.cur_queue_pos)
             if self.last_queue_message.text != new_text:
                 self.last_queue_message = self.last_queue_message.edit_text(new_text, reply_markup=self.keyb_move_queue)
-
+        
     def get_id_by_name(self, dct, name):
         try:
             return list(dct.keys())[list(dct.values()).index(name)]
