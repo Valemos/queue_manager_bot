@@ -5,8 +5,9 @@ from logger import logger
 from varsaver import VariableSaver
 import atexit
 
+
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Chat
 
 class QueueBot:
     
@@ -159,6 +160,7 @@ class QueueBot:
         self.load_registered_from_file()
         self.load_queue_from_file()
         self.load_bot_state_from_file()
+        self.logger.log('loaded data')
                 
     def load_owners_from_file(self):
         self.owners_table = self.varsaver.load(self.file_name_owner)
@@ -191,7 +193,6 @@ class QueueBot:
             
     def get_token_from_file(self, path = None):
         return self.varsaver.load(self.file_name_token)
-        
 
     def __h_keyboard_chosen(self, update, context):
         query = update.callback_query
@@ -541,7 +542,8 @@ class QueueBot:
         
     def __h_show_logs(self, update, context):
         if self.check_user_have_access(update.effective_user.id, self.owners_table, 0):
-            update.effective_chat.send_message(self.logger.get_logs())
+            trimmed_msg = self.logger.get_logs()[-4096:]
+            update.effective_chat.send_message(trimmed_msg[trimmed_msg.index('\n'):])
         
     def __h_create_random_queue(self, update, context):
         if self.check_user_have_access(update.effective_user.id,self.owners_table):
@@ -580,7 +582,12 @@ class QueueBot:
             else:
                 update.effective_chat.send_message('Очереди нет.')
         else:
-            self.last_queue_message = update.effective_chat.send_message(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+            msg = update.effective_chat.send_message(self.get_queue_str(self.cur_queue, self.cur_queue_pos), reply_markup=self.keyb_move_queue)
+            if update.effective_chat.type != Chat.PRIVATE:
+                self.last_queue_message = msg
+            
+            self.logger.log('user {0} in {1} chat requested queue'.format(update.effective_user.id, update.effective_chat.type))
+            
 
     def __h_get_cur_and_next_students(self, update, context):
         update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
@@ -608,22 +615,25 @@ class QueueBot:
         cur_user_id = update.effective_user.id
         
         delete = []
-        for stud in self.cur_queue:
+        for i in range(len(self.cur_queue)):
+            stud = self.cur_queue[i]
             if stud[1] == cur_user_id:
                 delete.append(stud)
+                if i < self.cur_queue_pos and self.cur_queue_pos > 0:
+                    self.cur_queue_pos -= 1
         
         if len(delete) > 0:
-            
             for s in delete: self.cur_queue.remove(s)
             
             self.__refresh_last_queue_msg()
             self.save_queue_to_file()
+            self.save_bot_state_to_file()
             
-            update.message.reply_text('{0}, вы удалены из очереди'.format(self.registered_students[cur_user_id]))    
+            update.message.reply_text('Вы удалены из очереди'.format(self.registered_students[cur_user_id]))    
             self.logger.log('removed {0} - {1} '.format(self.registered_students[cur_user_id], cur_user_id))
         
         elif cur_user_id in self.registered_students:
-            update.message.reply_text('{0}, вы не найдены в очереди'.format(self.registered_students[cur_user_id]))
+            update.message.reply_text('Вы не найдены в очереди'.format(self.registered_students[cur_user_id]))
         
         else:
             update.message.reply_text(self.msg_unknown_user)

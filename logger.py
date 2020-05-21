@@ -30,7 +30,7 @@ class logger:
         self.log_file_path.open('w').close()
         
     def dump_to_another_file(self, file_name):
-        path = log_file_path.with_name(file_name)
+        path = self.log_file_path.with_name(file_name)
         
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
