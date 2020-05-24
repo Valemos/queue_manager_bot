@@ -182,7 +182,7 @@ class QueueBot:
         if not state is None:
             self.cur_queue_pos = state['cur_queue_pos']
         else:
-            self.cur_queue_pos = None
+            self.cur_queue_pos = 0
         
     def save_bot_state_to_file(self):
         self.varsaver.save({'cur_queue_pos':self.cur_queue_pos}, self.file_name_bot_state)
@@ -569,8 +569,11 @@ class QueueBot:
         
     def __h_show_logs(self, update, context):
         if self.check_user_have_access(update.effective_user.id, self.owners_table, 0):
+            
             trimmed_msg = self.logger.get_logs()[-4096:]
-            update.effective_chat.send_message(trimmed_msg[trimmed_msg.index('\n'):])
+            if len(trimmed_msg) >= 4096: trimmed_msg = trimmed_msg[trimmed_msg.index('\n'):]
+            
+            update.effective_chat.send_message(trimmed_msg)
         
     def __h_create_random_queue(self, update, context):
         if self.check_user_have_access(update.effective_user.id,self.owners_table):

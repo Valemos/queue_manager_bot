@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 import pickle
+import tempfile
+from google.oauth2 import service_account
 
 class VariableSaver:
     
@@ -42,6 +44,18 @@ class VariableSaver:
         except Exception:
             return None
             
+
+class DriveSaver:
+    
+    def __init__(self):
+        
+        self.__SCOPES = ['https://www.googleapis.com/auth/drive']
+        
+        self.logs_email = 'programworkerbox@gmail.com'
+        
+        
+        # try read service account file
+        
 
 if __name__ == '__main__':
     
