@@ -2,9 +2,9 @@ from pathlib import Path
 import datetime
 import sys
 import pickle
+from gdrive_saver import DriveSaver
 
-
-class logger:
+class Logger:
     
     def __init__(self, log_path = None):
         if log_path is None:
@@ -15,8 +15,7 @@ class logger:
             log_path.touch(exist_ok=True)
             
         self.log_file_path = log_path
-        self.google_creds_path = Path('logs/drive_credentials.json')
-        self.auto_token_path = Path('token.pickle')
+        self.drive_saver = DriveSaver()
         
     def log(self, text):
         with self.log_file_path.open('a+') as fw:
@@ -39,20 +38,27 @@ class logger:
         with self.log_file_path.open('r') as fr, path.open('w+') as fw:
             fw.write(fr.read())
             
-        print('dumped into', file_name)
+        print('dumped into', path)
+        return path
         
     def save_to_cloud(self):
-        pass
+        
+        new_name = Path('log_{0}.txt'.format(datetime.date.today()))
+        
+        path = self.dump_to_another_file(new_name)
+        self.drive_saver.save(path)
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
         if sys.argv[1] == 'show':
-            print(logger().get_logs())
+            print(Logger().get_logs())
         elif sys.argv[1] == 'clear':
-            logger().delete_logs()
+            Logger().delete_logs()
+        elif sys.argv[1] == 'cloud':
+            Logger().save_to_cloud()
         elif sys.argv[1] == 'dump':
-            lg = logger()
+            lg = Logger()
             lg.dump_to_another_file('logs/log_{0}.txt'.format(datetime.datetime.now().strftime('%d-%m-%y:%H-%M')))
             lg.delete_logs()
         else:
-            logger().log(sys.argv[1])
+            Logger().log(sys.argv[1])

@@ -13,5 +13,4 @@ run_test_bot.py
 show_data.py
 drive_sample.py
 token.pickle
-gdrive_saver.py
 queue-bot-key.json

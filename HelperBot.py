@@ -1,7 +1,8 @@
 import random as rnd
 from pathlib import Path
-from logger import logger
+from logger import Logger
 from varsaver import VariableSaver
+# from gdrive_saver import DriveSaver
 import atexit
 import os
 
@@ -18,8 +19,9 @@ class QueueBot:
         self.file_name_queue = Path('queue.data')
         self.file_name_bot_state = Path('bot_state.data')
         
-        self.logger = logger()
-        self.varsaver = VariableSaver()
+        self.logger = Logger()
+        self.varsaver = VariableSaver(save_folder = None, logger = self.logger)
+        # self.gdrive_saver = DriveSaver()
         
         #  init bot commands
         
@@ -154,7 +156,14 @@ class QueueBot:
                 
         self.save_queue_to_file()
         self.save_bot_state_to_file()
+        # self.save_all_to_drive()
         self.logger.log('saved before stop')
+
+    # def save_all_to_drive(self):
+    #     self.gdrive_saver.save(self.file_name_registered)
+    #     self.gdrive_saver.save(self.file_name_queue)
+    #     self.gdrive_saver.save(self.file_name_bot_state)
+    #     self.gdrive_saver.save(self.file_name_owner)
 
     # loads default values from external file
     def load_defaults_from_file(self):
@@ -626,7 +635,8 @@ class QueueBot:
         cur_user_id = update.effective_user.id
         if cur_user_id in self.registered_students.keys():
             if self.cur_queue_pos>=0 and self.cur_queue_pos<len(self.cur_queue):
-                if self.similar(self.registered_students[cur_user_id], self.cur_queue[self.cur_queue_pos][0]):
+                if cur_user_id == self.cur_queue[self.cur_queue_pos][1] or \
+                    self.similar(self.registered_students[cur_user_id], self.cur_queue[self.cur_queue_pos][0]):
                     self.cur_queue_pos += 1
                     update.effective_chat.send_message(self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
                 else:
@@ -638,23 +648,18 @@ class QueueBot:
         
         self.__refresh_last_queue_msg()
         self.save_bot_state_to_file()
-        self.logger.log('finished{0} - {1}'.format(cur_user_id, self.cur_queue[self.cur_queue_pos]))
+        self.logger.log('finished {0} - {1}'.format(cur_user_id, self.cur_queue[self.cur_queue_pos]))
             
     def __h_remove_me(self, update, context):
     
         cur_user_id = update.effective_user.id
         
-        delete = []
-        for i in range(len(self.cur_queue)):
-            stud = self.cur_queue[i]
-            if stud[1] == cur_user_id:
-                delete.append(stud)
-                if i < self.cur_queue_pos and self.cur_queue_pos > 0:
-                    self.cur_queue_pos -= 1
+        if cur_user_id in self.registered_students:
+            stud = (self.registered_students[cur_user_id], cur_user_id)
+        else:
+            stud = (update.effective_user.full_name, None)
         
-        if len(delete) > 0:
-            for s in delete: self.cur_queue.remove(s)
-            
+        if self.delete_stud_from_queue(stud):
             self.__refresh_last_queue_msg()
             self.save_queue_to_file()
             self.save_bot_state_to_file()
@@ -662,21 +667,17 @@ class QueueBot:
             update.message.reply_text('Вы удалены из очереди'.format(self.registered_students[cur_user_id]))    
             self.logger.log('removed {0} - {1} '.format(self.registered_students[cur_user_id], cur_user_id))
         
-        elif cur_user_id in self.registered_students:
-            update.message.reply_text('Вы не найдены в очереди'.format(self.registered_students[cur_user_id]))
-        
         else:
-            update.message.reply_text(self.msg_unknown_user)
+            update.message.reply_text('Вы не найдены в очереди')
+            
         
     def __h_add_me_to_queue(self, update, context):
         cur_user_id = update.effective_user.id
         
         if (not cur_user_id is None) and (cur_user_id in self.registered_students):
-            for stud in self.cur_queue:
-                if stud[1] == cur_user_id:
-                    self.cur_queue.remove(stud)
-            
-            self.cur_queue.append((self.registered_students[cur_user_id], cur_user_id))
+            stud = (self.registered_students[cur_user_id], cur_user_id)
+            self.delete_stud_from_queue(stud)
+            self.cur_queue.append(stud)
         else:
             self.cur_queue.append((update.effective_user.full_name, None))
 
@@ -685,6 +686,27 @@ class QueueBot:
         self.__refresh_last_queue_msg()
         self.save_queue_to_file()
         self.logger.log('added {0} - {1} '.format(*self.cur_queue[-1]))
+        
+    # returns True if someone was deleted
+    def delete_stud_from_queue(self, del_student):
+        delete = []
+        for i in range(len(self.cur_queue)):
+            stud = self.cur_queue[i]
+            
+            if stud[1] == None and stud[0] == del_student[0]:
+                delete.append(stud)
+                
+            elif stud[1] == del_student[1]:                
+                delete.append(stud)
+                
+            if i < self.cur_queue_pos and self.cur_queue_pos > 0:
+                self.cur_queue_pos -= 1
+        
+        if len(delete) > 0:
+            for s in delete: self.cur_queue.remove(s)
+            return True
+        
+        return False
         
     def __h_error(self, update, context): 
         print('Error: {0}'.format(context.error))
@@ -714,12 +736,10 @@ class QueueBot:
     def gen_queue(self, items):
         if len(items)>0:
             lst = []
-            
             for i in items:
                 lst.append(self.find_similar(i))
                 
             return lst
-        
         return []
     
     def find_similar(self, name):
@@ -727,13 +747,11 @@ class QueueBot:
             if self.similar(name, st_name):
                 return (st_name, st_id)
         return (name, None)
-    
+
     def similar(self, first, second):
-        if not len(first) == len(second):
+        if first[0] != second[0]:
             return False
-        if first[0]!=second[0]:
-            return False
-        elif len(first) - sum(l1==l2 for l1, l2 in zip(first[1:], second[1:])) > 3:
+        elif len(first) - sum(l1==l2 for l1, l2 in zip(first[1:], second[1:])) > 4:
             return False
         return True
 
