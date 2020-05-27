@@ -28,8 +28,11 @@ class Logger:
     def delete_logs(self):
         self.log_file_path.open('w').close()
         
-    def dump_to_another_file(self, file_name):
-        path = self.log_file_path.with_name(file_name)
+    def dump_to_another_file(self, file_name = None):
+        if file_name is None:
+            path = self.log_file_path.with_name('log_{0}.txt'.format(datetime.datetime.now().strftime('%d-%m-%y_%H:%M')))    
+        else:
+            path = self.log_file_path.with_name(file_name)
         
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -38,7 +41,7 @@ class Logger:
         with self.log_file_path.open('r') as fr, path.open('w+') as fw:
             fw.write(fr.read())
             
-        print('dumped into', path)
+        print('dumped logs into', path)
         return path
         
     def save_to_cloud(self):
@@ -58,7 +61,7 @@ if __name__ == '__main__':
             Logger().save_to_cloud()
         elif sys.argv[1] == 'dump':
             lg = Logger()
-            lg.dump_to_another_file('logs/log_{0}.txt'.format(datetime.datetime.now().strftime('%d-%m-%y:%H-%M')))
+            lg.dump_to_another_file()
             lg.delete_logs()
         else:
             Logger().log(sys.argv[1])

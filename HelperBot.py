@@ -2,7 +2,7 @@ import random as rnd
 from pathlib import Path
 from logger import Logger
 from varsaver import VariableSaver
-# from gdrive_saver import DriveSaver
+from gdrive_saver import DriveSaver
 import atexit
 import os
 
@@ -21,7 +21,7 @@ class QueueBot:
         
         self.logger = Logger()
         self.varsaver = VariableSaver(save_folder = None, logger = self.logger)
-        # self.gdrive_saver = DriveSaver()
+        self.gdrive_saver = DriveSaver()
         
         #  init bot commands
         
@@ -156,14 +156,17 @@ class QueueBot:
                 
         self.save_queue_to_file()
         self.save_bot_state_to_file()
-        # self.save_all_to_drive()
+        self.save_all_to_drive()
         self.logger.log('saved before stop')
 
-    # def save_all_to_drive(self):
-    #     self.gdrive_saver.save(self.file_name_registered)
-    #     self.gdrive_saver.save(self.file_name_queue)
-    #     self.gdrive_saver.save(self.file_name_bot_state)
-    #     self.gdrive_saver.save(self.file_name_owner)
+    def save_all_to_drive(self):
+        if not self.gdrive_saver.save(self.file_name_registered):   self.logger.log(self.file_name_registered, 'not loaded')
+        if not self.gdrive_saver.save(self.file_name_queue):        self.logger.log(self.file_name_queue, 'not loaded')
+        if not self.gdrive_saver.save(self.file_name_bot_state):    self.logger.log(self.file_name_bot_state, 'not loaded')
+        if not self.gdrive_saver.save(self.file_name_owner):        self.logger.log(self.file_name_owner, 'not loaded')
+        
+        dump_path = self.logger.dump_to_another_file()
+        
 
     # loads default values from external file
     def load_defaults_from_file(self):

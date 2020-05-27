@@ -60,13 +60,13 @@ class DriveSaver:
             except Exception:
                 print('gdrive folder id write failed')
             
+        # after all manipulations init class property
         self.cloud_folder_id = cloud_folder_id
             
     def save(self, file_name):
         
         if self.__credentials is None:
             return False
-        
         
         service = discovery.build('drive', 'v3', credentials=self.__credentials)
         
@@ -81,9 +81,11 @@ class DriveSaver:
                                 media_body=media,
                                 fields='id').execute()
         
+        print('saved', file_name, 'to cloud')
+        
         return True
     
 if __name__ == '__main__':
     
     saver = DriveSaver()
-    saver.save(Path('logs/log.txt'))
+    # saver.save(Path('logs/log.txt'))
