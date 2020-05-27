@@ -14,13 +14,14 @@ class QueueBot:
     
     def __init__(self, bot_token = None):
         
+        self.file_data_folder = Path('data')
         self.file_name_owner = Path('owners.data')
         self.file_name_registered = Path('registered.data')
         self.file_name_queue = Path('queue.data')
         self.file_name_bot_state = Path('bot_state.data')
         
         self.logger = Logger()
-        self.varsaver = VariableSaver(save_folder = None, logger = self.logger)
+        self.varsaver = VariableSaver(save_folder = self.file_data_folder, logger = self.logger)
         self.gdrive_saver = DriveSaver()
         
         #  init bot commands
@@ -156,16 +157,19 @@ class QueueBot:
                 
         self.save_queue_to_file()
         self.save_bot_state_to_file()
-        self.save_all_to_drive()
-        self.logger.log('saved before stop')
+        self.save_all_to_cloud()
+        self.logger.log('saved ')
 
-    def save_all_to_drive(self):
-        if not self.gdrive_saver.save(self.file_name_registered):   self.logger.log(self.file_name_registered, 'not loaded')
-        if not self.gdrive_saver.save(self.file_name_queue):        self.logger.log(self.file_name_queue, 'not loaded')
-        if not self.gdrive_saver.save(self.file_name_bot_state):    self.logger.log(self.file_name_bot_state, 'not loaded')
-        if not self.gdrive_saver.save(self.file_name_owner):        self.logger.log(self.file_name_owner, 'not loaded')
+    def save_all_to_cloud(self):
         
-        dump_path = self.logger.dump_to_another_file()
+        dump_path = self.logger.dump_to_file()
+
+        self.gdrive_saver.update_file_list([
+            self.file_data_folder/self.file_name_registered,
+            self.file_data_folder/self.file_name_owner,
+            self.file_data_folder/self.file_name_queue,
+            self.file_data_folder/self.file_name_registered,
+            dump_path])
         
 
     # loads default values from external file

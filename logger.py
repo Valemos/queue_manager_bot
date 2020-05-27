@@ -28,12 +28,12 @@ class Logger:
     def delete_logs(self):
         self.log_file_path.open('w').close()
         
-    def dump_to_another_file(self, file_name = None):
+    def dump_to_file(self, file_name = None):
         if file_name is None:
-            path = self.log_file_path.with_name('log_{0}.txt'.format(datetime.datetime.now().strftime('%d-%m-%y_%H:%M')))    
+            path = self.log_file_path.with_name('log_{0}.txt'.format(datetime.datetime.now().strftime('%d-%m-%y_%H-%M')))    
         else:
             path = self.log_file_path.with_name(file_name)
-        
+        print(path)
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch(exist_ok=True)
@@ -41,7 +41,6 @@ class Logger:
         with self.log_file_path.open('r') as fr, path.open('w+') as fw:
             fw.write(fr.read())
             
-        print('dumped logs into', path)
         return path
         
     def save_to_cloud(self):
@@ -52,6 +51,9 @@ class Logger:
         self.drive_saver.save(path)
 
 if __name__ == '__main__':
+    
+    lg = Logger()
+    lg.dump_to_file()
     if len(sys.argv) == 2:
         if sys.argv[1] == 'show':
             print(Logger().get_logs())
@@ -61,7 +63,7 @@ if __name__ == '__main__':
             Logger().save_to_cloud()
         elif sys.argv[1] == 'dump':
             lg = Logger()
-            lg.dump_to_another_file()
+            lg.dump_to_file()
             lg.delete_logs()
         else:
             Logger().log(sys.argv[1])

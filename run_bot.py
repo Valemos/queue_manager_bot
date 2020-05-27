@@ -1,7 +1,10 @@
 #%% main
 from HelperBot import QueueBot
+import sys
 
-my_bot = QueueBot()
+if len(sys.argv)>1:
+    my_bot = QueueBot(sys.argv[1])
+else:
+    my_bot = QueueBot()
 
-#%% Run bot
 my_bot.start()
