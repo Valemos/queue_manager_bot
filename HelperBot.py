@@ -2,7 +2,7 @@ import random as rnd
 from pathlib import Path
 from logger import Logger
 from varsaver import VariableSaver
-from gdrive_saver import DriveSaver
+from gdrive_saver import DriveSaver, FolderType
 import atexit
 import os
 
@@ -14,14 +14,14 @@ class QueueBot:
     
     def __init__(self, bot_token = None):
         
-        self.file_data_folder = Path('data')
-        self.file_name_owner = Path('owners.data')
-        self.file_name_registered = Path('registered.data')
-        self.file_name_queue = Path('queue.data')
-        self.file_name_bot_state = Path('bot_state.data')
+        
+        self.file_name_owner = Path('data/owners.data')
+        self.file_name_registered = Path('data/registered.data')
+        self.file_name_queue = Path('data/queue.data')
+        self.file_name_bot_state = Path('data/bot_state.data')
         
         self.logger = Logger()
-        self.varsaver = VariableSaver(save_folder = self.file_data_folder, logger = self.logger)
+        self.varsaver = VariableSaver(logger = self.logger)
         self.gdrive_saver = DriveSaver()
         
         #  init bot commands
@@ -146,7 +146,7 @@ class QueueBot:
         
     def start(self):
         self.logger.log('start')
-        self.load_defaults_from_file()
+        self.load_defaults()
         self.updater.start_polling()
         self.updater.idle()
         
@@ -158,26 +158,38 @@ class QueueBot:
         self.save_queue_to_file()
         self.save_bot_state_to_file()
         self.save_all_to_cloud()
-        self.logger.log('saved ')
 
     def save_all_to_cloud(self):
-        
         dump_path = self.logger.dump_to_file()
+        self.gdrive_saver.update_file_list([dump_path], FolderType.Logs)
 
         self.gdrive_saver.update_file_list([
-            self.file_data_folder/self.file_name_registered,
-            self.file_data_folder/self.file_name_owner,
-            self.file_data_folder/self.file_name_queue,
-            self.file_data_folder/self.file_name_registered,
-            dump_path])
+                self.file_name_owner,
+                self.file_name_registered,
+                self.file_name_queue,
+                self.file_name_bot_state],
+            FolderType.Data)
         
-
+        self.logger.log('saved to cloud')
+    
+    def load_from_cloud(self):
+        
+        self.gdrive_saver.get_file_list([
+                self.file_name_registered,
+                self.file_name_owner,
+                self.file_name_bot_state,
+                self.file_name_registered,
+                self.file_name_queue],
+            new_folder = self.file_name_queue.parent)
+    
     # loads default values from external file
-    def load_defaults_from_file(self):
-        self.load_owners_from_file()
+    def load_defaults(self):
+        self.load_from_cloud()
         self.load_registered_from_file()
+        self.load_owners_from_file()
         self.load_queue_from_file()
         self.load_bot_state_from_file()
+        
         self.logger.log('loaded data')
                 
     def load_owners_from_file(self):
@@ -205,9 +217,11 @@ class QueueBot:
         
     def save_owners_to_file(self):
         self.varsaver.save(self.owners_table, self.file_name_owner)
+        self.gdrive_saver.update_file_list([self.self.file_name_owner])
         
     def save_registered_to_file(self):
         self.varsaver.save(self.registered_students, self.file_name_registered)
+        self.gdrive_saver.update_file_list([self.self.file_name_registered])
         
     def save_queue_to_file(self):
         self.varsaver.save(self.cur_queue, self.file_name_queue)
@@ -353,7 +367,7 @@ class QueueBot:
                 
             self.save_queue_to_file()
             self.__refresh_last_queue_msg()
-            self.msg_request = (None,None)
+            self.msg_request = (None, None)
             
         elif self.msg_request[1] == 2:
             if update.message.forward_from is not None:
@@ -364,7 +378,7 @@ class QueueBot:
                     update.message.reply_text('Владелец успешно установлен')
             else:
                 update.message.reply_text('Сообщение ни от кого не переслано, отмена')
-            self.msg_request = (None,None)
+            self.msg_request = (None, None)
 
         elif self.msg_request[1] == 3:
             if update.message.forward_from is not None:
@@ -376,13 +390,13 @@ class QueueBot:
             else:
                 update.message.reply_text('Сообщение ни от кого не переслано')
                 
-            self.msg_request = (None,None)
+            self.msg_request = (None, None)
 
         elif self.msg_request[1] == 4:
             try:
                 move_pos = int(update.message.text)-1
                 if move_pos >= len(self.cur_queue) or move_pos < 0:
-                    self.msg_request = (None,None)
+                    self.msg_request = (None, None)
                     return
                 
                 self.cur_queue.append(self.cur_queue.pop(move_pos))
@@ -391,7 +405,7 @@ class QueueBot:
             except ValueError:
                 update.effective_chat.send_message('Не номер из очереди. Отмена операции')
             finally:
-                self.msg_request = (None,None)
+                self.msg_request = (None, None)
         
         elif self.msg_request[1] == 8:
             del_users_str = []

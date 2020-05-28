@@ -4,30 +4,21 @@ import pickle
 
 class VariableSaver:
     
-    def __init__(self, save_folder = None, logger = None):
-        
-        if save_folder is None:
-            save_folder = Path('data')
-            save_folder.mkdir(parents = True, exist_ok = True)
-            
-        self.save_folder = save_folder
+    def __init__(self, logger = None):
         self.logger = logger
         
-    def save(self, var, file_name):
-        
-        save_path = self.save_folder/file_name
-        
+    def save(self, var, save_path):
         if not self.logger is None:
             self.logger.log('saving '+str(save_path))
                 
         if not save_path.exists():
+            save_path.parent.mkdir(parents=True, exist_ok=True)
             save_path.touch()
         
         with save_path.open('wb') as fw:
             pickle.dump(var, fw)
-    def load(self, file_name):        
-        save_path = self.save_folder/file_name
-
+            
+    def load(self, save_path):        
         if not self.logger is None:
             self.logger.log('loading '+str(save_path))
 
@@ -43,6 +34,6 @@ class VariableSaver:
             return None
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
     
-    saver = VariableSaver()
+#     saver = VariableSaver()

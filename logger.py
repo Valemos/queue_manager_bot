@@ -2,7 +2,7 @@ from pathlib import Path
 import datetime
 import sys
 import pickle
-from gdrive_saver import DriveSaver
+from gdrive_saver import DriveSaver, FolderType
 
 class Logger:
     
@@ -33,7 +33,7 @@ class Logger:
             path = self.log_file_path.with_name('log_{0}.txt'.format(datetime.datetime.now().strftime('%d-%m-%y_%H-%M')))    
         else:
             path = self.log_file_path.with_name(file_name)
-        print(path)
+
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch(exist_ok=True)
@@ -48,22 +48,14 @@ class Logger:
         new_name = Path('log_{0}.txt'.format(datetime.date.today()))
         
         path = self.dump_to_another_file(new_name)
-        self.drive_saver.save(path)
+        self.drive_saver.save(path, FolderType.Logs)
 
 if __name__ == '__main__':
-    
-    lg = Logger()
-    lg.dump_to_file()
     if len(sys.argv) == 2:
-        if sys.argv[1] == 'show':
-            print(Logger().get_logs())
-        elif sys.argv[1] == 'clear':
-            Logger().delete_logs()
-        elif sys.argv[1] == 'cloud':
+        if sys.argv[1] == 'cloud':
             Logger().save_to_cloud()
         elif sys.argv[1] == 'dump':
             lg = Logger()
             lg.dump_to_file()
-            lg.delete_logs()
         else:
             Logger().log(sys.argv[1])
