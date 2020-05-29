@@ -771,9 +771,12 @@ class QueueBot:
 
     def similar(self, first, second):
         if (len(first)-len(second))>2:
+            return False
+        
         if first[0] != second[0]:
             return False
-        elif len(first) - sum(l1==l2 for l1, l2 in zip(first[1:], second[1:])) > 2:
+        
+        if len(first) - sum(l1==l2 for l1, l2 in zip(first[1:], second[1:])) > 2:
             return False
         return True
 
