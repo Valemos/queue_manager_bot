@@ -458,6 +458,7 @@ class QueueBot:
         
         elif self.msg_request[1] == 10:
             self.cur_queue.append(self.find_similar(update.message.text))
+            self.logger.log('student set '+str(self.cur_queue[-1]))
             update.effective_chat.send_message('Студент установлен')
             
             self.save_queue_to_file()
