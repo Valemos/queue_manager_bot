@@ -748,8 +748,6 @@ class QueueBot:
             if appended and i < self.cur_queue_pos:
                 self.cur_queue_pos -= 1
                 
-            print('appended',appended, cur_queue_pos, stud, delete)
-                
         if len(delete) > 0:
             for s in delete: self.cur_queue.remove(s)
             return True
