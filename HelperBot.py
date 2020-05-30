@@ -59,7 +59,7 @@ class QueueBot:
         self.cmd_modify_queue = 'modify_queue'
         self.cmd_args_modify_queue = ['show_list', 
                                       'change_list', 
-                                      'add_one_student', 
+                                      'set_queue_pos', 
                                       'clear_list', 
                                       'move_to_end', 
                                       'del_student', 
@@ -86,6 +86,7 @@ class QueueBot:
             9 : (self.cmd_modify_queue, self.cmd_args_modify_queue[6]),
             10: (self.cmd_modify_queue, self.cmd_args_modify_queue[7]),
             11: (self.cmd_modify_queue, self.cmd_args_modify_queue[8]),
+            12: (self.cmd_modify_queue, self.cmd_args_modify_queue[2]), # set queue pos
             5 : (self.cmd_modify_registered, self.cmd_args_modify_registered[1]),
             6 : (self.cmd_modify_registered, self.cmd_args_modify_registered[2]),
             7 : (self.cmd_modify_registered, self.cmd_args_modify_registered[3]),
@@ -106,6 +107,7 @@ class QueueBot:
             [InlineKeyboardButton('Поставить студента на позицию',  callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[6])],
             [InlineKeyboardButton('Удалить студентов',              callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[5])],
             [InlineKeyboardButton('Добавить студента',              callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[7])],
+            [InlineKeyboardButton('Установить позицию очереди',     callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[2])],
             [InlineKeyboardButton('Показать очередь',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[0])],
             [InlineKeyboardButton('Установить новую очередь',       callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[1])],
             [InlineKeyboardButton('Очистить очередь',               callback_data=self.cmd_modify_queue+':'+self.cmd_args_modify_queue[3])]
@@ -141,6 +143,7 @@ class QueueBot:
         self.msg_queue_finished = 'Очередь завершена'
         self.msg_unknown_user = 'Неизвестный пользователь. Вы не можете использовать данную команду (возможно в вашем аккаунте ID закрыт для просмотра)'
         self.msg_queue_commands = 'когда сдашь\n/i_finished\nчтобы выйти из очереди\n/remove_me\nчтобы попасть в конец очереди\n/add_me'
+        self.msg_error_in_values = 'Ошибка в значениях'
         
         atexit.register(self.save_before_stop)
         
@@ -307,6 +310,12 @@ class QueueBot:
                         update.effective_chat.send_message('Пришлите номера двух студентов через пробел')
                         self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
                         
+                    elif args==self.cmd_args_modify_queue[2]:
+                        update.effective_chat.send_message(self.get_queue_str(self.cur_queue))
+                        update.effective_chat.send_message('Пришлите номер новой позциции')
+                        self.msg_request = (update.effective_user.id, self.request_codes[(cmd, args)])
+                        
+                        
                 elif cmd == self.cmd_modify_registered:
                     if args == self.cmd_args_modify_registered[0]: # show
                         str_list = []
@@ -452,7 +461,7 @@ class QueueBot:
                 self.__refresh_last_queue_msg()
 
             except Exception:
-                update.effective_chat.send_message('Ошибка в значениях')
+                update.effective_chat.send_message(self.msg_error_in_values)
             finally:
                 self.msg_request = (None, None)
         
@@ -477,11 +486,24 @@ class QueueBot:
                 update.effective_chat.send_message('Студенты перемещены')
 
             except Exception:
-                update.effective_chat.send_message('Ошибка в значениях')
+                update.effective_chat.send_message(self.msg_error_in_values)
             finally:
                 self.save_queue_to_file()
                 self.__refresh_last_queue_msg()
                 self.msg_request = (None, None)
+        
+        elif self.msg_request[1] == 12:
+            try:
+                new_index = int(update.message.text)
+                self.cur_queue_pos = new_index - 1
+                update.effective_chat.send_message('Позиция установлена')
+            except Exception:
+                update.effective_chat.send_message(self.msg_error_in_values)
+            finally:
+                self.save_bot_state_to_file()
+                self.__refresh_last_queue_msg()
+                self.msg_request = (None, None)
+            
         
         elif self.msg_request[1] == 5: # add list
             new_users_str_lines = []
@@ -511,8 +533,8 @@ class QueueBot:
             
             self.save_queue_to_file()
             self.__refresh_last_queue_msg()
-            self.msg_request = (None, None)
-        
+            self.msg_request = (None, None)        
+                
         elif self.msg_request[1] == 6: # add one
             if update.message.forward_from is not None:
                 self.set_bot_user(update.message.forward_from.id, update.message.forward_from.full_name)
@@ -715,15 +737,19 @@ class QueueBot:
         for i in range(len(self.cur_queue)):
             stud = self.cur_queue[i]
             
+            appended = False
             if stud[1] == None and stud[0] == del_student[0]:
                 delete.append(stud)
-                
+                appended = True
             elif stud[1] == del_student[1]:                
                 delete.append(stud)
+                appended = True
                 
-            if i < self.cur_queue_pos and self.cur_queue_pos > 0:
+            if appended and i < self.cur_queue_pos:
                 self.cur_queue_pos -= 1
-        
+                
+            print('appended',appended, cur_queue_pos, stud, delete)
+                
         if len(delete) > 0:
             for s in delete: self.cur_queue.remove(s)
             return True
