@@ -9,6 +9,7 @@ import os
 import json
 import sys
 
+
 class FolderType(enum.Enum):
     Data = 0
     Logs = 1

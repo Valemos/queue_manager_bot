@@ -4,7 +4,7 @@ import pickle
 
 class VariableSaver:
     
-    def __init__(self, logger = None):
+    def __init__(self, logger=None):
         self.logger = logger
         
     def save(self, var, save_path):
@@ -26,14 +26,8 @@ class VariableSaver:
             save_path.touch()
             return None
         
-        
         try:
             with save_path.open('rb') as fr:
                 return pickle.load(fr)
         except Exception:
             return None
-
-
-# if __name__ == '__main__':
-    
-#     saver = VariableSaver()
