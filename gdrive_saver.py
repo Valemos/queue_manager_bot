@@ -8,16 +8,12 @@ import io
 import os
 import json
 import sys
+from varsaver import FolderType
 
-
-class FolderType(enum.Enum):
-    Data = 0
-    Logs = 1
 
 class DriveSaver:
 
     def __init__(self):
-        
         self.__SCOPES = ['https://www.googleapis.com/auth/drive']
         self.__SERVICE_ACCOUNT_FILE = Path('queue-bot-key.json')
         self.work_email = 'programworkerbox@gmail.com'
@@ -168,10 +164,9 @@ class DriveSaver:
             }
             upload_file = MediaFileUpload(path, mimetype='application/octet-stream')
             service.files().create(body=file_metadata, media_body=upload_file).execute()
-            
-        
+
     # if path_list not specified, all files from folder will be written to 'new_folder'
-    def get_file_list(self, path_list=None, new_folder = None, folder=FolderType.Data):
+    def get_file_list(self, path_list=None, folder=FolderType.Data):
         
         if self.__credentials is None:
             return False

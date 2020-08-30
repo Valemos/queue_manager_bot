@@ -4,14 +4,14 @@ import bot_commands
 class CommandHandler:
 
     @staticmethod
-    def handle(update, queue, command_str):
+    def handle(command_str, update, bot):
         group, cmd = CommandHandler.parse_command(command_str)
 
         # find command
         group = getattr(cmd, group)
         cmd = getattr(group, cmd)
 
-        cmd.handle(update, queue)
+        cmd.handle(update, bot)
 
     @staticmethod
     def parse_command(command_str):
