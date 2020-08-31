@@ -64,7 +64,7 @@ class QueueBot:
 
     def save_before_stop(self):
         # clear queue, if it was fully completed
-        if self.cur_queue_pos is not None and self.cur_queue_pos == len(self.cur_queue):
+        if self.queue.queue_pos >= len(self.queue):
             self.queue.clear()
 
         self.save_queue_to_file()
@@ -176,7 +176,7 @@ class QueueBot:
 
     def _h_create_random_queue(self, update, context):
         if self.registered_manager.check_access(update.effective_user.id):
-            if len(self.cur_queue) == 0:
+            if len(self.queue) == 0:
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',
                                                    reply_markup=keyboard_create_random_queue)
             else:
@@ -187,7 +187,7 @@ class QueueBot:
 
     def _h_create_queue(self, update, context):
         if self.registered_manager.check_access(update.effective_user.id):
-            if len(self.cur_queue) == 0:
+            if len(self.queue) == 0:
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',
                                                    reply_markup=keyboard_reply_create_queue)
             else:
@@ -209,7 +209,7 @@ class QueueBot:
             update.message.reply_text(msg_permission_denied)
 
     def _h_check_queue_status(self, update, context):
-        if len(self.cur_queue) == 0:
+        if len(self.queue) == 0:
             if self.registered_manager.check_access(update.effective_user.id):
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?', reply_markup=keyboard_reply_create_queue)
             else:
@@ -219,7 +219,9 @@ class QueueBot:
             if update.effective_chat.type != Chat.PRIVATE:
                 self.last_queue_message = msg
 
-            self.logger.log('user {0} in {1} chat requested queue'.format(update.effective_user.id, update.effective_chat.type))
+            self.logger.log('user {0} in {1} chat requested queue'.format(
+                self.registered_manager.get_user_by_id(update.effective_user.id).log_str(),
+                update.effective_chat.type))
 
     def _h_get_cur_and_next_students(self, update, context):
         update.effective_chat.send_message(self.queue.get_cur_and_next_str())
@@ -227,11 +229,12 @@ class QueueBot:
     def _h_i_finished(self, update, context):
         cur_user_id = update.effective_user.id
         if self.registered_manager.get_user_by_id(cur_user_id) is not Student_EMPTY:  # user is registered
-            if 0 <= self.queue.queue_pos < len(self.queue) and self.queue.get_current() is not Student_EMPTY:
-                self.cur_queue_pos += 1
+            if self.queue.get_current() is not Student_EMPTY:
+                self.queue.move_next()
                 update.effective_chat.send_message(self.queue.get_cur_and_next_str())
             else:
-                update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_manager.get_user_by_id(cur_user_id).get_string()))
+                update.message.reply_text('{0}, вы не сдаете сейчас.'.format(
+                    self.registered_manager.get_user_by_id(cur_user_id).get_string()))
         else:
             update.message.reply_text(msg_unknown_user)
 
@@ -265,47 +268,13 @@ class QueueBot:
         self.save_queue_to_file()
         self.logger.log('added {0}'.format(self.queue.get_last()))
 
-    # TODO finish refactor
-    # returns True if someone was deleted
-    def delete_stud_from_queue(self, del_student):
-        delete = []
-        for i in range(len(self.cur_queue)):
-            stud = self.cur_queue[i]
-
-            appended = False
-            if stud[1] == None and stud[0] == del_student[0]:
-                delete.append(stud)
-                appended = True
-            elif stud[1] == del_student[1]:
-                delete.append(stud)
-                appended = True
-
-            if appended and i < self.cur_queue_pos:
-                self.cur_queue_pos -= 1
-
-        if len(delete) > 0:
-            for s in delete:
-                self.cur_queue.remove(s)
-            return True
-
-        return False
-
     def _h_error(self, update, context):
         print('Error: {0}'.format(context.error))
         self.logger.log(context.error)
         self.logger.save_to_cloud()
 
-    def _refresh_cur_queue_ids(self):
-        for idx in range(len(self.cur_queue)):
-            i = self.cur_queue[idx][0]  # name of student in i
-
-            if i in self.registered_students.values():
-                self.cur_queue[idx] = (i, self.get_id_by_name(self.registered_students, i))
-            else:
-                self.cur_queue[idx] = (i, None)
-
     def refresh_last_queue_msg(self):
-        if not self.last_queue_message is None:
-            new_text = self.get_queue_str(self.cur_queue, self.cur_queue_pos)
+        if self.last_queue_message is not None:
+            new_text = self.queue.get_string()
             if self.last_queue_message.text != new_text:
                 self.last_queue_message = self.last_queue_message.edit_text(new_text, reply_markup=keyboard_move_queue)
