@@ -9,11 +9,22 @@ from varsaver import Savable
 
 class Student:
 
-    _access_level = AccessLevel.USER
-
     def __init__(self, name, telegram_id):
         self._name = name
         self.telegram_id = telegram_id
+        self.access_level = AccessLevel.USER
+
+    def __eq__(self, other):
+        return self.telegram_id == other.telegram_id
+
+    def __ne__(self, other):
+        return self.telegram_id != other.telegram_id
+
+    def __hash__(self):
+        return self.telegram_id
+
+    def __str__(self):
+        return self.get_string()
 
     def get_string(self, position=None):
         if position is None:
@@ -24,8 +35,8 @@ class Student:
     def log_str(self):
         return self._name + ' - ' + str(self.telegram_id)
 
-    def set_access(self, access_level):
-        self._access_level = access_level
+
+Student_EMPTY = Student('empty_student', None)
 
 
 class StudentsQueue(Savable):
@@ -74,6 +85,9 @@ class StudentsQueue(Savable):
         self._students[position1], self._students[position2] = self._students[position2], self._students[position1]
 
     # if student registered as user, returns True, otherwise False
+    def append(self, student: Student):
+        self._students.append(student)
+
     def append_by_name(self, name):
         student = self.registered_manager.get_user_by_name(name)
         if student is not None:
@@ -81,6 +95,15 @@ class StudentsQueue(Savable):
             return True
         else:
             self._students.append(self.registered_manager.find_similar_student(name))
+            return False
+    def append_new(self, name, user_id):
+        student = self.registered_manager.get_user_by_id(user_id)
+        if student is not None:
+            self._students.append(student)
+            return True
+        else:
+            new_user = self.registered_manager.append_new_user(name, user_id)
+            self._students.append(new_user)
             return False
 
     def clear(self):
@@ -93,6 +116,31 @@ class StudentsQueue(Savable):
         else:
             for ind in index:
                 self._students.pop(ind)
+
+    def remove_by_id(self, remove_id):
+        to_delete = []
+        # TODO check for list.remove() operation and replace this function
+        for i in range(len(self._students)):
+            if self._students[i].telegram_id == remove_id:
+                to_delete.append(self._students[i])
+
+        deleted = False
+        for elem in to_delete:
+            self._students.remove(elem)
+            deleted = True
+
+        return deleted
+
+    def get_current(self) -> Student:
+        if 0 <= self.queue_pos < len(self):
+            return self._students(self.queue_pos)
+        else:
+            return Student_EMPTY
+
+    def get_last(self):
+        if len(self) > 0:
+            return self._students[-1]
+        return Student_EMPTY
 
     def get_string(self):
         if len(self._students) > 0:
@@ -208,3 +256,6 @@ class StudentsQueue(Savable):
 
     def get_save_files(self):
         return [self._file_queue, self._file_queue_state]
+
+    def remove(self, student: Student):
+        self._students.remove(student)

@@ -5,7 +5,7 @@ keyboard_reply_create_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton('Создать очередь',    callback_data=ModifyQueue.CreateSimple.str())],
     [InlineKeyboardButton('Отмена',             callback_data=ModifyQueue.Cancel.str())]])
 
-keyboard_reply_create_random_queue = InlineKeyboardMarkup([
+keyboard_create_random_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton('Создать очередь',    callback_data=ModifyQueue.CreateRandom.str())],
     [InlineKeyboardButton('Отмена',             callback_data=ModifyQueue.Cancel())]])
 

@@ -3,8 +3,9 @@ from varsaver import VariableSaver
 from gdrive_saver import DriveSaver, FolderType
 from bot_messages import *
 from bot_commands import *
-from registered_manager import StudentsRegisteredManager
-from students_queue import StudentsQueue
+from bot_keyboards import *
+from registered_manager import StudentsRegisteredManager, AccessLevel
+from students_queue import StudentsQueue, Student, Student_EMPTY
 import bot_command_handler
 
 from pathlib import Path
@@ -123,9 +124,8 @@ class QueueBot:
         self.logger.log(self.command_requested_answer.str())
         self.command_requested_answer.handle_request(update, self)
 
-
     def _h_add_new_owner(self, update, context):
-        if self.check_user_have_access(update.message.from_user.id, self.owners_table):
+        if self.registered_manager.check_access(update.message.from_user.id):
             if self.command_requested_answer is None:
                 update.message.reply_text(msg_get_user_message)
                 self.command_requested_answer = ManageUsers.AddAdmin
@@ -135,37 +135,39 @@ class QueueBot:
             update.message.reply_text(msg_permission_denied)
 
     def _h_del_owner(self, update, context):
-        if self.check_user_have_access(update.message.from_user.id, self.owners_table):
-            if msg_request[0] is None:
+        if self.registered_manager.check_access(update.message.from_user.id, AccessLevel.GOD):
+            if self.command_requested_answer is None:
                 update.message.reply_text(msg_get_user_message)
-                msg_request = (update.message.from_user.id, self.request_codes[(self.cmd_del_owner, None)])
+                self.command_requested_answer = ManageUsers.RemoveAdmin
             else:
                 update.message.reply_text('Уже запрошено, пришлите сообщение нового владельца')
         else:
             update.message.reply_text(msg_permission_denied)
 
     def _h_start(self, update, context):
-        if len(self.owners_table) == 0:
-            self.owners_table[update.message.from_user.id] = 0
+        if len(self.registered_manager) == 0:
+            self.registered_manager.append_new_user(update.message.from_user.username, update.message.from_user.id)
+            self.registered_manager.set_god(update.message.from_user.id)
             update.message.reply_text('Первый владелец добавлен - ' + update.message.from_user.username)
 
             for admin in update.effective_chat.get_administrators():
-                self.owners_table[admin.user.id] = 1
+                self.registered_manager.append_new_user(admin.user.username, admin.user.id)
+                self.registered_manager.set_admin(admin.user.id)
 
-            self.save_owners_to_file()
+            self.save_registered_to_file()
             update.effective_chat.send_message('Администраторы добавлены')
 
-        elif self.check_user_have_access(update.effective_user.id, self.owners_table):
+        elif self.registered_manager.check_access(update.effective_user.id):
             update.message.reply_text('Бот уже запущен.')
 
     def _h_stop(self, update, context):
-        if self.check_user_have_access(update.effective_user.id, self.owners_table):
+        if self.registered_manager.check_access(update.effective_user.id):
             update.message.reply_text('Бот остановлен, и больше не принимает команд')
             self.updater.stop()
             exit()
 
     def _h_show_logs(self, update, context):
-        if self.check_user_have_access(update.effective_user.id, self.owners_table, 0):
+        if self.registered_manager.check_access(update.effective_user.id, AccessLevel.GOD):
 
             trimmed_msg = self.logger.get_logs()[-4096:]
             if len(trimmed_msg) >= 4096: trimmed_msg = trimmed_msg[trimmed_msg.index('\n'):]
@@ -173,18 +175,18 @@ class QueueBot:
             update.effective_chat.send_message(trimmed_msg)
 
     def _h_create_random_queue(self, update, context):
-        if self.check_user_have_access(update.effective_user.id, self.owners_table):
+        if self.registered_manager.check_access(update.effective_user.id):
             if len(self.cur_queue) == 0:
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',
-                                                   reply_markup=keyboard_reply_create_random_queue)
+                                                   reply_markup=keyboard_create_random_queue)
             else:
                 update.effective_chat.send_message('Удалить предыдущую очередь и создать новую?',
-                                                   reply_markup=keyboard_reply_create_random_queue)
+                                                   reply_markup=keyboard_create_random_queue)
         else:
             update.message.reply_text(msg_permission_denied)
 
     def _h_create_queue(self, update, context):
-        if self.check_user_have_access(update.effective_user.id, self.owners_table):
+        if self.registered_manager.check_access(update.effective_user.id):
             if len(self.cur_queue) == 0:
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',
                                                    reply_markup=keyboard_reply_create_queue)
@@ -195,20 +197,20 @@ class QueueBot:
             update.message.reply_text(msg_permission_denied)
 
     def _h_edit_queue(self, update, context):
-        if self.check_user_have_access(update.message.from_user.id, self.owners_table):
+        if self.registered_manager.check_access(update.effective_user.id):
             update.message.reply_text('Редактирование очереди', reply_markup=keyboard_modify_queue)
         else:
             update.message.reply_text(msg_permission_denied)
 
     def _h_edit_registered(self, update, context):
-        if self.check_user_have_access(update.message.from_user.id, self.owners_table):
+        if self.registered_manager.check_access(update.effective_user.id):
             update.effective_chat.send_message('Редактирование пользователей', reply_markup=keyboard_modify_registered)
         else:
             update.message.reply_text(msg_permission_denied)
 
     def _h_check_queue_status(self, update, context):
         if len(self.cur_queue) == 0:
-            if self.check_user_have_access(update.effective_user.id, self.owners_table):
+            if self.registered_manager.check_access(update.effective_user.id):
                 update.effective_chat.send_message('Очереди нет.\nХотите создать новую?', reply_markup=keyboard_reply_create_queue)
             else:
                 update.effective_chat.send_message('Очереди нет.')
@@ -220,65 +222,50 @@ class QueueBot:
             self.logger.log('user {0} in {1} chat requested queue'.format(update.effective_user.id, update.effective_chat.type))
 
     def _h_get_cur_and_next_students(self, update, context):
-        update.effective_chat.send_message(
-            self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
+        update.effective_chat.send_message(self.queue.get_cur_and_next_str())
 
     def _h_i_finished(self, update, context):
         cur_user_id = update.effective_user.id
-        if cur_user_id in self.registered_students.keys():
-            if self.cur_queue_pos >= 0 and self.cur_queue_pos < len(self.cur_queue):
-                if cur_user_id == self.cur_queue[self.cur_queue_pos][1] or \
-                        self.similar(self.registered_students[cur_user_id], self.cur_queue[self.cur_queue_pos][0]):
-                    self.cur_queue_pos += 1
-                    update.effective_chat.send_message(
-                        self.get_cur_and_next_str(*self.get_cur_and_next(self.cur_queue_pos, self.cur_queue)))
-                else:
-                    update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_students[cur_user_id]))
+        if self.registered_manager.get_user_by_id(cur_user_id) is not Student_EMPTY:  # user is registered
+            if 0 <= self.queue.queue_pos < len(self.queue) and self.queue.get_current() is not Student_EMPTY:
+                self.cur_queue_pos += 1
+                update.effective_chat.send_message(self.queue.get_cur_and_next_str())
             else:
-                update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_students[cur_user_id]))
+                update.message.reply_text('{0}, вы не сдаете сейчас.'.format(self.registered_manager.get_user_by_id(cur_user_id).get_string()))
         else:
             update.message.reply_text(msg_unknown_user)
 
         self.refresh_last_queue_msg()
-        self.save_bot_state_to_file()
-        self.logger.log('finished {0} - {1}'.format(cur_user_id, self.cur_queue[self.cur_queue_pos]))
+        self.save_queue_to_file()
+        self.logger.log('finished {0} - {1}'.format(cur_user_id, self.queue.get_current().log_str()))
 
     def _h_remove_me(self, update, context):
-
-        cur_user_id = update.effective_user.id
-
-        if cur_user_id in self.registered_students:
-            stud = (self.registered_students[cur_user_id], cur_user_id)
-        else:
-            stud = (update.effective_user.full_name, None)
-
-        if self.delete_stud_from_queue(stud):
+        if self.registered_manager.remove_by_id(update.effective_user.id):
             self.refresh_last_queue_msg()
             self.save_queue_to_file()
-            self.save_bot_state_to_file()
 
-            update.message.reply_text('Вы удалены из очереди'.format(self.registered_students[cur_user_id]))
-            self.logger.log('removed {0} - {1} '.format(self.registered_students[cur_user_id], cur_user_id))
+            update.message.reply_text('Вы удалены из очереди'.format(
+                        self.registered_manager.get_user_by_id(update.effective_user.id)))
 
+            self.logger.log('removed {0}'.format(self.registered_manager.get_user_by_id(update.effective_user.id).log_str()))
         else:
             update.message.reply_text('Вы не найдены в очереди')
 
     def _h_add_me_to_queue(self, update, context):
-        cur_user_id = update.effective_user.id
-
-        if (not cur_user_id is None) and (cur_user_id in self.registered_students):
-            stud = (self.registered_students[cur_user_id], cur_user_id)
-            self.delete_stud_from_queue(stud)
-            self.cur_queue.append_user(stud)
+        student = self.registered_manager.get_user_by_id(update.effective_user.id)
+        if student is not Student_EMPTY:
+            self.queue.remove(student)
+            self.queue.append(student)
         else:
-            self.cur_queue.append_user((update.effective_user.full_name, None))
+            self.queue.append_new(update.effective_user.full_name, update.effective_user.id)
 
         update.message.reply_text('Вы записаны в очередь')
 
         self.refresh_last_queue_msg()
         self.save_queue_to_file()
-        self.logger.log('added {0} - {1} '.format(*self.cur_queue[-1]))
+        self.logger.log('added {0}'.format(self.queue.get_last()))
 
+    # TODO finish refactor
     # returns True if someone was deleted
     def delete_stud_from_queue(self, del_student):
         delete = []
@@ -308,10 +295,6 @@ class QueueBot:
         self.logger.log(context.error)
         self.logger.save_to_cloud()
 
-    def _delete_cur_queue(self):
-        self.cur_queue = []
-        self.cur_queue_pos = None
-
     def _refresh_cur_queue_ids(self):
         for idx in range(len(self.cur_queue)):
             i = self.cur_queue[idx][0]  # name of student in i
@@ -326,48 +309,3 @@ class QueueBot:
             new_text = self.get_queue_str(self.cur_queue, self.cur_queue_pos)
             if self.last_queue_message.text != new_text:
                 self.last_queue_message = self.last_queue_message.edit_text(new_text, reply_markup=keyboard_move_queue)
-
-    # Администрирование
-
-    # Передача прав редактирования
-    def set_bot_user(self, user_id, user_name):
-        self.registered_students[user_id] = user_name
-        self.save_registered_to_file()
-
-    def add_new_bot_owner(self, user_id, new_owner_id, new_access_level=None):
-        if self.check_user_have_access(user_id, self.owners_table):
-            if new_access_level >= 0:
-                if new_access_level == None:
-                    self.owners_table[new_owner_id] = self.owners_table[user_id] + 1
-                    self.save_owners_to_file()
-                    return None
-                elif self.owners_table[user_id] < new_access_level:
-                    self.owners_table[new_owner_id] = new_access_level
-                    self.save_owners_to_file()
-                    return None
-
-                return msg_permission_denied
-            else:
-                return msg_code_not_valid
-        else:
-            return msg_permission_denied
-
-    def del_bot_owner(self, user_id, del_owner_id):
-        if self.check_user_have_access(user_id, self.owners_table):
-            try:
-                if self.owners_table[user_id] < self.owners_table[del_owner_id]:
-                    del self.owners_table[del_owner_id]
-                    self.save_owners_to_file()
-                    return None
-                else:
-                    return msg_permission_denied
-            except ValueError:
-                return msg_owner_not_found
-        else:
-            return msg_permission_denied
-
-    def check_user_have_access(self, user_id, access_levels_dict, access_level=1):
-        if user_id in access_levels_dict:
-            if access_levels_dict[user_id] <= access_level:
-                return True
-        return False
