@@ -1,16 +1,14 @@
-import enum
 import random as rnd
 from pathlib import Path
-from bot_messages import *
-from registered_manager import StudentsRegisteredManager
-from registered_manager import AccessLevel
 from varsaver import Savable
+import bot_messages as messages
+from bot_access_levels import AccessLevel
 
 
 class Student:
 
     def __init__(self, name, telegram_id):
-        self._name = name
+        self.name = name
         self.telegram_id = telegram_id
         self.access_level = AccessLevel.USER
 
@@ -28,12 +26,12 @@ class Student:
 
     def get_string(self, position=None):
         if position is None:
-            return self._name
+            return self.name
         else:
-            return '{0} - {1}'.format(position, self._name)
+            return '{0} - {1}'.format(position, self.name)
 
     def log_str(self):
-        return self._name + ' - ' + str(self.telegram_id)
+        return '{0} - {1}'.format(self.name, str(self.telegram_id))
 
 
 Student_EMPTY = Student('empty_student', None)
@@ -43,18 +41,15 @@ class StudentsQueue(Savable):
 
     _students = []
     queue_pos = 0
-    registered_manager = None
 
     _file_queue = Path('queue.data')
     _file_queue_state = Path('queue_state.data')
 
-    def __init__(self, students_manager=None, students=None):
-        if students_manager is None:
-            self.registered_manager = StudentsRegisteredManager()
-
+    def __init__(self, students_manager, students=None):
         if students is None:
             students = []
 
+        self.registered_manager = students_manager
         self._students = students
 
     def __len__(self):
@@ -151,7 +146,7 @@ class StudentsQueue(Savable):
                 cur_item, next_item = self.get_cur_and_next()
 
                 if cur_item is None:
-                    return msg_queue_finished
+                    return messages.queue_finished
 
                 str_list.append('Сдает:')
                 str_list.append(self.queue_pos)
@@ -166,11 +161,11 @@ class StudentsQueue(Savable):
                     for i in range(self.queue_pos + 2, len(self._students)):
                         str_list.append(self._students[i].get_string(i))
 
-                return '\n'.join(str_list) + '\n\n' + msg_queue_commands
+                return '\n'.join(str_list) + '\n\n' + messages.queue_commands
             else:
                 return 'Очередь:\n' + '\n'.join([self._students[i].get_string(i) for i in range(len(self._students))])
 
-        return msg_queue_finished
+        return messages.queue_finished
 
     def get_cur_and_next(self):
         if 0 <= self.queue_pos < len(self._students) - 1:
@@ -189,7 +184,7 @@ class StudentsQueue(Savable):
         if next_stud is not None:
             msg += '\nГотовится - {0}'.format(next_stud.get_string())
 
-        return msg if msg != '' else msg_queue_finished
+        return msg if msg != '' else messages.queue_finished
 
     # find students
     def parse_students(self, students_str):
@@ -208,7 +203,6 @@ class StudentsQueue(Savable):
         return students
 
     def parse_index_list(self, string):
-        index_str = []
         if ' ' in string:
             index_str = string.split(' ')
         else:
@@ -224,7 +218,7 @@ class StudentsQueue(Savable):
                     correct_indexes.append(position)
                 else:
                     err_list.append(pos_str)
-            except Exception:
+            except ValueError:
                 err_list.append(pos_str)
 
         return correct_indexes, err_list
@@ -237,14 +231,19 @@ class StudentsQueue(Savable):
 
     def generate_random(self, students=None):
         if students is None:
-            self._students = rnd.shuffle(self.registered_manager.get_users())
+            students = self.registered_manager.get_users()
+            rnd.shuffle(students)
+            self._students = students
         else:
-            self._students = rnd.shuffle(students)
+            rnd.shuffle(students)
+            self._students = students
 
     def load_file(self, saver):
         self._students = saver.load(self._file_queue)
-        state = saver.load(self._file_queue_state)
+        if self._students is None:
+            self._students = []
 
+        state = saver.load(self._file_queue_state)
         if state is not None:
             self.queue_pos = state['cur_queue_pos']
         else:

@@ -2,20 +2,15 @@ import enum
 from pathlib import Path
 from varsaver import Savable, VariableSaver
 from students_queue import Student, Student_EMPTY
-
-
-class AccessLevel(enum.Enum):
-    GOD = 0,
-    ADMIN = 1,
-    USER = 2
+from bot_access_levels import AccessLevel
 
 
 class StudentsRegisteredManager(Savable):
 
-    _file_registered_users = Path('data/registered.data')
+    _file_registered_users = Path('registered.data')
 
     # dictionary with id`s as keys and levels as values stored in file
-    _file_access_levels = Path('data/access_levels.data')
+    _file_access_levels = Path('access_levels.data')
 
     _students_reg = []
 
@@ -99,13 +94,6 @@ class StudentsRegisteredManager(Savable):
     def set_user(self, user_id: int):
         self.get_user_by_id(user_id).access_level = AccessLevel.USER
 
-    def update_access_levels(self, loader: VariableSaver):
-        access_level_updates = loader.load(self._file_access_levels)
-        if access_level_updates is not None:
-            for student in self._students_reg:
-                if student.get_id() in access_level_updates:
-                    student.access_level = AccessLevel(access_level_updates[student.get_id()])
-
     def find_similar_student(self, name: str):
         for student in self._students_reg:
             if self.is_similar(name, student.name):
@@ -144,6 +132,13 @@ class StudentsRegisteredManager(Savable):
                 err_list.append(line)
 
         return new_users, err_list
+
+    def update_access_levels(self, saver: VariableSaver):
+        access_level_updates = saver.load(self._file_access_levels)
+        if access_level_updates is not None:
+            for student in self._students_reg:
+                if student.telegram_id in access_level_updates:
+                    student.access_level = AccessLevel(access_level_updates[student.telegram_id])
 
     def save_to_file(self, saver: VariableSaver):
         saver.save(self._students_reg, self._file_registered_users)

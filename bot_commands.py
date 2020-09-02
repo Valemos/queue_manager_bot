@@ -1,13 +1,12 @@
-from HelperBot import QueueBot
-from bot_messages import *
-from bot_keyboards import *
+import bot_messages as messages
+import bot_keyboards as keyboards
 
 
 class CommandGroup:
     class Command:
         @classmethod
         def str(cls):
-            return super().__name__ + ':' + cls.__name__
+            return cls.__qualname__
         
         @classmethod
         def handle(cls, update, bot):
@@ -24,7 +23,7 @@ class ModifyQueue(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             bot.queue.clear()
-            update.effective_chat.send_message(msg_set_students)
+            update.effective_chat.send_message(messages.set_students)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -33,7 +32,7 @@ class ModifyQueue(CommandGroup):
             bot.queue.generate_simple(students)
 
             update.effective_chat.send_message('Студенты установлены')
-            update.effective_chat.send_message(bot.queue.get_string(), reply_markup=keyboard_move_queue)
+            update.effective_chat.send_message(bot.queue.get_string(), reply_markup=keyboards.move_queue)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -43,7 +42,7 @@ class ModifyQueue(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             bot.queue.clear()
-            update.effective_chat.send_message(msg_set_students)
+            update.effective_chat.send_message(messages.set_students)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -52,7 +51,7 @@ class ModifyQueue(CommandGroup):
             bot.queue.generate_random(students)
 
             update.effective_chat.send_message('Студенты установлены')
-            update.effective_chat.send_message(bot.queue.get_string(), reply_markup=keyboard_move_queue)
+            update.effective_chat.send_message(bot.queue.get_string(), reply_markup=keyboards.move_queue)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -71,7 +70,7 @@ class ModifyQueue(CommandGroup):
     class SetStudents(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(msg_set_students)
+            update.effective_chat.send_message(messages.set_students)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -94,7 +93,7 @@ class ModifyQueue(CommandGroup):
 
                 update.effective_chat.send_message('Позиция установлена')
             except (ValueError, AssertionError):
-                update.effective_chat.send_message(msg_error_in_values)
+                update.effective_chat.send_message(messages.error_in_values)
             finally:
                 bot.save_bot_state_to_file()
                 bot.refresh_last_queue_msg()
@@ -165,9 +164,9 @@ class ModifyQueue(CommandGroup):
                 bot.queue.move_student_to_index(indexes[0], indexes[1])
                 update.effective_chat.send_message('Студент перемещен')
             elif len(errors) > 0:
-                update.effective_chat.send_message(msg_error_in_values)
+                update.effective_chat.send_message(messages.error_in_values)
             else:
-                update.effective_chat.send_message(msg_error_in_values)
+                update.effective_chat.send_message(messages.error_in_values)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -209,10 +208,10 @@ class ModifyQueue(CommandGroup):
                     bot.queue.swap(cur_pos, swap_pos)
                     update.effective_chat.send_message('Студенты перемещены')
                 else:
-                    update.effective_chat.send_message(msg_error_in_values)
+                    update.effective_chat.send_message(messages.error_in_values)
 
             except ValueError:
-                update.effective_chat.send_message(msg_error_in_values)
+                update.effective_chat.send_message(messages.error_in_values)
             finally:
                 bot.save_queue_to_file()
                 bot.refresh_last_queue_msg()
@@ -228,22 +227,22 @@ class ModifyRegistered(CommandGroup):
     class AddListUsers(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(msg_set_registered_students)
+            update.effective_chat.send_message(messages.set_registered_students)
             bot.command_requested_answer = cls
 
     class AddUser(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(msg_get_user_message)
+            update.effective_chat.send_message(messages.get_user_message)
             bot.command_requested_answer = cls
 
         @classmethod
         def handle_request(cls, update, bot):
             if update.message.forward_from is not None:
                 bot.registered_manager.append_new_user(update.message.forward_from.full_name, update.message.forward_from.id)
-                update.message.reply_text(msg_user_register_successfull)
+                update.message.reply_text(messages.user_register_successfull)
             else:
-                update.message.reply_text(msg_was_not_forwarded)
+                update.message.reply_text(messages.was_not_forwarded)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -277,21 +276,21 @@ class UpdateQueue(CommandGroup):
         def handle(cls, update, bot):
             if bot.queue.move_prev():
                 update.effective_chat.send_message(bot.queue.get_cur_and_next_str())
-                update.callback_query.edit_message_text(bot.queue.get_string(), reply_markup=keyboard_move_queue)
+                update.callback_query.edit_message_text(bot.queue.get_string(), reply_markup=keyboards.move_queue)
 
     class MoveNext(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
             if bot.queue.move_next():
                 update.effective_chat.send_message(bot.queue.get_cur_and_next_str())
-                update.callback_query.edit_message_text(bot.queue.get_string(), reply_markup=keyboard_move_queue)
+                update.callback_query.edit_message_text(bot.queue.get_string(), reply_markup=keyboards.move_queue)
 
     class Refresh(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
             new_queue_str = bot.queue.get_string()
             if update.callback_query.message.text != new_queue_str:
-                update.callback_query.edit_message_text(new_queue_str, reply_markup=keyboard_move_queue)
+                update.callback_query.edit_message_text(new_queue_str, reply_markup=keyboards.move_queue)
 
 
 class ManageUsers(CommandGroup):
@@ -323,7 +322,7 @@ class ManageUsers(CommandGroup):
 
     class AddUsersList(CommandGroup.Command):
         @classmethod
-        def handle_request(cls, update, bot: QueueBot):
+        def handle_request(cls, update, bot):
             users, errors = bot.registered_manager.parse_users()
             bot.registered_manager.append_users(users)
 

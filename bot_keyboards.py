@@ -1,36 +1,36 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from bot_commands import *
+import bot_commands as commands
 
-keyboard_reply_create_queue = InlineKeyboardMarkup([
-    [InlineKeyboardButton('Создать очередь',    callback_data=ModifyQueue.CreateSimple.str())],
-    [InlineKeyboardButton('Отмена',             callback_data=ModifyQueue.Cancel.str())]])
+reply_create_queue = InlineKeyboardMarkup([
+    [InlineKeyboardButton('Создать очередь',    callback_data=commands.ModifyQueue.CreateSimple.str())],
+    [InlineKeyboardButton('Отмена',             callback_data=commands.ModifyQueue.Cancel.str())]])
 
-keyboard_create_random_queue = InlineKeyboardMarkup([
-    [InlineKeyboardButton('Создать очередь',    callback_data=ModifyQueue.CreateRandom.str())],
-    [InlineKeyboardButton('Отмена',             callback_data=ModifyQueue.Cancel())]])
+create_random_queue = InlineKeyboardMarkup([
+    [InlineKeyboardButton('Создать очередь',    callback_data=commands.ModifyQueue.CreateRandom.str())],
+    [InlineKeyboardButton('Отмена',             callback_data=commands.ModifyQueue.Cancel())]])
 
-keyboard_modify_queue = InlineKeyboardMarkup([
-    [InlineKeyboardButton('Переместить студента в конец',   callback_data=ModifyQueue.MoveStudentToEnd.str())],
-    [InlineKeyboardButton('Поменять местами',               callback_data=ModifyQueue.SwapStudents.str())],
-    [InlineKeyboardButton('Поставить студента на позицию',  callback_data=ModifyQueue.SetStudentPosition.str())],
-    [InlineKeyboardButton('Удалить студентов',              callback_data=ModifyQueue.RemoveStudentsList.str())],
-    [InlineKeyboardButton('Добавить студента',              callback_data=ModifyQueue.AddStudent.str())],
-    [InlineKeyboardButton('Установить позицию очереди',     callback_data=ModifyQueue.SetQueuePosition.str())],
-    [InlineKeyboardButton('Показать очередь',               callback_data=ModifyQueue.ShowList.str())],
-    [InlineKeyboardButton('Установить новую очередь',       callback_data=ModifyQueue.SetStudents.str())],
-    [InlineKeyboardButton('Очистить очередь',               callback_data=ModifyQueue.ClearList.str())]
+modify_queue = InlineKeyboardMarkup([
+    [InlineKeyboardButton('Переместить студента в конец',   callback_data=commands.ModifyQueue.MoveStudentToEnd.str())],
+    [InlineKeyboardButton('Поменять местами',               callback_data=commands.ModifyQueue.SwapStudents.str())],
+    [InlineKeyboardButton('Поставить студента на позицию',  callback_data=commands.ModifyQueue.SetStudentPosition.str())],
+    [InlineKeyboardButton('Удалить студентов',              callback_data=commands.ModifyQueue.RemoveStudentsList.str())],
+    [InlineKeyboardButton('Добавить студента',              callback_data=commands.ModifyQueue.AddStudent.str())],
+    [InlineKeyboardButton('Установить позицию очереди',     callback_data=commands.ModifyQueue.SetQueuePosition.str())],
+    [InlineKeyboardButton('Показать очередь',               callback_data=commands.ModifyQueue.ShowList.str())],
+    [InlineKeyboardButton('Установить новую очередь',       callback_data=commands.ModifyQueue.SetStudents.str())],
+    [InlineKeyboardButton('Очистить очередь',               callback_data=commands.ModifyQueue.ClearList.str())]
 ])
 
-keyboard_move_queue = InlineKeyboardMarkup([
-    [InlineKeyboardButton('Следующий',  callback_data=UpdateQueue.MoveNext.str())],
-    [InlineKeyboardButton('Предыдущий', callback_data=UpdateQueue.MovePrevious.str())],
-    [InlineKeyboardButton('Обновить',   callback_data=UpdateQueue.Refresh.str())]
+move_queue = InlineKeyboardMarkup([
+    [InlineKeyboardButton('Следующий',  callback_data=commands.UpdateQueue.MoveNext.str())],
+    [InlineKeyboardButton('Предыдущий', callback_data=commands.UpdateQueue.MovePrevious.str())],
+    [InlineKeyboardButton('Обновить',   callback_data=commands.UpdateQueue.Refresh.str())]
 ])
 
-keyboard_modify_registered = InlineKeyboardMarkup([
-    [InlineKeyboardButton('Показать зарегистрированных',            callback_data=ModifyRegistered.ShowListUsers.str())],
-    [InlineKeyboardButton('Зарегистрировать пользователя',          callback_data=ModifyRegistered.AddUser.str())],
-    [InlineKeyboardButton('Добавить список пользователей(с ID)',    callback_data=ModifyRegistered.AddListUsers.str())],
-    [InlineKeyboardButton('Удалить несколько пользователей',        callback_data=ModifyRegistered.RemoveListUsers.str())],
-    [InlineKeyboardButton('Переименовать всех пользователей',       callback_data=ModifyRegistered.RenameAllUsers.str())]
+modify_registered = InlineKeyboardMarkup([
+    [InlineKeyboardButton('Показать зарегистрированных',         callback_data=commands.ModifyRegistered.ShowListUsers.str())],
+    [InlineKeyboardButton('Зарегистрировать пользователя',       callback_data=commands.ModifyRegistered.AddUser.str())],
+    [InlineKeyboardButton('Добавить список пользователей(с ID)', callback_data=commands.ModifyRegistered.AddListUsers.str())],
+    [InlineKeyboardButton('Удалить несколько пользователей',     callback_data=commands.ModifyRegistered.RemoveListUsers.str())],
+    [InlineKeyboardButton('Переименовать всех пользователей',    callback_data=commands.ModifyRegistered.RenameAllUsers.str())]
 ])

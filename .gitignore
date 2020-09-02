@@ -15,3 +15,6 @@ show_data.py
 drive_sample.py
 queue-bot-key.json
 drive_data/*
+/test_bot.py
+/DataReformatter.ipynb
+/data/queue_state.data
