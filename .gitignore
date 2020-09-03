@@ -19,3 +19,7 @@ drive_data/*
 /DataReformatter.ipynb
 /data/queue_state.data
 /data-Copy/
+.spyproject/
+queue_bot/__pycache__/
+queue_bot/languages/__pycache__/
+test_data/

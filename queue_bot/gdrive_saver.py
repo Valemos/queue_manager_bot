@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 from google.oauth2 import service_account
-from apiclient import discovery
+from googleapiclient import discovery
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from queue_bot.varsaver import FolderType
 
