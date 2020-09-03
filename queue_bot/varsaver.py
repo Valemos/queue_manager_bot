@@ -16,11 +16,11 @@ class Savable:
 
 
 class FolderType(enum.Enum):
-    Data = Path('../data')
-    DriveData = Path('../drive_data')
-    Backup = Path('../data-Copy')
-    Logs = Path('../logs')
-    Test = Path('../test_data')
+    Data = Path('data')
+    DriveData = Path('drive_data')
+    Backup = Path('data-Copy')
+    Logs = Path('logs')
+    Test = Path('test_data')
 
 
 class VariableSaver:
