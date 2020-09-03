@@ -7,7 +7,7 @@ class Logger:
     
     def __init__(self, log_path = None):
         if log_path is None:
-            log_path = Path('../logs/log.txt')
+            log_path = FolderType.Logs / Path('log.txt')
             
         if not log_path.exists():
             log_path.parent.mkdir(parents=True, exist_ok=True)
