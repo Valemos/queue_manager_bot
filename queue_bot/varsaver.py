@@ -1,5 +1,4 @@
 import enum
-import os
 from pathlib import Path
 import pickle
 
@@ -16,8 +15,10 @@ class Savable:
 
 
 class FolderType(enum.Enum):
-    Data = Path('data')
-    Logs = Path('logs')
+    Data = Path('../data')
+    DriveData = Path('../drive_data')
+    Backup = Path('../data-Copy')
+    Logs = Path('../logs')
 
 
 class VariableSaver:
@@ -49,5 +50,5 @@ class VariableSaver:
         try:
             with save_path.open('rb') as fr:
                 return pickle.load(fr)
-        except Exception:
+        except pickle.UnpicklingError:
             return None

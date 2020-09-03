@@ -1,14 +1,12 @@
-import enum
 from pathlib import Path
-from varsaver import Savable, VariableSaver
-from students_queue import Student, Student_EMPTY
-from bot_access_levels import AccessLevel
+from queue_bot.varsaver import Savable, VariableSaver
+from queue_bot.students_queue import Student, Student_EMPTY
+from queue_bot.bot_access_levels import AccessLevel
 
 
 class StudentsRegisteredManager(Savable):
 
     _file_registered_users = Path('registered.data')
-
     # dictionary with id`s as keys and levels as values stored in file
     _file_access_levels = Path('access_levels.data')
 
@@ -139,12 +137,15 @@ class StudentsRegisteredManager(Savable):
             for student in self._students_reg:
                 if student.telegram_id in access_level_updates:
                     student.access_level = AccessLevel(access_level_updates[student.telegram_id])
+            self.save_to_file(saver)
 
     def save_to_file(self, saver: VariableSaver):
         saver.save(self._students_reg, self._file_registered_users)
 
     def load_file(self, loader: VariableSaver):
         self._students_reg = loader.load(self._file_registered_users)
+        if self._students_reg is None:
+            self._students_reg = []
 
     def get_save_files(self):
         return [self._file_registered_users, self._file_access_levels]

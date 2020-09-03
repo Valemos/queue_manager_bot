@@ -1,12 +1,22 @@
-import bot_messages as messages
-import bot_keyboards as keyboards
-
-
 class CommandGroup:
     class Command:
+
+        @classmethod
+        def __str__(cls):
+            return cls.__qualname__
+
         @classmethod
         def str(cls):
             return cls.__qualname__
+
+        @staticmethod
+        def parse_command(command_str):
+            try:
+                # __qualname__ returns class in format Class.Subclass and query formed only from it
+                items = command_str.split('.')
+                return items[0], ''.join(items[1:])
+            except ValueError:
+                return None, None
         
         @classmethod
         def handle(cls, update, bot):
@@ -23,7 +33,7 @@ class ModifyQueue(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             bot.queue.clear()
-            update.effective_chat.send_message(messages.set_students)
+            update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -31,8 +41,8 @@ class ModifyQueue(CommandGroup):
             students = bot.queue.parse_students(update.message.text)
             bot.queue.generate_simple(students)
 
-            update.effective_chat.send_message('Студенты установлены')
-            update.effective_chat.send_message(bot.queue.get_string(), reply_markup=keyboards.move_queue)
+            update.effective_chat.send_message(bot.get_language_pack().students_set)
+            update.effective_chat.send_message(bot.queue.str(), reply_markup=bot.keyboards.move_queue)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -42,7 +52,7 @@ class ModifyQueue(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             bot.queue.clear()
-            update.effective_chat.send_message(messages.set_students)
+            update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -50,8 +60,8 @@ class ModifyQueue(CommandGroup):
             students = bot.queue.parse_students(update.message.text)
             bot.queue.generate_random(students)
 
-            update.effective_chat.send_message('Студенты установлены')
-            update.effective_chat.send_message(bot.queue.get_string(), reply_markup=keyboards.move_queue)
+            update.effective_chat.send_message(bot.get_language_pack().students_set)
+            update.effective_chat.send_message(bot.queue.str(), reply_markup=bot.keyboards.move_queue)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -65,12 +75,12 @@ class ModifyQueue(CommandGroup):
     class ShowList(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.get_string())
+            update.effective_chat.send_message(bot.queue.str())
 
     class SetStudents(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(messages.set_students)
+            update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -80,8 +90,8 @@ class ModifyQueue(CommandGroup):
     class SetQueuePosition(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.get_string())
-            update.effective_chat.send_message('Пришлите номер новой позциции')
+            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.get_language_pack().send_new_position)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -91,9 +101,9 @@ class ModifyQueue(CommandGroup):
                 assert 0 < new_index <= len(bot.queue)
                 bot.queue.queue_pos = new_index - 1
 
-                update.effective_chat.send_message('Позиция установлена')
+                update.effective_chat.send_message(bot.get_language_pack().position_set)
             except (ValueError, AssertionError):
-                update.effective_chat.send_message(messages.error_in_values)
+                update.effective_chat.send_message(bot.get_language_pack().error_in_values)
             finally:
                 bot.save_bot_state_to_file()
                 bot.refresh_last_queue_msg()
@@ -103,13 +113,13 @@ class ModifyQueue(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             bot.queue.clear()
-            update.effective_chat.send_message('Очередь удалена')
+            update.effective_chat.send_message(bot.get_language_pack().queue_deleted)
 
     class MoveStudentToEnd(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.get_string())
-            update.effective_chat.send_message('Пришлите номер студента в очереди')
+            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.get_language_pack().send_student_number)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -122,17 +132,17 @@ class ModifyQueue(CommandGroup):
 
                 bot.queue.move_to_end(move_pos)
                 bot.refresh_last_queue_msg()
-                update.effective_chat.send_message('Студент добавлен в конец')
+                update.effective_chat.send_message(bot.get_language_pack().student_added_to_end)
             except ValueError:
-                update.effective_chat.send_message('Не номер из очереди. Отмена операции')
+                update.effective_chat.send_message(bot.get_language_pack().not_index_from_queue)
             finally:
                 bot.command_requested_answer = None
 
     class RemoveStudentsList(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.get_string())
-            update.effective_chat.send_message('Пришлите номер студентов в очереди через пробел')
+            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.get_language_pack().send_student_numbers_with_space)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -141,9 +151,9 @@ class ModifyQueue(CommandGroup):
             bot.queue.remove_by_index(indexes)
 
             if len(errors) > 0:
-                update.effective_chat.send_message('Ошибка возникла в этих значениях:\n' + ' '.join(errors))
+                update.effective_chat.send_message(bot.get_language_pack().error_in_this_values.format(' '.join(errors)))
             if len(indexes) > 0:
-                update.effective_chat.send_message('Пользователи удалены')
+                update.effective_chat.send_message(bot.get_language_pack().users_deleted)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -152,8 +162,8 @@ class ModifyQueue(CommandGroup):
     class SetStudentPosition(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.get_string())
-            update.effective_chat.send_message('Пришлите номер студента в очереди и через пробел номер новой позиции')
+            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.get_language_pack().send_student_number_and_new_position)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -162,11 +172,11 @@ class ModifyQueue(CommandGroup):
 
             if len(indexes) >= 2:
                 bot.queue.move_student_to_index(indexes[0], indexes[1])
-                update.effective_chat.send_message('Студент перемещен')
+                update.effective_chat.send_message(bot.get_language_pack().student_moved)
             elif len(errors) > 0:
-                update.effective_chat.send_message(messages.error_in_values)
+                update.effective_chat.send_message(bot.get_language_pack().error_in_values)
             else:
-                update.effective_chat.send_message(messages.error_in_values)
+                update.effective_chat.send_message(bot.get_language_pack().error_in_values)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -175,8 +185,8 @@ class ModifyQueue(CommandGroup):
     class AddStudent(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.get_string())
-            update.effective_chat.send_message('Пришлите имя нового студента, он будет добавлен в конец очереди')
+            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.get_language_pack().send_student_name_to_end)
             bot.command_requested_answer = cls
 
         @classmethod
@@ -186,7 +196,7 @@ class ModifyQueue(CommandGroup):
             else:
                 bot.logger.log('student set ' + update.message.text + ' not found')
 
-            update.effective_chat.send_message('Студент установлен')
+            update.effective_chat.send_message(bot.get_language_pack().student_set)
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
             bot.command_requested_answer = None
@@ -194,8 +204,8 @@ class ModifyQueue(CommandGroup):
     class SwapStudents(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.get_string())
-            update.effective_chat.send_message('Пришлите номера двух студентов через пробел')
+            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.get_language_pack().send_two_positions_students_space)
             bot.command_requested_answer = cls
         
         @classmethod
@@ -206,12 +216,12 @@ class ModifyQueue(CommandGroup):
 
                 if 0 <= cur_pos < len(bot.queue) and 0 <= swap_pos < len(bot.queue):
                     bot.queue.swap(cur_pos, swap_pos)
-                    update.effective_chat.send_message('Студенты перемещены')
+                    update.effective_chat.send_message(bot.get_language_pack().students_moved)
                 else:
-                    update.effective_chat.send_message(messages.error_in_values)
+                    update.effective_chat.send_message(bot.get_language_pack().error_in_values)
 
             except ValueError:
-                update.effective_chat.send_message(messages.error_in_values)
+                update.effective_chat.send_message(bot.get_language_pack().error_in_values)
             finally:
                 bot.save_queue_to_file()
                 bot.refresh_last_queue_msg()
@@ -227,22 +237,22 @@ class ModifyRegistered(CommandGroup):
     class AddListUsers(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(messages.set_registered_students)
+            update.effective_chat.send_message(bot.get_language_pack().set_registered_students)
             bot.command_requested_answer = cls
 
     class AddUser(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(messages.get_user_message)
+            update.effective_chat.send_message(bot.get_language_pack().get_user_message)
             bot.command_requested_answer = cls
 
         @classmethod
         def handle_request(cls, update, bot):
             if update.message.forward_from is not None:
                 bot.registered_manager.append_new_user(update.message.forward_from.full_name, update.message.forward_from.id)
-                update.message.reply_text(messages.user_register_successfull)
+                update.message.reply_text(bot.get_language_pack().user_register_successfull)
             else:
-                update.message.reply_text(messages.was_not_forwarded)
+                update.message.reply_text(bot.get_language_pack().was_not_forwarded)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -251,7 +261,7 @@ class ModifyRegistered(CommandGroup):
     class RenameAllUsers(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message('Введите список новых имен для всех пользователей в порядке их расположения')
+            update.effective_chat.send_message(bot.get_language_pack().enter_new_list_in_order)
             bot.command_requested_answer = cls
 
     class RemoveListUsers(CommandGroup.Command):
@@ -261,9 +271,9 @@ class ModifyRegistered(CommandGroup):
             bot.registered_manager.remove_by_index([i - 1 for i in delete_indexes])
 
             if len(errors) > 0:
-                update.effective_chat.send_message('Ошибка в этих значениях:\n' + '\n'.join(errors))
+                update.effective_chat.send_message(bot.get_language_pack().error_in_this_values.format('\n'.join(errors)))
             if len(delete_indexes) > 0:
-                update.effective_chat.send_message('Пользователи удалены')
+                update.effective_chat.send_message(bot.get_language_pack().users_deleted)
 
             bot.save_queue_to_file()
             bot.refresh_last_queue_msg()
@@ -276,21 +286,21 @@ class UpdateQueue(CommandGroup):
         def handle(cls, update, bot):
             if bot.queue.move_prev():
                 update.effective_chat.send_message(bot.queue.get_cur_and_next_str())
-                update.callback_query.edit_message_text(bot.queue.get_string(), reply_markup=keyboards.move_queue)
+                update.callback_query.edit_message_text(bot.queue.str(), reply_markup=bot.keyboards.move_queue)
 
     class MoveNext(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
             if bot.queue.move_next():
                 update.effective_chat.send_message(bot.queue.get_cur_and_next_str())
-                update.callback_query.edit_message_text(bot.queue.get_string(), reply_markup=keyboards.move_queue)
+                update.callback_query.edit_message_text(bot.queue.str(), reply_markup=bot.keyboards.move_queue)
 
     class Refresh(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            new_queue_str = bot.queue.get_string()
+            new_queue_str = bot.queue.str()
             if update.callback_query.message.text != new_queue_str:
-                update.callback_query.edit_message_text(new_queue_str, reply_markup=keyboards.move_queue)
+                update.callback_query.edit_message_text(new_queue_str, reply_markup=bot.keyboards.move_queue)
 
 
 class ManageUsers(CommandGroup):
@@ -302,9 +312,9 @@ class ManageUsers(CommandGroup):
                 if return_msg is not None:
                     update.message.reply_text(return_msg)
                 else:
-                    update.message.reply_text('Владелец успешно установлен')
+                    update.message.reply_text(bot.get_language_pack().admin_set)
             else:
-                update.message.reply_text('Сообщение ни от кого не переслано, отмена')
+                update.message.reply_text(bot.get_language_pack().was_not_forwarded)
             bot.command_requested_answer = None
 
     class RemoveAdmin(CommandGroup.Command):
@@ -315,9 +325,9 @@ class ManageUsers(CommandGroup):
                 if return_msg is not None:
                     update.message.reply_text(return_msg)
                 else:
-                    update.message.reply_text('Владелец успешно удален')
+                    update.message.reply_text(bot.get_language_pack().admin_deleted)
             else:
-                update.message.reply_text('Сообщение ни от кого не переслано')
+                update.message.reply_text(bot.get_language_pack().was_not_forwarded)
             bot.command_requested_answer = None
 
     class AddUsersList(CommandGroup.Command):
@@ -327,9 +337,9 @@ class ManageUsers(CommandGroup):
             bot.registered_manager.append_users(users)
 
             if len(errors) > 0:
-                update.effective_chat.send_message('Ошибка возникла в этих строках:\n' + '\n'.join(errors))
+                update.effective_chat.send_message(bot.get_language_pack().error_in_this_values('\n'.join(errors)))
             if len(users) > 0:
-                update.effective_chat.send_message('Пользователи добавлены')
+                update.effective_chat.send_message(bot.get_language_pack().users_added)
 
             bot.save_registered_to_file()
             bot.command_requested_answer = None

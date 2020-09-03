@@ -1,12 +1,13 @@
-from logger import Logger
-from varsaver import VariableSaver
-from gdrive_saver import DriveSaver, FolderType
-import bot_messages as messages
-import bot_keyboards as keyboards
-import bot_commands as commands
-from registered_manager import StudentsRegisteredManager, AccessLevel
-from students_queue import StudentsQueue, Student_EMPTY
-import bot_command_handler
+from queue_bot.logger import Logger
+from queue_bot.varsaver import VariableSaver
+from queue_bot.gdrive_saver import DriveSaver, FolderType
+from queue_bot.languages.bot_messages_ukr import MessagesUkrainian
+from queue_bot.languages.bot_messages_rus import MessagesRussian
+from queue_bot import bot_commands as commands, bot_command_handler, bot_keyboards
+from queue_bot.registered_manager import StudentsRegisteredManager, AccessLevel
+from queue_bot.students_queue import StudentsQueue, Student_EMPTY
+from queue_bot.updatable_message import UpdatableMessage
+from queue_bot.languages.messages_interface import Translatable
 
 import atexit
 import os
@@ -15,10 +16,12 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters,
 from telegram import Chat
 
 
-class QueueBot:
+class QueueBot(Translatable):
+    language_pack = None
+    keyboards = bot_keyboards
 
     command_handler = bot_command_handler.CommandHandler
-    last_queue_message = None
+    last_queue_message = UpdatableMessage()
     command_requested_answer = None
 
     def __init__(self, bot_token=None):
@@ -26,7 +29,7 @@ class QueueBot:
         self.varsaver = VariableSaver(logger=self.logger)
         self.gdrive_saver = DriveSaver()
         self.registered_manager = StudentsRegisteredManager()
-        self.queue = StudentsQueue(self.registered_manager)
+        self.queue = StudentsQueue(self.registered_manager, self)
 
         if bot_token is None:
             bot_token = self.get_token()
@@ -35,6 +38,11 @@ class QueueBot:
         self.init_updater_commands()
 
         atexit.register(self.save_before_stop)
+
+    def get_language_pack(self):
+        if self.language_pack is None:
+            self.language_pack = MessagesRussian()
+        return self.language_pack
 
     def init_updater_commands(self):
         self.updater.dispatcher.add_handler(CommandHandler('i_finished', self._h_i_finished))
@@ -65,7 +73,6 @@ class QueueBot:
         # clear queue, if it was fully completed
         if self.queue.queue_pos >= len(self.queue):
             self.queue.clear()
-
         self.save_queue_to_file()
         self.save_to_cloud()
 
@@ -125,44 +132,45 @@ class QueueBot:
     def _h_add_new_owner(self, update, context):
         if self.registered_manager.check_access(update.message.from_user.id):
             if self.command_requested_answer is None:
-                update.message.reply_text(messages.get_user_message)
+                update.message.reply_text(self.get_language_pack().get_user_message)
                 self.command_requested_answer = commands.ManageUsers.AddAdmin
             else:
-                update.message.reply_text('Уже запрошено, пришлите сообщение нового владельца')
+                update.message.reply_text(self.get_language_pack().already_requested_send_message)
         else:
-            update.message.reply_text(messages.permission_denied)
+            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_del_owner(self, update, context):
         if self.registered_manager.check_access(update.message.from_user.id, AccessLevel.GOD):
             if self.command_requested_answer is None:
-                update.message.reply_text(messages.get_user_message)
+                update.message.reply_text(self.get_language_pack().get_user_message)
                 self.command_requested_answer = commands.ManageUsers.RemoveAdmin
             else:
-                update.message.reply_text('Уже запрошено, пришлите сообщение нового владельца')
+                update.message.reply_text(self.get_language_pack().already_requested_send_message)
         else:
-            update.message.reply_text(messages.permission_denied)
+            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_start(self, update, context):
         if len(self.registered_manager) == 0:
             self.registered_manager.append_new_user(update.message.from_user.username, update.message.from_user.id)
             self.registered_manager.set_god(update.message.from_user.id)
-            update.message.reply_text('Первый владелец добавлен - ' + update.message.from_user.username)
+            update.message.reply_text(
+                self.get_language_pack().first_user_added.format(update.message.from_user.username))
 
             for admin in update.effective_chat.get_administrators():
                 self.registered_manager.append_new_user(admin.user.username, admin.user.id)
                 self.registered_manager.set_admin(admin.user.id)
 
             self.save_registered_to_file()
-            update.effective_chat.send_message('Администраторы добавлены')
+            update.effective_chat.send_message(self.get_language_pack().admins_added)
 
         elif self.registered_manager.check_access(update.effective_user.id):
-            update.message.reply_text('Бот уже запущен.')
+            update.message.reply_text(self.get_language_pack().bot_already_running)
 
     def _h_stop(self, update, context):
         if self.registered_manager.check_access(update.effective_user.id):
-            update.message.reply_text('Бот остановлен, и больше не принимает команд')
+            update.message.reply_text(self.get_language_pack().bot_stopped)
             self.updater.stop()
-            exit()
+            exit(0)
 
     def _h_show_logs(self, update, context):
         if self.registered_manager.check_access(update.effective_user.id, AccessLevel.GOD):
@@ -174,49 +182,49 @@ class QueueBot:
             update.effective_chat.send_message(trimmed_msg)
 
     def _h_create_random_queue(self, update, context):
-        if self.registered_manager.check_access(update.effective_user.id):
-            if len(self.queue) == 0:
-                update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',
-                                                   reply_markup=keyboards.create_random_queue)
-            else:
-                update.effective_chat.send_message('Удалить предыдущую очередь и создать новую?',
-                                                   reply_markup=keyboards.create_random_queue)
-        else:
-            update.message.reply_text(messages.permission_denied)
+        self._generate_queue_message(update, self.keyboards.create_random_queue)
 
     def _h_create_queue(self, update, context):
+        self._generate_queue_message(update, self.keyboards.create_simple_queue)
+
+    def _generate_queue_message(self, update, keyboard):
         if self.registered_manager.check_access(update.effective_user.id):
             if len(self.queue) == 0:
-                update.effective_chat.send_message('Очереди нет.\nХотите создать новую?',
-                                                   reply_markup=keyboards.reply_create_queue)
+                update.effective_chat.send_message(self.get_language_pack().queue_not_exists_create_new,
+                                                   reply_markup=keyboard)
             else:
-                update.effective_chat.send_message('Удалить предыдущую очередь и создать новую?',
-                                                   reply_markup=keyboards.reply_create_queue)
+                update.effective_chat.send_message(self.get_language_pack().create_new_queue,
+                                                   reply_markup=keyboard)
         else:
-            update.message.reply_text(messages.permission_denied)
+            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_edit_queue(self, update, context):
         if self.registered_manager.check_access(update.effective_user.id):
-            update.message.reply_text('Редактирование очереди', reply_markup=keyboards.modify_queue)
+            update.message.reply_text(self.get_language_pack().title_edit_queue,
+                                      reply_markup=self.keyboards.modify_queue)
         else:
-            update.message.reply_text(messages.permission_denied)
+            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_edit_registered(self, update, context):
         if self.registered_manager.check_access(update.effective_user.id):
-            update.effective_chat.send_message('Редактирование пользователей', reply_markup=keyboards.modify_registered)
+            update.effective_chat.send_message(self.get_language_pack().title_edit_registered,
+                                               reply_markup=self.keyboards.modify_registered)
         else:
-            update.message.reply_text(messages.permission_denied)
+            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_check_queue_status(self, update, context):
         if len(self.queue) == 0:
             if self.registered_manager.check_access(update.effective_user.id):
-                update.effective_chat.send_message('Очереди нет.\nХотите создать новую?', reply_markup=keyboards.reply_create_queue)
+                update.effective_chat.send_message(self.get_language_pack().queue_not_exists_create_new,
+                                                   reply_markup=self.keyboards.create_simple_queue)
             else:
-                update.effective_chat.send_message('Очереди нет.')
+                update.effective_chat.send_message(self.get_language_pack().queue_not_exists)
         else:
-            msg = update.effective_chat.send_message(self.queue.get_string(), reply_markup=keyboards.move_queue)
             if update.effective_chat.type != Chat.PRIVATE:
-                self.last_queue_message = msg
+                self.last_queue_message.send_new(update.effective_chat, self.queue.str(), self.keyboards.move_queue)
+            else:
+                self.last_queue_message.update_contents(update.effective_chat, self.queue.str(),
+                                                        self.keyboards.move_queue)
 
             self.logger.log('user {0} in {1} chat requested queue'.format(
                 self.registered_manager.get_user_by_id(update.effective_user.id).log_str(), update.effective_chat.type))
@@ -226,31 +234,32 @@ class QueueBot:
 
     def _h_i_finished(self, update, context):
         cur_user_id = update.effective_user.id
-        if self.registered_manager.get_user_by_id(cur_user_id) is not Student_EMPTY:  # user is registered
-            if self.queue.get_current() is not Student_EMPTY:
+        student_requested = self.registered_manager.get_user_by_id(cur_user_id)
+        if student_requested is not Student_EMPTY:  # user is registered
+            if self.queue.get_current() == student_requested:
                 self.queue.move_next()
                 update.effective_chat.send_message(self.queue.get_cur_and_next_str())
             else:
-                update.message.reply_text('{0}, вы не сдаете сейчас.'.format(
-                    self.registered_manager.get_user_by_id(cur_user_id).get_string()))
+                update.message.reply_text(self.get_language_pack().your_turn_not_now.format(
+                    self.registered_manager.get_user_by_id(cur_user_id).str()))
         else:
-            update.message.reply_text(messages.unknown_user)
+            update.message.reply_text(self.get_language_pack().unknown_user)
 
-        self.refresh_last_queue_msg()
+        self.last_queue_message.update_contents(update.effective_chat, self.queue.str(), self.keyboards.move_queue)
         self.save_queue_to_file()
         self.logger.log('finished {0} - {1}'.format(cur_user_id, self.queue.get_current().log_str()))
 
     def _h_remove_me(self, update, context):
         if self.registered_manager.remove_by_id(update.effective_user.id):
-            self.refresh_last_queue_msg()
+            self.last_queue_message.update_contents(update.effective_chat, self.queue.str(), self.keyboards.move_queue)
             self.save_queue_to_file()
 
-            update.message.reply_text('Вы удалены из очереди'.format(
-                        self.registered_manager.get_user_by_id(update.effective_user.id)))
+            update.message.reply_text(self.get_language_pack().you_deleted)
 
-            self.logger.log('removed {0}'.format(self.registered_manager.get_user_by_id(update.effective_user.id).log_str()))
+            self.logger.log(
+                'removed {0}'.format(self.registered_manager.get_user_by_id(update.effective_user.id).log_str()))
         else:
-            update.message.reply_text('Вы не найдены в очереди')
+            update.message.reply_text(self.get_language_pack().you_not_found)
 
     def _h_add_me_to_queue(self, update, context):
         student = self.registered_manager.get_user_by_id(update.effective_user.id)
@@ -260,9 +269,9 @@ class QueueBot:
         else:
             self.queue.append_new(update.effective_user.full_name, update.effective_user.id)
 
-        update.message.reply_text('Вы записаны в очередь')
+        update.message.reply_text(self.get_language_pack().you_added_to_queue)
 
-        self.refresh_last_queue_msg()
+        self.last_queue_message.update_contents(update.effective_chat, self.queue.str(), self.keyboards.move_queue)
         self.save_queue_to_file()
         self.logger.log('added {0}'.format(self.queue.get_last()))
 
@@ -270,9 +279,3 @@ class QueueBot:
         print('Error: {0}'.format(context.error))
         self.logger.log(context.error)
         self.logger.save_to_cloud()
-
-    def refresh_last_queue_msg(self):
-        if self.last_queue_message is not None:
-            new_text = self.queue.get_string()
-            if self.last_queue_message.text != new_text:
-                self.last_queue_message = self.last_queue_message.edit_text(new_text, reply_markup=keyboards.move_queue)

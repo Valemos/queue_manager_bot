@@ -1,26 +1,25 @@
 import pickle
-from google.oauth2 import service_account
-from apiclient import discovery
-from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-from pathlib import Path
 import os
 import json
 import sys
-from varsaver import FolderType
+from pathlib import Path
+from google.oauth2 import service_account
+from apiclient import discovery
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from queue_bot.varsaver import FolderType
 
 
 class DriveSaver:
 
     def __init__(self):
-        self.__SCOPES = ['https://www.googleapis.com/auth/drive']
-        self.__SERVICE_ACCOUNT_FILE = Path('queue-bot-key.json')
+        self._SCOPES = ['https://www.googleapis.com/auth/drive']
+        self._SERVICE_ACCOUNT_FILE = FolderType.DriveData.value / Path('queue-bot-key.json')
         self.work_email = 'programworkerbox@gmail.com'
 
-        self.file_data_id = Path('data/drive_folder_id.data')
-        self.file_logs_id = Path('data/logs_folder_id.data')
+        self._credentials = self.init_credentials()
 
-        self.__credentials = self.init_credentials()
-
+        self.file_data_id = FolderType.Data.value / Path('drive_folder_id.data')
+        self.file_logs_id = FolderType.Data.value / Path('logs_folder_id.data')
         self.init_drive_folders()
 
     def get_folder_id(self, folder):
@@ -32,18 +31,11 @@ class DriveSaver:
             return self.get_logs_folder_id()
 
     def init_credentials(self):
-
         # try read service account file
-        if self.__SERVICE_ACCOUNT_FILE.exists():
-            creds = service_account.Credentials.from_service_account_file( \
-                self.__SERVICE_ACCOUNT_FILE, scopes=self.__SCOPES)
-
-            return creds
+        if self._SERVICE_ACCOUNT_FILE.resolve().exists():
+            return service_account.Credentials.from_service_account_file(self._SERVICE_ACCOUNT_FILE, scopes=self._SCOPES)
         elif 'GOOGLE_CREDS' in os.environ:
-            creds = service_account.Credentials.from_service_account_info(json.loads(os.environ.get('GOOGLE_CREDS')))
-            print(creds)
-            return creds
-
+            return service_account.Credentials.from_service_account_info(json.loads(os.environ.get('GOOGLE_CREDS')))
         return None
 
     def get_main_folder_id(self):
@@ -77,54 +69,49 @@ class DriveSaver:
 
         # creates folders and saves their id to file
         if cloud_main_id is None:
-            service = discovery.build('drive', 'v3', credentials=self.__credentials)
-
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
             folder_metadata = {
                 'name': 'Queue Bot data',
                 'mimeType': 'application/vnd.google-apps.folder'
             }
-
-            cloudFolder = service.files().create(body=folder_metadata).execute()
-            service.permissions().create(fileId=cloudFolder['id'], \
-                                         transferOwnership=True, body={'type': 'user', 'role': 'owner',
-                                                                       'emailAddress': self.work_email}).execute()
-
-            cloud_main_id = cloudFolder['id']
-
+            cloud_main_id = self.create_drive_folder(folder_metadata, service)['id']
             try:
                 with self.file_data_id.open('wb+') as fw:
                     pickle.dump(cloud_main_id, fw)
-            except Exception:
+            except pickle.PicklingError:
                 print('gdrive folder id write failed')
 
         if cloud_logs_id is None:
-            service = discovery.build('drive', 'v3', credentials=self.__credentials)
-
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
             folder_metadata = {
                 'name': 'Logs',
                 'mimeType': 'application/vnd.google-apps.folder',
                 'parents': [cloud_main_id]
             }
-
-            cloudFolder = service.files().create(body=folder_metadata).execute()
-            service.permissions().create(fileId=cloudFolder['id'], \
-                                         transferOwnership=True, body={'type': 'user', 'role': 'owner',
-                                                                       'emailAddress': self.work_email}).execute()
-
-            cloud_logs_id = cloudFolder['id']
-
+            cloud_logs_id = self.create_drive_folder(folder_metadata, service)['id']
             try:
                 with self.file_logs_id.open('wb+') as fw:
                     pickle.dump(cloud_logs_id, fw)
-            except Exception:
+            except pickle.PicklingError:
                 print('gdrive folder id write failed')
+
+    def create_drive_folder(self, folder_metadata, service):
+        cloud_folder = service.files().create(body=folder_metadata).execute()
+        service.permissions().create(fileId=cloud_folder['id'], transferOwnership=True,
+                                     body=
+                                     {
+                                         'type': 'user',
+                                         'role': 'owner',
+                                         'emailAddress': self.work_email
+                                     }).execute()
+        return cloud_folder
 
     def save(self, file_path, folder):
 
-        if self.__credentials is None:
+        if self._credentials is None:
             return False
 
-        service = discovery.build('drive', 'v3', credentials=self.__credentials)
+        service = discovery.build('drive', 'v3', credentials=self._credentials)
 
         folder_id = self.get_folder_id(folder)
 
@@ -134,16 +121,16 @@ class DriveSaver:
         }
 
         upload_file = MediaFileUpload(file_path, mimetype='application/octet-stream')
-        service.files().create(body=file_metadata, media_body=upload_file, fields='id').execute()['id']
+        service.files().create(body=file_metadata, media_body=upload_file, fields='id').execute()
 
         return True
 
     def update_file_list(self, path_list, parent_folder):
 
-        if self.__credentials is None:
+        if self._credentials is None:
             return False
 
-        service = discovery.build('drive', 'v3', credentials=self.__credentials)
+        service = discovery.build('drive', 'v3', credentials=self._credentials)
 
         # files list
         existing_files = service.files().list().execute()['files']
@@ -168,7 +155,7 @@ class DriveSaver:
     # if path_list not specified, all files from folder will be written to 'new_folder'
     def get_file_list(self, path_list=None, folder_type=FolderType.Data):
 
-        if self.__credentials is None:
+        if self._credentials is None:
             return False
 
         folder_id = self.get_folder_id(folder_type)
@@ -183,7 +170,7 @@ class DriveSaver:
         if path_list is not None:
             names_list = [p.name for p in path_list]
 
-        service = discovery.build('drive', 'v3', credentials=self.__credentials)
+        service = discovery.build('drive', 'v3', credentials=self._credentials)
         existing_files = service.files().list(fields='files(id,name,parents)').execute()['files']
 
         for file in existing_files:
@@ -216,7 +203,7 @@ class DriveSaver:
         if exceptions is None:
             exceptions = []
 
-        service = discovery.build('drive', 'v3', credentials=self.__credentials)
+        service = discovery.build('drive', 'v3', credentials=self._credentials)
 
         # files list
         existing_files = service.files().list(fields='files(id,name,parents,mimeType)').execute()['files']
@@ -232,7 +219,7 @@ class DriveSaver:
 
     def show_folder_files(self, folder):
         folder_id = self.get_folder_id(folder)
-        service = discovery.build('drive', 'v3', credentials=self.__credentials)
+        service = discovery.build('drive', 'v3', credentials=self._credentials)
 
         existing_files = service.files().list(fields='files(name,parents,id)').execute()['files']
 

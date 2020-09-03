@@ -1,14 +1,13 @@
 from pathlib import Path
 import datetime
 import sys
-import pickle
-from gdrive_saver import DriveSaver, FolderType
+from queue_bot.gdrive_saver import DriveSaver, FolderType
 
 class Logger:
     
     def __init__(self, log_path = None):
         if log_path is None:
-            log_path = Path('logs/log.txt')
+            log_path = Path('../logs/log.txt')
             
         if not log_path.exists():
             log_path.parent.mkdir(parents=True, exist_ok=True)

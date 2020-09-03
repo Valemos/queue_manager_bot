@@ -1,13 +1,13 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-import bot_commands as commands
+from queue_bot import bot_commands as commands
 
-reply_create_queue = InlineKeyboardMarkup([
+create_simple_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton('Создать очередь',    callback_data=commands.ModifyQueue.CreateSimple.str())],
     [InlineKeyboardButton('Отмена',             callback_data=commands.ModifyQueue.Cancel.str())]])
 
 create_random_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton('Создать очередь',    callback_data=commands.ModifyQueue.CreateRandom.str())],
-    [InlineKeyboardButton('Отмена',             callback_data=commands.ModifyQueue.Cancel())]])
+    [InlineKeyboardButton('Отмена',             callback_data=commands.ModifyQueue.Cancel.str())]])
 
 modify_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton('Переместить студента в конец',   callback_data=commands.ModifyQueue.MoveStudentToEnd.str())],

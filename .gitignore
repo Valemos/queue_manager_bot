@@ -2,8 +2,9 @@
 HelperBot.ipynb
 __pycache__/*
 file.txt
-help_script.py
-serializer.py
+misc/help_script.py
+misc/serializer.py
+/misc/test_bot.py
 data/queue.data
 data/bot_state.data
 data/owners.data
@@ -11,10 +12,10 @@ data/registered.data
 logs/*
 .pylint.d/*
 run_test_bot.py
-show_data.py
+misc/show_data.py
 drive_sample.py
 queue-bot-key.json
 drive_data/*
-/test_bot.py
 /DataReformatter.ipynb
 /data/queue_state.data
+/data-Copy/

@@ -1,4 +1,4 @@
-from HelperBot import QueueBot
+from queue_bot.queue_telegram_bot import QueueBot
 import sys
 
 if len(sys.argv) > 1:

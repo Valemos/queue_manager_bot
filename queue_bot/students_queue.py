@@ -1,8 +1,8 @@
 import random as rnd
 from pathlib import Path
-from varsaver import Savable
-import bot_messages as messages
-from bot_access_levels import AccessLevel
+from queue_bot.varsaver import Savable
+from queue_bot.bot_access_levels import AccessLevel
+from queue_bot.languages.messages_interface import Translatable
 
 
 class Student:
@@ -22,9 +22,9 @@ class Student:
         return self.telegram_id
 
     def __str__(self):
-        return self.get_string()
+        return self.str()
 
-    def get_string(self, position=None):
+    def str(self, position=None):
         if position is None:
             return self.name
         else:
@@ -37,7 +37,7 @@ class Student:
 Student_EMPTY = Student('empty_student', None)
 
 
-class StudentsQueue(Savable):
+class StudentsQueue(Savable, Translatable):
 
     _students = []
     queue_pos = 0
@@ -45,10 +45,14 @@ class StudentsQueue(Savable):
     _file_queue = Path('queue.data')
     _file_queue_state = Path('queue_state.data')
 
-    def __init__(self, students_manager, students=None):
+    def get_language_pack(self):
+        return self.main_bot.get_language_pack()
+
+    def __init__(self, students_manager, bot, students=None):
         if students is None:
             students = []
 
+        self.main_bot = bot
         self.registered_manager = students_manager
         self._students = students
 
@@ -69,7 +73,7 @@ class StudentsQueue(Savable):
 
     def move_next(self):
         if self.queue_pos < len(self._students):
-            self.queue_pos -= 1
+            self.queue_pos += 1
             return True
         return False
 
@@ -128,7 +132,7 @@ class StudentsQueue(Savable):
 
     def get_current(self) -> Student:
         if 0 <= self.queue_pos < len(self):
-            return self._students(self.queue_pos)
+            return self._students[self.queue_pos]
         else:
             return Student_EMPTY
 
@@ -137,35 +141,33 @@ class StudentsQueue(Savable):
             return self._students[-1]
         return Student_EMPTY
 
-    def get_string(self):
+    def str(self):
         if len(self._students) > 0:
             if self.queue_pos is not None:
-
                 str_list = []
 
                 cur_item, next_item = self.get_cur_and_next()
-
                 if cur_item is None:
-                    return messages.queue_finished
+                    return self.get_language_pack().queue_finished
 
                 str_list.append('Сдает:')
-                str_list.append(self.queue_pos)
+                str_list.append(self._students[self.queue_pos].str(self.queue_pos + 1))
                 str_list.append('\nСледующий:')
                 if next_item is not None:
-                    str_list.append(self._students[self.queue_pos + 1].get_string(self.queue_pos + 1))
+                    str_list.append(self._students[self.queue_pos + 1].str(self.queue_pos + 2))
                 else:
                     str_list.append('Нет')
 
                 if (self.queue_pos + 2) < len(self._students):
                     str_list.append('\nОставшиеся:')
                     for i in range(self.queue_pos + 2, len(self._students)):
-                        str_list.append(self._students[i].get_string(i))
+                        str_list.append(self._students[i].str(i))
 
-                return '\n'.join(str_list) + '\n\n' + messages.queue_commands
+                return '\n'.join(str_list) + '\n\n' + self.get_language_pack().queue_commands
             else:
-                return 'Очередь:\n' + '\n'.join([self._students[i].get_string(i) for i in range(len(self._students))])
+                return 'Очередь:\n' + '\n'.join([self._students[i].str(i) for i in range(len(self._students))])
 
-        return messages.queue_finished
+        return self.get_language_pack().queue_finished
 
     def get_cur_and_next(self):
         if 0 <= self.queue_pos < len(self._students) - 1:
@@ -179,12 +181,12 @@ class StudentsQueue(Savable):
         msg = ''
         cur_stud, next_stud = self.get_cur_and_next()
         if cur_stud is not None:
-            msg = 'Сдает - {0}'.format(cur_stud.get_string())
+            msg = 'Сдает - {0}'.format(cur_stud.str())
 
         if next_stud is not None:
-            msg += '\nГотовится - {0}'.format(next_stud.get_string())
+            msg += '\nГотовится - {0}'.format(next_stud.str())
 
-        return msg if msg != '' else messages.queue_finished
+        return msg if msg != '' else self.get_language_pack().queue_finished
 
     # find students
     def parse_students(self, students_str):
@@ -257,4 +259,7 @@ class StudentsQueue(Savable):
         return [self._file_queue, self._file_queue_state]
 
     def remove(self, student: Student):
-        self._students.remove(student)
+        if student in self._students:
+            self._students.remove(student)
+        else:
+            return self.get_language_pack().student_not_found.format(student.log_str())
