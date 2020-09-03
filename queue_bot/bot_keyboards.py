@@ -6,8 +6,9 @@ create_simple_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton('Отмена',             callback_data=commands.ModifyQueue.Cancel.str())]])
 
 create_random_queue = InlineKeyboardMarkup([
-    [InlineKeyboardButton('Создать очередь',    callback_data=commands.ModifyQueue.CreateRandom.str())],
-    [InlineKeyboardButton('Отмена',             callback_data=commands.ModifyQueue.Cancel.str())]])
+    [InlineKeyboardButton('Создать очередь',        callback_data=commands.ModifyQueue.CreateRandom.str())],
+    [InlineKeyboardButton('Создать из записаных',   callback_data=commands.ModifyQueue.CreateRandomFromRegistered.str())],
+    [InlineKeyboardButton('Отмена',                 callback_data=commands.ModifyQueue.Cancel.str())]])
 
 modify_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton('Переместить студента в конец',   callback_data=commands.ModifyQueue.MoveStudentToEnd.str())],

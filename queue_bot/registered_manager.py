@@ -1,20 +1,23 @@
 from pathlib import Path
+
+from queue_bot.languages.messages_interface import Translatable
 from queue_bot.varsaver import Savable, VariableSaver
 from queue_bot.students_queue import Student, Student_EMPTY
 from queue_bot.bot_access_levels import AccessLevel
 
 
-class StudentsRegisteredManager(Savable):
+class StudentsRegisteredManager(Savable, Translatable):
 
     _file_registered_users = Path('registered.data')
+
     # dictionary with id`s as keys and levels as values stored in file
     _file_access_levels = Path('access_levels.data')
-
     _students_reg = []
 
-    def __init__(self, students=None):
+    def __init__(self, main_bot, students=None):
         if students is None:
             self._students_reg = []
+        self.main_bot = main_bot
 
     def __len__(self):
         return len(self._students_reg)
@@ -24,6 +27,9 @@ class StudentsRegisteredManager(Savable):
             if student.telegram_id == item.telegram_id:
                 return True
         return False
+
+    def get_language_pack(self):
+        return self.main_bot.get_language_pack()
 
     def get_users(self):
         return self._students_reg
@@ -38,6 +44,10 @@ class StudentsRegisteredManager(Savable):
             self._students_reg.append(users)
         else:
             self._students_reg.extend(users)
+
+    def rename(self, index, new_name):
+        if 0 <= index < len(self._students_reg):
+            self._students_reg[index].name = new_name
 
     def remove_by_index(self, index):
         if isinstance(index, int):
@@ -59,9 +69,6 @@ class StudentsRegisteredManager(Savable):
 
         return deleted
 
-    def get_names_users(self):
-        return [st.name for st in self._students_reg]
-
     def get_user_by_name(self, name: int):
         for student in self._students_reg:
             if student.name == name:
@@ -78,19 +85,31 @@ class StudentsRegisteredManager(Savable):
         str_list = []
         i = 1
         for student in self._students_reg:
-            str_list.append('{0}. {1}-{2}'.format(i, student.name, str(student.get_id())))
+            str_list.append('{0}. {1}-{2}'.format(i, student.name, str(student.telegram_id)))
             i += 1
 
-        return 'Все известные пользователи:\n' + '\n'.join(str_list)
+        return self.get_language_pack().all_known_users.format('\n'.join(str_list))
 
     def set_god(self, god_id: int):
-        self.get_user_by_id(god_id).access_level = AccessLevel.GOD
+        user = self.get_user_by_id(god_id)
+        if user is not Student_EMPTY:
+            user.access_level = AccessLevel.GOD
+            return True
+        return False
 
     def set_admin(self, admin_id: int):
-        self.get_user_by_id(admin_id).access_level = AccessLevel.ADMIN
+        user = self.get_user_by_id(admin_id)
+        if user is not Student_EMPTY:
+            user.access_level = AccessLevel.ADMIN
+            return True
+        return False
 
     def set_user(self, user_id: int):
-        self.get_user_by_id(user_id).access_level = AccessLevel.USER
+        user = self.get_user_by_id(user_id)
+        if user is not Student_EMPTY:
+            user.access_level = AccessLevel.USER
+            return True
+        return False
 
     def find_similar_student(self, name: str):
         for student in self._students_reg:
@@ -130,6 +149,14 @@ class StudentsRegisteredManager(Savable):
                 err_list.append(line)
 
         return new_users, err_list
+
+    @staticmethod
+    def parse_names(string):
+        if '\n' in string:
+            names = string.split('\n')
+        else:
+            names = [string]
+        return names
 
     def update_access_levels(self, saver: VariableSaver):
         access_level_updates = saver.load(self._file_access_levels)

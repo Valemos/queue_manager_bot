@@ -5,7 +5,7 @@ from queue_bot.languages.bot_messages_ukr import MessagesUkrainian
 from queue_bot.languages.bot_messages_rus import MessagesRussian
 from queue_bot import bot_commands as commands, bot_command_handler, bot_keyboards
 from queue_bot.registered_manager import StudentsRegisteredManager, AccessLevel
-from queue_bot.students_queue import StudentsQueue, Student_EMPTY
+from queue_bot.students_queue import StudentsQueue, Student_EMPTY, Student
 from queue_bot.updatable_message import UpdatableMessage
 from queue_bot.languages.messages_interface import Translatable
 
@@ -21,15 +21,16 @@ class QueueBot(Translatable):
     keyboards = bot_keyboards
 
     command_handler = bot_command_handler.CommandHandler
-    last_queue_message = UpdatableMessage()
+    last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
+    cur_students_message = UpdatableMessage()
     command_requested_answer = None
 
     def __init__(self, bot_token=None):
         self.logger = Logger()
         self.varsaver = VariableSaver(logger=self.logger)
         self.gdrive_saver = DriveSaver()
-        self.registered_manager = StudentsRegisteredManager()
-        self.queue = StudentsQueue(self.registered_manager, self)
+        self.registered_manager = StudentsRegisteredManager(self)
+        self.queue = StudentsQueue(self)
 
         if bot_token is None:
             bot_token = self.get_token()
@@ -52,16 +53,20 @@ class QueueBot(Translatable):
         self.updater.dispatcher.add_handler(CommandHandler('stop', self._h_stop))
         self.updater.dispatcher.add_handler(CommandHandler('logs', self._h_show_logs))
         self.updater.dispatcher.add_handler(CommandHandler('get_queue', self._h_check_queue_status))
-        self.updater.dispatcher.add_handler(CommandHandler('current_and_next', self._h_get_cur_and_next_students))
+        self.updater.dispatcher.add_handler(CommandHandler('current_and_next', self.send_cur_and_next))
         self.updater.dispatcher.add_handler(CommandHandler('new_queue', self._h_create_queue))
         self.updater.dispatcher.add_handler(CommandHandler('new_random_queue', self._h_create_random_queue))
         self.updater.dispatcher.add_handler(CommandHandler('edit_queue', self._h_edit_queue))
         self.updater.dispatcher.add_handler(CommandHandler('edit_registered', self._h_edit_registered))
-        self.updater.dispatcher.add_handler(CommandHandler('owner', self._h_add_new_owner))
-        self.updater.dispatcher.add_handler(CommandHandler('del_owner', self._h_del_owner))
+        self.updater.dispatcher.add_handler(CommandHandler('owner', self._h_add_new_admin))
+        self.updater.dispatcher.add_handler(CommandHandler('del_owner', self._h_del_admin))
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self._h_message_text))
         self.updater.dispatcher.add_handler(CallbackQueryHandler(self._h_keyboard_chosen))
         self.updater.dispatcher.add_error_handler(self._h_error)
+
+    def refresh_last_queue_msg(self, update):
+        if not self.last_queue_message.update_contents(self.queue.str(), update.effective_chat):
+            self.logger.log('message failed to update')
 
     def start(self):
         self.logger.log('start')
@@ -88,9 +93,8 @@ class QueueBot(Translatable):
     def load_from_cloud(self):
         self.gdrive_saver.get_file_list(self.queue.get_save_files() + self.registered_manager.get_save_files())
 
-    # loads default values from external file
     def load_defaults(self):
-        # self.load_from_cloud()
+        self.load_from_cloud()
 
         self.registered_manager.load_file(self.varsaver)
         self.registered_manager.update_access_levels(self.varsaver)
@@ -98,6 +102,7 @@ class QueueBot(Translatable):
 
         self.logger.log('loaded data')
 
+    # loads default values from external file
     def save_registered_to_file(self):
         self.registered_manager.save_to_file(self.varsaver)
         self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), FolderType.Data)
@@ -117,33 +122,33 @@ class QueueBot(Translatable):
 
         return token
 
-    # command handlers
     def _h_keyboard_chosen(self, update, context):
         self.command_handler.handle(update.callback_query.data, update, self)
         update.callback_query.answer()
 
+    def set_request(self, cls):
+        self.command_requested_answer = cls
+
+    # command handlers
     def _h_message_text(self, update, context):
-        if update.effective_chat.type != Chat.PRIVATE or self.command_requested_answer is None:
+        if self.command_requested_answer is None:
             return
 
         self.logger.log(self.command_requested_answer.str())
         self.command_requested_answer.handle_request(update, self)
+        self.command_requested_answer = None
 
-    def _h_add_new_owner(self, update, context):
+    def _h_add_new_admin(self, update, context):
+        self.handle_admin_command(update, commands.ManageUsers.AddAdmin)
+
+    def _h_del_admin(self, update, context):
+        self.handle_admin_command(update, commands.ManageUsers.RemoveAdmin)
+
+    def handle_admin_command(self, update, cmd):
         if self.registered_manager.check_access(update.message.from_user.id):
             if self.command_requested_answer is None:
                 update.message.reply_text(self.get_language_pack().get_user_message)
-                self.command_requested_answer = commands.ManageUsers.AddAdmin
-            else:
-                update.message.reply_text(self.get_language_pack().already_requested_send_message)
-        else:
-            update.message.reply_text(self.get_language_pack().permission_denied)
-
-    def _h_del_owner(self, update, context):
-        if self.registered_manager.check_access(update.message.from_user.id, AccessLevel.GOD):
-            if self.command_requested_answer is None:
-                update.message.reply_text(self.get_language_pack().get_user_message)
-                self.command_requested_answer = commands.ManageUsers.RemoveAdmin
+                self.set_request(cmd)
             else:
                 update.message.reply_text(self.get_language_pack().already_requested_send_message)
         else:
@@ -220,44 +225,41 @@ class QueueBot(Translatable):
             else:
                 update.effective_chat.send_message(self.get_language_pack().queue_not_exists)
         else:
-            if update.effective_chat.type != Chat.PRIVATE:
-                self.last_queue_message.send_new(update.effective_chat, self.queue.str(), self.keyboards.move_queue)
-            else:
-                self.last_queue_message.update_contents(update.effective_chat, self.queue.str(),
-                                                        self.keyboards.move_queue)
+            self.last_queue_message.resend(self.queue.str(), update.effective_chat)
 
             self.logger.log('user {0} in {1} chat requested queue'.format(
                 self.registered_manager.get_user_by_id(update.effective_user.id).log_str(), update.effective_chat.type))
 
-    def _h_get_cur_and_next_students(self, update, context):
-        update.effective_chat.send_message(self.queue.get_cur_and_next_str())
+    def send_cur_and_next(self, update, context=None):
+        self.cur_students_message.resend(self.queue.get_cur_and_next_str(), update.effective_chat)
 
     def _h_i_finished(self, update, context):
         cur_user_id = update.effective_user.id
-        student_requested = self.registered_manager.get_user_by_id(cur_user_id)
-        if student_requested is not Student_EMPTY:  # user is registered
-            if self.queue.get_current() == student_requested:
+        student_finished = self.registered_manager.get_user_by_id(cur_user_id)
+
+        if student_finished is not Student_EMPTY:  # user is registered
+            if self.queue.get_current() == student_finished:  # finished user currently first
                 self.queue.move_next()
-                update.effective_chat.send_message(self.queue.get_cur_and_next_str())
+                self.send_cur_and_next(update)
             else:
-                update.message.reply_text(self.get_language_pack().your_turn_not_now.format(
-                    self.registered_manager.get_user_by_id(cur_user_id).str()))
+                update.message.reply_text(self.get_language_pack().your_turn_not_now
+                                .format(self.registered_manager.get_user_by_id(cur_user_id).str()))
         else:
             update.message.reply_text(self.get_language_pack().unknown_user)
 
-        self.last_queue_message.update_contents(update.effective_chat, self.queue.str(), self.keyboards.move_queue)
+        self.last_queue_message.update_contents(self.queue.str(), update.effective_chat)
         self.save_queue_to_file()
         self.logger.log('finished {0} - {1}'.format(cur_user_id, self.queue.get_current().log_str()))
 
     def _h_remove_me(self, update, context):
-        if self.registered_manager.remove_by_id(update.effective_user.id):
-            self.last_queue_message.update_contents(update.effective_chat, self.queue.str(), self.keyboards.move_queue)
-            self.save_queue_to_file()
+        if update.effective_user.id in self.queue:
+            self.queue.remove_by_id(update.effective_user.id)
 
+            self.last_queue_message.update_contents(self.queue.str(), update.effective_chat)
             update.message.reply_text(self.get_language_pack().you_deleted)
 
-            self.logger.log(
-                'removed {0}'.format(self.registered_manager.get_user_by_id(update.effective_user.id).log_str()))
+            self.save_queue_to_file()
+            self.logger.log('removed {0}'.format(self.registered_manager.get_user_by_id(update.effective_user.id).log_str()))
         else:
             update.message.reply_text(self.get_language_pack().you_not_found)
 
@@ -269,9 +271,9 @@ class QueueBot(Translatable):
         else:
             self.queue.append_new(update.effective_user.full_name, update.effective_user.id)
 
+        self.last_queue_message.update_contents(self.queue.str(), update.effective_chat)
         update.message.reply_text(self.get_language_pack().you_added_to_queue)
 
-        self.last_queue_message.update_contents(update.effective_chat, self.queue.str(), self.keyboards.move_queue)
         self.save_queue_to_file()
         self.logger.log('added {0}'.format(self.queue.get_last()))
 

@@ -2,7 +2,7 @@ import random as rnd
 from pathlib import Path
 from queue_bot.varsaver import Savable
 from queue_bot.bot_access_levels import AccessLevel
-from queue_bot.languages.messages_interface import Translatable
+from queue_bot.languages.messages_interface import BotMessages, Translatable
 
 
 class Student:
@@ -17,9 +17,6 @@ class Student:
 
     def __ne__(self, other):
         return self.telegram_id != other.telegram_id
-
-    def __hash__(self):
-        return self.telegram_id
 
     def __str__(self):
         return self.str()
@@ -46,23 +43,31 @@ class StudentsQueue(Savable, Translatable):
     _file_queue_state = Path('queue_state.data')
 
     def get_language_pack(self):
-        return self.main_bot.get_language_pack()
+        if self.main_bot is not None:
+            return self.main_bot.get_language_pack()
+        return None
 
-    def __init__(self, students_manager, bot, students=None):
+    def __init__(self, bot, students=None):
         if students is None:
             students = []
 
         self.main_bot = bot
-        self.registered_manager = students_manager
         self._students = students
 
     def __len__(self):
+        if self._students is None:
+            return 0
         return len(self._students)
 
     def __contains__(self, item):
-        for student in self._students:
-            if student.telegram_id == item.telegram_id:
-                return True
+        if isinstance(item, Student):
+            for student in self._students:
+                if student.telegram_id == item.telegram_id:
+                    return True
+        elif isinstance(item, int):
+            for student in self._students:
+                if student.telegram_id == item:
+                    return True
         return False
 
     def move_prev(self):
@@ -77,6 +82,13 @@ class StudentsQueue(Savable, Translatable):
             return True
         return False
 
+    def move_to_index(self, position, desired_position):
+        try:
+            self._students.insert(desired_position, self._students.pop(position))
+            return True
+        except ValueError:
+            return False
+
     def move_to_end(self, position):
         self._students.append(self._students.pop(position))
 
@@ -88,22 +100,25 @@ class StudentsQueue(Savable, Translatable):
         self._students.append(student)
 
     def append_by_name(self, name):
-        student = self.registered_manager.get_user_by_name(name)
+        student = self.main_bot.registered_manager.get_user_by_name(name)
         if student is not None:
             self._students.append(student)
             return True
         else:
-            self._students.append(self.registered_manager.find_similar_student(name))
+            self._students.append(self.main_bot.registered_manager.find_similar_student(name))
             return False
     def append_new(self, name, user_id):
-        student = self.registered_manager.get_user_by_id(user_id)
+        student = self.main_bot.registered_manager.get_user_by_id(user_id)
         if student is not None:
             self._students.append(student)
             return True
         else:
-            new_user = self.registered_manager.append_new_user(name, user_id)
+            new_user = self.main_bot.registered_manager.append_new_user(name, user_id)
             self._students.append(new_user)
             return False
+
+    def set_students(self, students):
+        self._students = students
 
     def clear(self):
         self._students = []
@@ -112,23 +127,34 @@ class StudentsQueue(Savable, Translatable):
     def remove_by_index(self, index):
         if isinstance(index, int):
             self._students.pop(index)
+            self.adjust_queue_position(index)
         else:
+            to_delete = []
             for ind in index:
-                self._students.pop(ind)
+                to_delete.append(self._students[ind])
+
+            for elem in to_delete:
+                self.remove_by_id(elem.telegram_id)
 
     def remove_by_id(self, remove_id):
-        to_delete = []
-        # TODO check for list.remove() operation and replace this function
-        for i in range(len(self._students)):
-            if self._students[i].telegram_id == remove_id:
-                to_delete.append(self._students[i])
+        for remove_index in range(len(self._students)):
+            if self._students[remove_index].telegram_id == remove_id:
+                self._students.pop(remove_index)
+                self.adjust_queue_position(remove_index)
+                break
 
-        deleted = False
-        for elem in to_delete:
-            self._students.remove(elem)
-            deleted = True
+    def remove_by_object(self, student):
+        for remove_index in range(len(self._students)):
+            if self._students[remove_index] is student:
+                self._students.pop(remove_index)
+                self.adjust_queue_position(remove_index)
+                break
 
-        return deleted
+    # if we delete element, that is before current queue position,
+    # it will shift queue forward by one position
+    def adjust_queue_position(self, deleted_pos):
+        if deleted_pos < self.queue_pos:
+            self.queue_pos -= 1
 
     def get_current(self) -> Student:
         if 0 <= self.queue_pos < len(self):
@@ -161,7 +187,7 @@ class StudentsQueue(Savable, Translatable):
                 if (self.queue_pos + 2) < len(self._students):
                     str_list.append('\nОставшиеся:')
                     for i in range(self.queue_pos + 2, len(self._students)):
-                        str_list.append(self._students[i].str(i))
+                        str_list.append(self._students[i].str(i + 1))
 
                 return '\n'.join(str_list) + '\n\n' + self.get_language_pack().queue_commands
             else:
@@ -197,14 +223,17 @@ class StudentsQueue(Savable, Translatable):
 
         students = []
         for name in names:
-            user = self.registered_manager.get_user_by_name(name)
+            user = self.main_bot.registered_manager.get_user_by_name(name)
             if user is None:
-                students.append(self.registered_manager.find_similar_student(name))
+                students.append(self.main_bot.registered_manager.find_similar_student(name))
             else:
                 students.append(user)
         return students
 
-    def parse_index_list(self, string):
+    def parse_positions_list(self, string, max_index=None):
+        if max_index is None:
+            max_index = len(self._students)
+
         if ' ' in string:
             index_str = string.split(' ')
         else:
@@ -216,7 +245,7 @@ class StudentsQueue(Savable, Translatable):
         for pos_str in index_str:
             try:
                 position = int(pos_str)
-                if 0 < position <= len(self._students):
+                if 0 < position <= max_index:
                     correct_indexes.append(position)
                 else:
                     err_list.append(pos_str)
@@ -227,13 +256,13 @@ class StudentsQueue(Savable, Translatable):
 
     def generate_simple(self, students=None):
         if students is None:
-            self._students = self.registered_manager.get_users()
+            self._students = self.main_bot.registered_manager.get_users()
         else:
             self._students = students
 
     def generate_random(self, students=None):
         if students is None:
-            students = self.registered_manager.get_users()
+            students = self.main_bot.registered_manager.get_users()
             rnd.shuffle(students)
             self._students = students
         else:

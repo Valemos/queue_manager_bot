@@ -14,6 +14,7 @@ class BotMessages:
     get_user_message = None
     queue_finished = None
     unknown_user = None
+    all_known_users = None
     queue_commands = None
     error_in_values = None
     was_not_forwarded = None
@@ -53,6 +54,7 @@ class BotMessages:
     users_added = None
     enter_new_list_in_order = None
     send_two_positions_students_space = None
+    names_more_than_users = None
 
     def __init__(self):
         for attr in dir(self):

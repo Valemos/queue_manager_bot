@@ -1,5 +1,6 @@
 import enum
 from pathlib import Path
+import shutil
 import pickle
 
 
@@ -19,29 +20,39 @@ class FolderType(enum.Enum):
     DriveData = Path('../drive_data')
     Backup = Path('../data-Copy')
     Logs = Path('../logs')
+    Test = Path('../test_data')
 
 
 class VariableSaver:
 
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, default_folder=FolderType.Data):
         self.logger = logger
+        self.default_folder = default_folder
 
-    def save(self, var, save_path, save_folder=FolderType.Data):
-        save_path = save_folder.value / save_path
+    def log(self, content):
         if self.logger is not None:
-            self.logger.log('saving ' + str(save_path))
+            self.logger.log(content)
+
+    def save(self, var, save_path, save_folder=None):
+        if save_folder is None:
+            save_folder = self.default_folder
+        save_path = save_folder.value / save_path
+        self.log('saving to ' + str(save_path))
 
         if not save_path.exists():
             save_path.parent.mkdir(parents=True, exist_ok=True)
             save_path.touch()
+        try:
+            with save_path.open('wb') as fw:
+                pickle.dump(var, fw)
+        except pickle.PickleError:
+            self.log('file {0}: save failed'.format(save_path))
 
-        with save_path.open('wb') as fw:
-            pickle.dump(var, fw)
-
-    def load(self, save_path, save_folder=FolderType.Data):
+    def load(self, save_path, save_folder=None):
+        if save_folder is None:
+            save_folder = self.default_folder
         save_path = save_folder.value / save_path
-        if self.logger is not None:
-            self.logger.log('loading ' + str(save_path))
+        self.log('loading from ' + str(save_path))
 
         if not save_path.exists():
             save_path.touch()
@@ -51,4 +62,9 @@ class VariableSaver:
             with save_path.open('rb') as fr:
                 return pickle.load(fr)
         except pickle.UnpicklingError:
+            self.log('file {0}: load failed'.format(save_path))
             return None
+
+    @staticmethod
+    def clear_folder(folder: Path):
+        shutil.rmtree(folder)
