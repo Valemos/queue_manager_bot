@@ -55,9 +55,11 @@ class BotMessages:
     enter_new_list_in_order = None
     send_two_positions_students_space = None
     names_more_than_users = None
+    random_queue_created_from_registered = None
+    send_choice_number = None
 
     def __init__(self):
         for attr in dir(self):
             if not (attr.startswith('__') and attr.endswith('__')):
                 if getattr(self, attr) is None:
-                    raise NotImplementedError('Message {0} not filled in'.format(attr))
+                    raise NotImplementedError('Message "{0}" not completed'.format(attr))

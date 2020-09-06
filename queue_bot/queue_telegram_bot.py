@@ -8,6 +8,7 @@ from queue_bot.registered_manager import StudentsRegisteredManager, AccessLevel
 from queue_bot.students_queue import StudentsQueue, Student_EMPTY, Student
 from queue_bot.updatable_message import UpdatableMessage
 from queue_bot.languages.messages_interface import Translatable
+from queue_bot.subject_choice_manager import SubjectChoiceManager
 
 import atexit
 import os
@@ -31,6 +32,9 @@ class QueueBot(Translatable):
         self.gdrive_saver = DriveSaver()
         self.registered_manager = StudentsRegisteredManager(self)
         self.queue = StudentsQueue(self)
+
+        # subject choices
+        self.choice_manager = SubjectChoiceManager()
 
         if bot_token is None:
             bot_token = self.get_token()
@@ -129,6 +133,9 @@ class QueueBot(Translatable):
     def set_request(self, cls):
         self.command_requested_answer = cls
 
+    def request_handled(self):
+        self.command_requested_answer = None
+
     # command handlers
     def _h_message_text(self, update, context):
         if self.command_requested_answer is None:
@@ -136,7 +143,6 @@ class QueueBot(Translatable):
 
         self.logger.log(self.command_requested_answer.str())
         self.command_requested_answer.handle_request(update, self)
-        self.command_requested_answer = None
 
     def _h_add_new_admin(self, update, context):
         self.handle_admin_command(update, commands.ManageUsers.AddAdmin)
@@ -145,7 +151,7 @@ class QueueBot(Translatable):
         self.handle_admin_command(update, commands.ManageUsers.RemoveAdmin)
 
     def handle_admin_command(self, update, cmd):
-        if self.registered_manager.check_access(update.message.from_user.id):
+        if self.registered_manager.check_access(update.message.from_user.id, cmd.access_requirement):
             if self.command_requested_answer is None:
                 update.message.reply_text(self.get_language_pack().get_user_message)
                 self.set_request(cmd)
@@ -219,7 +225,8 @@ class QueueBot(Translatable):
 
     def _h_check_queue_status(self, update, context):
         if len(self.queue) == 0:
-            if self.registered_manager.check_access(update.effective_user.id):
+            requriment = commands.ModifyQueue.CreateSimple.access_requirement
+            if self.registered_manager.check_access(update.effective_user.id, requriment):
                 update.effective_chat.send_message(self.get_language_pack().queue_not_exists_create_new,
                                                    reply_markup=self.keyboards.create_simple_queue)
             else:

@@ -1,5 +1,10 @@
+import pandas as pd  # for excel export
+from queue_bot.bot_access_levels import AccessLevel
+
 class CommandGroup:
     class Command:
+
+        access_requirement = AccessLevel.USER
 
         @classmethod
         def __str__(cls):
@@ -17,7 +22,7 @@ class CommandGroup:
                 return items[0], ''.join(items[1:])
             except ValueError:
                 return None, None
-        
+
         @classmethod
         def handle(cls, update, bot):
             pass
@@ -30,6 +35,9 @@ class CommandGroup:
 class ModifyQueue(CommandGroup):
 
     class CreateSimple(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             bot.queue.clear()
@@ -43,9 +51,13 @@ class ModifyQueue(CommandGroup):
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.get_language_pack().students_set)
             bot.save_queue_to_file()
+            bot.request_handled()
 
 
     class CreateRandom(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             bot.queue.clear()
@@ -59,9 +71,13 @@ class ModifyQueue(CommandGroup):
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.get_language_pack().students_set)
             bot.save_queue_to_file()
+            bot.request_handled()
 
 
     class CreateRandomFromRegistered(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             import random
@@ -71,19 +87,29 @@ class ModifyQueue(CommandGroup):
             bot.last_queue_message.update_contents(bot.queue.str())
             bot.save_queue_to_file()
 
+
     class Cancel(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_message.delete()
 
 
     class ShowList(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
 
 
     class SetStudents(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
@@ -95,6 +121,9 @@ class ModifyQueue(CommandGroup):
 
 
     class SetQueuePosition(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
@@ -114,9 +143,13 @@ class ModifyQueue(CommandGroup):
             finally:
                 bot.refresh_last_queue_msg(update)
                 bot.save_queue_to_file()
+                bot.request_handled()
                 
 
     class ClearList(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             bot.queue.clear()
@@ -124,6 +157,9 @@ class ModifyQueue(CommandGroup):
 
 
     class MoveStudentToEnd(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
@@ -143,9 +179,13 @@ class ModifyQueue(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().student_added_to_end)
             except ValueError:
                 update.effective_chat.send_message(bot.get_language_pack().not_index_from_queue)
+            bot.request_handled()
 
 
     class RemoveStudentsList(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
@@ -163,9 +203,13 @@ class ModifyQueue(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().error_in_this_values.format(', '.join(errors)))
             if len(positions) > 0:
                 update.effective_chat.send_message(bot.get_language_pack().users_deleted)
+            bot.request_handled()
 
 
     class SetStudentPosition(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
@@ -184,11 +228,15 @@ class ModifyQueue(CommandGroup):
             else:
                 update.effective_chat.send_message(bot.get_language_pack().error_in_values)
 
-            bot.save_queue_to_file()
             bot.refresh_last_queue_msg(update)
+            bot.save_queue_to_file()
+            bot.request_handled()
             
 
     class AddStudent(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
@@ -203,11 +251,16 @@ class ModifyQueue(CommandGroup):
                 bot.logger.log('student set ' + update.message.text + ' not found')
 
             update.effective_chat.send_message(bot.get_language_pack().student_set)
-            bot.save_queue_to_file()
+
             bot.refresh_last_queue_msg(update)
+            bot.save_queue_to_file()
+            bot.request_handled()
             
 
     class SwapStudents(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
@@ -229,18 +282,25 @@ class ModifyQueue(CommandGroup):
             except ValueError:
                 update.effective_chat.send_message(bot.get_language_pack().error_in_values)
             finally:
-                bot.save_queue_to_file()
                 bot.refresh_last_queue_msg(update)
-                
+                bot.save_queue_to_file()
+                bot.request_handled()
+
 
 class ModifyRegistered(CommandGroup):
     class ShowListUsers(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.registered_manager.get_users_str())
 
 
     class AddListUsers(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().set_registered_students)
@@ -257,9 +317,13 @@ class ModifyRegistered(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_added)
 
             bot.save_registered_to_file()
+            bot.request_handled()
 
 
     class AddUser(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().get_user_message)
@@ -274,9 +338,13 @@ class ModifyRegistered(CommandGroup):
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
 
             bot.save_registered_to_file()
+            bot.request_handled()
             
 
     class RenameAllUsers(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().enter_new_list_in_order)
@@ -289,9 +357,13 @@ class ModifyRegistered(CommandGroup):
                     bot.registered_manager.rename(i, names[i])
             else:
                 update.effective_chat.send_message(bot.get_language_pack().names_more_than_users)
+            bot.request_handled()
 
 
     class RemoveListUsers(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.registered_manager.get_users_str())
@@ -310,6 +382,7 @@ class ModifyRegistered(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_deleted)
 
             bot.save_registered_to_file()
+            bot.request_handled()
             
 
 class UpdateQueue(CommandGroup):
@@ -337,6 +410,9 @@ class UpdateQueue(CommandGroup):
 
 class ManageUsers(CommandGroup):
     class AddAdmin(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle_request(cls, update, bot):
             if update.message.forward_from is not None:
@@ -344,9 +420,14 @@ class ManageUsers(CommandGroup):
                     update.message.reply_text(bot.get_language_pack().admin_set)
             else:
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
+            bot.save_registered_to_file()
+            bot.request_handled()
             
 
     class RemoveAdmin(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle_request(cls, update, bot):
             if update.message.forward_from is not None:
@@ -354,9 +435,14 @@ class ManageUsers(CommandGroup):
                     update.message.reply_text(bot.get_language_pack().admin_deleted)
             else:
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
+            bot.save_registered_to_file()
+            bot.request_handled()
             
 
     class AddUsersList(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
         @classmethod
         def handle_request(cls, update, bot):
             users, errors = bot.registered_manager.parse_users()
@@ -368,3 +454,36 @@ class ManageUsers(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_added)
 
             bot.save_registered_to_file()
+            bot.request_handled()
+
+
+class CollectChoice(CommandGroup):
+
+    class CreateNewCollectFile(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().send_choice_file_name)
+            bot.set_request(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            file_name = update.message.text
+            chat_id = update.effective_chat.id
+
+
+    class Collect(CommandGroup.Command):
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().send_choice_number)
+            bot.set_request(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            try:
+                value = int(update.message.text)
+
+            except ValueError:
+                pass

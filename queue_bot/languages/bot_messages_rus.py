@@ -55,3 +55,6 @@ class MessagesRussian(BotMessages):
     send_two_positions_students_space = 'Пришлите номера двух студентов через пробел'
     names_more_than_users = 'Количество введенных имен больше количества пользователей'
     random_queue_created_from_registered = 'Очередь создана из списка известных студентов'
+    send_choice_number = 'Присылайте выбранный номер темы'
+    send_choice_file_name = 'Пришлите имя файла с темами'
+
