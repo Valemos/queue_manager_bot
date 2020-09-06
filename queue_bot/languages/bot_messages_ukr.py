@@ -1,7 +1,7 @@
-from queue_bot.languages.messages_interface import BotMessages
+import enum
 
 
-class MessagesUkrainian(BotMessages):
+class MessagesUkrainian(enum.Enum):
     permission_denied = 'Немає дозволу'
     code_not_valid = 'Внутренняя ошибка: Уровень доступа имеет неверный формат'
     set_students = 'Введіть новий список студентів\nвін має складатись зі строк з іменами студентів'

@@ -1,13 +1,13 @@
 from queue_bot.logger import Logger
 from queue_bot.varsaver import VariableSaver
-from queue_bot.gdrive_saver import DriveSaver, FolderType
+from queue_bot.gdrive_saver import DriveSaver, FolderType, DriveFolder
 from queue_bot.languages.bot_messages_ukr import MessagesUkrainian
 from queue_bot.languages.bot_messages_rus import MessagesRussian
 from queue_bot import bot_commands as commands, bot_command_handler, bot_keyboards
 from queue_bot.registered_manager import StudentsRegisteredManager, AccessLevel
 from queue_bot.students_queue import StudentsQueue, Student_EMPTY, Student
 from queue_bot.updatable_message import UpdatableMessage
-from queue_bot.languages.messages_interface import Translatable
+from queue_bot.languages.language_interface import Translatable
 from queue_bot.subject_choice_manager import SubjectChoiceManager
 
 import atexit
@@ -96,6 +96,7 @@ class QueueBot(Translatable):
 
     def load_from_cloud(self):
         self.gdrive_saver.get_file_list(self.queue.get_save_files() + self.registered_manager.get_save_files())
+        self.gdrive_saver.get_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
 
     def load_defaults(self):
         self.load_from_cloud()

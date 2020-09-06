@@ -2,7 +2,7 @@ import random as rnd
 from pathlib import Path
 from queue_bot.varsaver import Savable
 from queue_bot.bot_access_levels import AccessLevel
-from queue_bot.languages.messages_interface import BotMessages, Translatable
+from queue_bot.languages.language_interface import BotMessages, Translatable
 
 
 class Student:

@@ -1,7 +1,7 @@
-from queue_bot.languages.messages_interface import BotMessages
+import enum
 
 
-class MessagesRussian(BotMessages):
+class MessagesRussian(enum.Enum):
     permission_denied = 'Нет разрешения'
     code_not_valid = 'Внутренняя ошибка: Уровень доступа имеет неверный формат'
     not_owner = 'Не владелец'
@@ -23,7 +23,7 @@ class MessagesRussian(BotMessages):
     title_edit_queue = 'Редактирование очереди'
     title_edit_registered = 'Редактирование пользователей'
     queue_not_exists = 'Очереди нет.'
-    first_user_added='Первый владелец добавлен - {0}'
+    first_user_added = 'Первый владелец добавлен - {0}'
     already_requested_send_message = 'Уже запрошено, пришлите сообщение нового владельца'
     admins_added = 'Администраторы добавлены'
     bot_already_running = 'Бот уже запущен.'
@@ -57,4 +57,3 @@ class MessagesRussian(BotMessages):
     random_queue_created_from_registered = 'Очередь создана из списка известных студентов'
     send_choice_number = 'Присылайте выбранный номер темы'
     send_choice_file_name = 'Пришлите имя файла с темами'
-

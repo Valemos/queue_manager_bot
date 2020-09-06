@@ -17,6 +17,7 @@ class Savable:
 
 class FolderType(enum.Enum):
     Data = Path('data')
+    Choices = Path('subject_choices')
     DriveData = Path('drive_data')
     Backup = Path('data-Copy')
     Logs = Path('logs')
