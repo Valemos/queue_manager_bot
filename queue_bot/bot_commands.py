@@ -1,5 +1,6 @@
 import pandas as pd  # for excel export
 from queue_bot.bot_access_levels import AccessLevel
+import queue_bot.bot_parcers as parcers
 
 class CommandGroup:
     class Command:
@@ -46,7 +47,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            students = bot.queue.parse_students(update.message.text)
+            students = parcers.parse_students(update.message.text)
             bot.queue.generate_simple(students)
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.get_language_pack().students_set)
@@ -66,7 +67,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            students = bot.queue.parse_students(update.message.text)
+            students = parcers.parse_students(update.message.text)
             bot.queue.generate_random(students)
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.get_language_pack().students_set)
@@ -194,7 +195,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = bot.queue.parse_positions_list(update.message.text)
+            positions, errors = parcers.parse_positions_list(update.message.text, len(bot.queue))
             bot.queue.remove_by_index([i - 1 for i in positions])
             bot.refresh_last_queue_msg(update)
             bot.save_queue_to_file()
@@ -218,7 +219,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = bot.queue.parse_positions_list(update.message.text)
+            positions, errors = parcers.parse_positions_list(update.message.text, len(bot.queue))
 
             if len(positions) >= 2:
                 if bot.queue.move_to_index(positions[0]-1, positions[1]-1):
@@ -308,7 +309,7 @@ class ModifyRegistered(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            new_users, errors = bot.registered_manager.parse_users(update.effective_message.text)
+            new_users, errors = parcers.parse_users(update.effective_message.text)
             bot.registered_manager.append_users(new_users)
 
             if len(errors) > 0:
@@ -351,7 +352,7 @@ class ModifyRegistered(CommandGroup):
             bot.set_request(cls)
 
         def handle_request(cls, update, bot):
-            names = bot.registered_manager.parse_names(update.message.text)
+            names = parcers.parse_names(update.message.text)
             if len(names) <= len(bot.registered_manager):
                 for i in range(len(names)):
                     bot.registered_manager.rename(i, names[i])
@@ -373,7 +374,7 @@ class ModifyRegistered(CommandGroup):
         @classmethod
         def handle_request(cls, update, bot):
             # parse function is inside of queue object
-            delete_indexes, errors = bot.queue.parse_positions_list(update.message.text, len(bot.registered_manager))
+            delete_indexes, errors = parcers.parse_positions_list(update.message.text, len(bot.registered_manager))
             bot.registered_manager.remove_by_index([i - 1 for i in delete_indexes])
 
             if len(errors) > 0:
@@ -445,7 +446,7 @@ class ManageUsers(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            users, errors = bot.registered_manager.parse_users()
+            users, errors = parcers.parse_users(update.message.text)
             bot.registered_manager.append_users(users)
 
             if len(errors) > 0:
@@ -457,10 +458,13 @@ class ManageUsers(CommandGroup):
             bot.request_handled()
 
 
-class CollectChoice(CommandGroup):
+class CollectSubjectChoices(CommandGroup):
 
+    command_parameters = {}
+
+    # These commands (except the last) are executed in a row
+    # they collect parameters of subject choices handling
     class CreateNewCollectFile(CommandGroup.Command):
-
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -470,20 +474,82 @@ class CollectChoice(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            file_name = update.message.text
-            chat_id = update.effective_chat.id
+            subject_name = update.message.text
+            if ' ' in subject_name:
+                update.effective_chat.send_message(bot.get_language_pack().send_subject_name_without_spaces)
+                return
+            else:
+                CollectSubjectChoices.command_parameters['name'] = subject_name
+                CollectSubjectChoices.SetSubjectsRange.handle(update, bot)
+
+    class SetSubjectsRange(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().send_number_range)
+            bot.set_request(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            min_range, max_range = parcers.parce_number_range(update.message.text)
+            if min_range is None:
+                update.effective_chat.send_message(bot.get_language_pack().number_range_incorrect)
+            else:
+                CollectSubjectChoices.command_parameters['interval'] = (min_range, max_range)
+                update.effective_chat.send_message(bot.get_language_pack().number_interval_set)
+                
+
+    class SetRepeatableMode(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().set_repeatable_limit)
+            bot.set_request(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            limit = parcers.parce_integer(update.message.text)
+
+            if limit is None:
+                update.effective_chat.send_message(bot.get_language_pack().value_incorrect)
+            else:
+                CollectSubjectChoices.command_parameters['repeat_limit'] = limit
+                update.effective_chat.send_message(bot.get_language_pack().value_set)
+                CollectSubjectChoices.FinishSubjectChoiceCreation.handle(update, bot)
+
+    class FinishSubjectChoiceCreation(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            name = CollectSubjectChoices.command_parameters['name']
+            interval = CollectSubjectChoices.command_parameters['interval']
+            repeat_limit = CollectSubjectChoices.command_parameters['repeat_limit']
+            CollectSubjectChoices.command_parameters = {}
+
+            bot.choice_manager.set_choice_group(name,
+                                                [i for i in range(interval[0], interval[1] + 1, 1)],
+                                                repeat_limit)
+            update.effective_chat.send_message(bot.get_language_pack().finished_choice_manager_creation)
 
 
     class Collect(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.get_language_pack().send_choice_number)
+            update.effective_chat.send_message(bot.get_language_pack().send_choice_numbers)
             bot.set_request(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            try:
-                value = int(update.message.text)
+            choices, errors = parcers.parse_positions_list(update.inline_query.query)
+            # todo add choice to choice_manager. consider priority limits of choice
 
-            except ValueError:
-                pass
+    class StopCollect(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(self, update, bot):
+            bot.choice_manager.current_subject.save_to_excel()
+            update.effective_chat.send_message(bot.get_language_pack().choices_collection_stopped)

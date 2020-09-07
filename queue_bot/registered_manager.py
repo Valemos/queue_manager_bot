@@ -43,7 +43,9 @@ class StudentsRegisteredManager(Savable, Translatable):
         if isinstance(users, Student):
             self._students_reg.append(users)
         else:
-            self._students_reg.extend(users)
+            for user in users:
+                if user not in self._students_reg:  # TODO check for correct user recognition
+                    self._students_reg.append(user)
 
     def rename(self, index, new_name):
         if 0 <= index < len(self._students_reg):
@@ -129,34 +131,7 @@ class StudentsRegisteredManager(Savable, Translatable):
             return False
         return True
 
-    def parse_users(self, string: str):
-        if '\n' in string:
-            new_users_str_lines = string.split('\n')
-        else:
-            new_users_str_lines = [string]
 
-        err_list = []
-        new_users = []
-
-        for line in new_users_str_lines:
-            try:
-                user_temp = line.split('-')
-                user = Student(user_temp[0], int(user_temp[1]))
-
-                if user not in self:
-                    new_users.append(user)
-            except Exception:
-                err_list.append(line)
-
-        return new_users, err_list
-
-    @staticmethod
-    def parse_names(string):
-        if '\n' in string:
-            names = string.split('\n')
-        else:
-            names = [string]
-        return names
 
     def update_access_levels(self, saver: VariableSaver):
         access_level_updates = saver.load(self._file_access_levels)

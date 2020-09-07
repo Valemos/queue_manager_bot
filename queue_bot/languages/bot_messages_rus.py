@@ -55,5 +55,18 @@ class MessagesRussian(enum.Enum):
     send_two_positions_students_space = 'Пришлите номера двух студентов через пробел'
     names_more_than_users = 'Количество введенных имен больше количества пользователей'
     random_queue_created_from_registered = 'Очередь создана из списка известных студентов'
-    send_choice_number = 'Присылайте выбранный номер темы'
+    send_choice_numbers = 'Присылайте выбранные номера тем, возможно выбрать до 5 тем, ' \
+                          'пишите через пробел в порядке приоритетности, \n' \
+                          'чтобы остановить набор тем, администратор пиши\n/stop_pick_subjects'
     send_choice_file_name = 'Пришлите имя файла с темами'
+    send_subject_name_without_spaces = 'Пришлите название файла с темами без пробелов'
+    send_number_range = 'Пришлите интервал целых чисел в формате <минимум>-<максимум>'
+    number_range_incorrect = 'Интервал целых чисел имеет неверный формат'
+    number_interval_set = 'Интервал установлен'
+    set_repeatable_limit = 'Пришлите максимальное число людей, которые могут выбрать одну тему ' \
+                           '(\"0\" будет означать, что ограничений нет)'
+    value_incorrect = 'Данное значение - не целое число, повторите попытку'
+    value_set = 'Значение установлено.'
+    finished_choice_manager_creation = 'Задание параметров завершено, с этого момента возможен выбор тем, ' \
+                                       'напишите в общем чате /allow_pick_subjects'
+    choices_collection_stopped = 'Выбор тем завершен'

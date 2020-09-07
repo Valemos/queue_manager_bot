@@ -16,8 +16,9 @@ class Savable:
 
 
 class FolderType(enum.Enum):
+    NoFolder = Path()
     Data = Path('data')
-    Choices = Path('subject_choices')
+    SubjectChoices = Path('subject_choices')
     DriveData = Path('drive_data')
     Backup = Path('data-Copy')
     Logs = Path('logs')
@@ -34,7 +35,7 @@ class VariableSaver:
         if self.logger is not None:
             self.logger.log(content)
 
-    def save(self, var, save_path, save_folder=None):
+    def save(self, var, save_path, save_folder=FolderType.NoFolder):
         if save_folder is None:
             save_folder = self.default_folder
         save_path = save_folder.value / save_path
@@ -49,7 +50,7 @@ class VariableSaver:
         except pickle.PickleError:
             self.log('file {0}: save failed'.format(save_path))
 
-    def load(self, save_path, save_folder=None):
+    def load(self, save_path, save_folder=FolderType.NoFolder):
         if save_folder is None:
             save_folder = self.default_folder
         save_path = save_folder.value / save_path

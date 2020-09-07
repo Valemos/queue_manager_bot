@@ -2,7 +2,7 @@ import random as rnd
 from pathlib import Path
 from queue_bot.varsaver import Savable
 from queue_bot.bot_access_levels import AccessLevel
-from queue_bot.languages.language_interface import BotMessages, Translatable
+from queue_bot.languages.language_interface import Translatable
 
 
 class Student:
@@ -213,46 +213,6 @@ class StudentsQueue(Savable, Translatable):
             msg += '\nГотовится - {0}'.format(next_stud.str())
 
         return msg if msg != '' else self.get_language_pack().queue_finished
-
-    # find students
-    def parse_students(self, students_str):
-        if '\n' in students_str:
-            names = students_str.split('\n')
-        else:
-            names = [students_str]
-
-        students = []
-        for name in names:
-            user = self.main_bot.registered_manager.get_user_by_name(name)
-            if user is None:
-                students.append(self.main_bot.registered_manager.find_similar_student(name))
-            else:
-                students.append(user)
-        return students
-
-    def parse_positions_list(self, string, max_index=None):
-        if max_index is None:
-            max_index = len(self._students)
-
-        if ' ' in string:
-            index_str = string.split(' ')
-        else:
-            index_str = [string]
-
-        err_list = []
-        correct_indexes = []
-
-        for pos_str in index_str:
-            try:
-                position = int(pos_str)
-                if 0 < position <= max_index:
-                    correct_indexes.append(position)
-                else:
-                    err_list.append(pos_str)
-            except ValueError:
-                err_list.append(pos_str)
-
-        return correct_indexes, err_list
 
     def generate_simple(self, students=None):
         if students is None:

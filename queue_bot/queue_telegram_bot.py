@@ -13,7 +13,7 @@ from queue_bot.subject_choice_manager import SubjectChoiceManager
 import atexit
 import os
 
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler, InlineQueryHandler
 from telegram import Chat
 
 
@@ -25,6 +25,7 @@ class QueueBot(Translatable):
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
     command_requested_answer = None
+    permanent_command_request = None
 
     def __init__(self, bot_token=None):
         self.logger = Logger()
@@ -46,7 +47,7 @@ class QueueBot(Translatable):
 
     def get_language_pack(self):
         if self.language_pack is None:
-            self.language_pack = MessagesRussian()
+            self.language_pack = MessagesRussian
         return self.language_pack
 
     def init_updater_commands(self):
@@ -64,8 +65,11 @@ class QueueBot(Translatable):
         self.updater.dispatcher.add_handler(CommandHandler('edit_registered', self._h_edit_registered))
         self.updater.dispatcher.add_handler(CommandHandler('owner', self._h_add_new_admin))
         self.updater.dispatcher.add_handler(CommandHandler('del_owner', self._h_del_admin))
+        self.updater.dispatcher.add_handler(CommandHandler('allow_pick_subjects', self._h_allow_pick_subjects))
+        self.updater.dispatcher.add_handler(CommandHandler('stop_pick_subjects', self._h_stop_pick_subjects))
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self._h_message_text))
         self.updater.dispatcher.add_handler(CallbackQueryHandler(self._h_keyboard_chosen))
+        self.updater.dispatcher.add_handler(InlineQueryHandler(self._h_inline_query))
         self.updater.dispatcher.add_error_handler(self._h_error)
 
     def refresh_last_queue_msg(self, update):
@@ -289,3 +293,15 @@ class QueueBot(Translatable):
         print('Error: {0}'.format(context.error))
         self.logger.log(context.error)
         self.logger.save_to_cloud()
+
+    def _h_allow_pick_subjects(self, update, context):
+        if self.registered_manager.check_access(update.effective_user.id):
+            commands.CollectSubjectChoices.Collect.handle(update, self)
+
+    def _h_stop_pick_subjects(self, update, context):
+        if self.registered_manager.check_access(update.effective_user.id):
+            commands.CollectSubjectChoices.StopCollect.handle(update, self)
+
+    def _h_inline_query(self, update, context):
+        if self.choice_manager.can_choose:
+            commands.CollectSubjectChoices.Collect.handle_request(update, self)
