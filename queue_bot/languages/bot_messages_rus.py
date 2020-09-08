@@ -2,6 +2,18 @@ import enum
 
 
 class MessagesRussian(enum.Enum):
+
+    admin_help = '''
+/new_queue          - создать новую очередь без перемешивания
+/new_random_queue   - создать новую случайную очередь
+/edit_queue         - меню редактирования очереди
+/allow_choose       - начать выбор тем в общем чате
+/stop_choose        - закончить выбор тем в общем чате (получить ексель таблицу можно через команду /get_choice_table)
+/get_choice_table   - получить ексель таблицу со всеми выбранными темами и приоритетами
+/edit_registered    - меню редактирования зарегистированных студентов
+/admin              - добавить нового админа
+/del_admin          - удалить админа'''
+
     permission_denied = 'Нет разрешения'
     code_not_valid = 'Внутренняя ошибка: Уровень доступа имеет неверный формат'
     not_owner = 'Не владелец'
@@ -70,3 +82,4 @@ class MessagesRussian(enum.Enum):
     finished_choice_manager_creation = 'Задание параметров завершено, с этого момента возможен выбор тем, ' \
                                        'напишите в общем чате /allow_pick_subjects'
     choices_collection_stopped = 'Выбор тем завершен'
+    show_choices = 'Выбранные темы:\n{0}'

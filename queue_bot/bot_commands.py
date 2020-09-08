@@ -1,6 +1,7 @@
-import pandas as pd  # for excel export
 from queue_bot.bot_access_levels import AccessLevel
 import queue_bot.bot_parcers as parcers
+from queue_bot.students_queue import Student_EMPTY
+
 
 class CommandGroup:
     class Command:
@@ -31,6 +32,16 @@ class CommandGroup:
         @classmethod
         def handle_request(cls, update, bot):
             pass
+
+
+class Help(CommandGroup):
+
+    class ForAdmin(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().admin_help)
 
 
 class ModifyQueue(CommandGroup):
@@ -411,7 +422,6 @@ class UpdateQueue(CommandGroup):
 
 class ManageUsers(CommandGroup):
     class AddAdmin(CommandGroup.Command):
-
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -482,6 +492,7 @@ class CollectSubjectChoices(CommandGroup):
                 CollectSubjectChoices.command_parameters['name'] = subject_name
                 CollectSubjectChoices.SetSubjectsRange.handle(update, bot)
 
+
     class SetSubjectsRange(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
@@ -519,6 +530,7 @@ class CollectSubjectChoices(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().value_set)
                 CollectSubjectChoices.FinishSubjectChoiceCreation.handle(update, bot)
 
+
     class FinishSubjectChoiceCreation(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
@@ -529,9 +541,7 @@ class CollectSubjectChoices(CommandGroup):
             repeat_limit = CollectSubjectChoices.command_parameters['repeat_limit']
             CollectSubjectChoices.command_parameters = {}
 
-            bot.choice_manager.set_choice_group(name,
-                                                [i for i in range(interval[0], interval[1] + 1, 1)],
-                                                repeat_limit)
+            bot.choice_manager.set_choice_group(name, interval, repeat_limit)
             update.effective_chat.send_message(bot.get_language_pack().finished_choice_manager_creation)
 
 
@@ -543,8 +553,17 @@ class CollectSubjectChoices(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            choices, errors = parcers.parse_positions_list(update.inline_query.query)
-            # todo add choice to choice_manager. consider priority limits of choice
+            subject_range = bot.choice_manager.get_subject_range()
+            choices, errors = parcers.parse_positions_list(update.inline_query.query,
+                                                           min_index=subject_range[0],
+                                                           max_index=subject_range[1])
+
+            student_requested = bot.registered_manager.get_user_by_id(update.effective_user.id)
+            if student_requested != Student_EMPTY:
+                bot.choice_manager.add_choice(student_requested, choices)
+            else:
+                update.effective_chat.send_message(bot.get_language_pack().unknown_user)
+            bot.request_handled()
 
     class StopCollect(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
@@ -553,3 +572,11 @@ class CollectSubjectChoices(CommandGroup):
         def handle(self, update, bot):
             bot.choice_manager.current_subject.save_to_excel()
             update.effective_chat.send_message(bot.get_language_pack().choices_collection_stopped)
+
+
+    class ShowCurrentChoices(CommandGroup.Command):
+
+        @classmethod
+        def handle(cls, update, bot):
+            choices_str = bot.get_language_pack().show_choices.format(bot.choice_manager.get_choices_str())
+            bot.subject_choices_message.resend(choices_str, update.effective_chat)

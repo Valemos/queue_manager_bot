@@ -20,21 +20,22 @@ class Choice:
             return True
         return False
 
-    def get_choice(self, available: list):
+    def get_choice(self, available: dict, limit = 1):
         for choice in self.priority_choices:
-            if choice in available:
+            if available[choice.student.id] < limit:
                 return choice
 
 
 class SubjectChoiceGroup:
 
-    def __init__(self, subject_name, available_choices: list, priority_limit=5, repeat_limit=0):
+    def __init__(self, subject_name, available_range: (int, int), priority_limit=5, repeat_limit=0):
         self.name = subject_name
         self.priority_limit = priority_limit
         self.repeat_limit = repeat_limit
 
         # this variable stores dict with counts
-        self.available_choices = {i: 0 for i in available_choices}
+        self.available_range = available_range
+        self.available_subjects = {i: 0 for i in range(self.available_range[0], self.available_range[1] + 1, 1)}
         self.student_choices = []
 
         # self.choices_file = Path("{0}.data".format(subject_name))
@@ -44,17 +45,18 @@ class SubjectChoiceGroup:
         if choice not in self.student_choices:
             self.student_choices.append(choice)
 
-    def update(self, choice: Choice):
-        if choice in self.student_choices:
-            self.student_choices[self.student_choices.index(choice)] = choice
-
     def delete(self, choice: Choice):
         if choice in self.student_choices:
             self.student_choices.remove(choice)
 
     def get_students_choices(self):
-        # todo write choice algorythm. it will use available choices dict to limit maximum subject choice number
-        pass
+        self.available_subjects = {i: 0 for i in range(self.available_range[0], self.available_range[1] + 1, 1)}
+        student_choices = {}
+        for choice in self.student_choices:
+            chosen_subject = choice.get_choice(self.available_subjects, self.repeat_limit)
+            self.available_subjects[chosen_subject] += 1
+            student_choices[choice.student] = chosen_subject
+        return sorted(student_choices, key=lambda item: item[0].name)
 
     def save_to_excel(self):
         data = {}
@@ -82,29 +84,36 @@ class SubjectChoiceManager(Savable):
         self.can_choose = False
 
     def start_choosing(self):
-        if self.current_subject is None:
-            return False
-        self.can_choose = True
-        return True
+        self.can_choose = self.current_subject is not None
+        return self.can_choose
 
     def stop_choosing(self):
         self.can_choose = False
 
+    def get_choices_str(self):
+        string = ''
+        for student, subject in self.current_subject.get_students_choices().items():
+            string += '{0} - {1}'.format(student.name, subject)
+        return string
+
+    def get_subject_range(self):
+        return self.current_subject.available_range
+
     def get_priority_limit(self):
         if self.current_subject is not None:
             return self.current_subject.priority_limit
-        return 0
+        return 5
 
     def add_choice(self, student, priority_choices):
         if self.current_subject is not None:
-            self.current_subject.add_choice(Choice(student, priority_choices))
+            self.current_subject.add_choice(Choice(student, priority_choices[:self.get_priority_limit()]))
             return True
         return False
 
-    def set_choice_group(self, name, available, repeat_limit, priority_limit=5):
+    def set_choice_group(self, name, value_range, repeat_limit, priority_limit=5):
         if self.current_subject is not None:
             self.current_subject.save_to_excel()
-        self.current_subject = SubjectChoiceGroup(name, available, priority_limit, repeat_limit)
+        self.current_subject = SubjectChoiceGroup(name, value_range, priority_limit, repeat_limit)
 
     def save_to_file(self, saver):
         self.current_subject.save_to_excel()

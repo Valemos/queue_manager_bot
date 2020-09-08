@@ -5,6 +5,8 @@ from queue_bot.varsaver import Savable, VariableSaver
 from queue_bot.students_queue import Student, Student_EMPTY
 from queue_bot.bot_access_levels import AccessLevel
 
+from telegram import Chat
+
 
 class StudentsRegisteredManager(Savable, Translatable):
 
@@ -152,8 +154,14 @@ class StudentsRegisteredManager(Savable, Translatable):
     def get_save_files(self):
         return [self._file_registered_users, self._file_access_levels]
 
-    def check_access(self, user_id: int, level_requriment=AccessLevel.ADMIN):
-        user = self.get_user_by_id(user_id)
+    # by default this function requires private chat to allow commands
+    def check_access(self, update, level_requriment=AccessLevel.ADMIN, check_chat_private=True):
+        user = self.get_user_by_id(update.effective_user.id)
+
+        if check_chat_private:
+            if update.effective_chat.type != Chat.PRIVATE:
+                return False
+
         if user is not None:
             if user.access_level.value <= level_requriment.value:
                 return True
