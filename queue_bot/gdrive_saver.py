@@ -25,7 +25,7 @@ class DriveSaver:
         self.work_email = 'programworkerbox@gmail.com'
         self._credentials = self.init_credentials()
 
-        FolderType.Data.mkdir(parents=True, exist_ok=True)
+        FolderType.Data.value.mkdir(parents=True, exist_ok=True)
 
         # must create main folder first
         self.init_drive_folder(DriveFolder.HelperBotData)
@@ -46,20 +46,25 @@ class DriveSaver:
             self.save_folder_id(drive_folder, folder_id)
 
     def create_drive_folder(self, folder_type):
+        if (FolderType.Data.value / folder_type.value).exists():
+            return self.load_folder_id(folder_type)
+
         folder_metadata = {
-            'name': folder_type.__name__,
+            'name': folder_type.name,
             'mimeType': 'application/vnd.google-apps.folder'
         }
 
         if folder_type is not DriveFolder.HelperBotData:  # function requests main folder id
-            main_folder_id = self.load_folder_id(folder_type)
+            main_folder_id = self.load_folder_id(DriveFolder.HelperBotData)
+            if main_folder_id is None:
+                main_folder_id = self.create_drive_folder(DriveFolder.HelperBotData)
             folder_metadata['parents'] = [main_folder_id]
 
         service = discovery.build('drive', 'v3', credentials=self._credentials)
         cloud_folder = service.files().create(body=folder_metadata).execute()
         service.permissions().create(fileId=cloud_folder['id'], transferOwnership=True,
                                      body={'type': 'user', 'role': 'owner', 'emailAddress': self.work_email}).execute()
-        return cloud_folder
+        return cloud_folder['id']
 
     def save(self, file_path, folder: DriveFolder):
 
@@ -167,13 +172,24 @@ class DriveSaver:
         existing_files = service.files().list(fields='files(id,name,parents,mimeType)').execute()['files']
 
         for file in existing_files:
-            if file['name'] in exceptions or (folder_id not in file['parents']):
+            if file['name'] in exceptions:
                 continue
+
+            if 'parents' in file:
+                if folder_id not in file['parents']:
+                    continue
 
             if file['mimeType'] != 'application/vnd.google-apps.folder':
                 service.files().delete(fileId=file['id']).execute()
 
         return True
+
+    def delete_everything_on_disk(self):
+        service = discovery.build('drive', 'v3', credentials=self._credentials)
+        existing_files = service.files().list(fields='files(id,name,parents,mimeType)').execute()['files']
+
+        for file in existing_files:
+            service.files().delete(fileId=file['id']).execute()
 
     def show_folder_files(self, folder: DriveFolder):
         folder_id = self.load_folder_id(folder)
@@ -190,12 +206,14 @@ class DriveSaver:
     @staticmethod
     def save_folder_id(drive_folder, folder_id):
         file = FolderType.Data.value / drive_folder.value
-        if file.exists():
-            try:
-                with file.open('wb') as fout:
-                    pickle.dump(folder_id, fout)
-            except pickle.UnpicklingError:
-                print('failed to load id from \"{}\"'.format(file))
+        if not file.exists():
+            file.touch()
+
+        try:
+            with file.open('wb') as fout:
+                pickle.dump(folder_id, fout)
+        except pickle.UnpicklingError:
+            print('failed to load id from \"{}\"'.format(file))
 
     @staticmethod
     def load_folder_id(drive_folder: DriveFolder):
@@ -212,21 +230,11 @@ class DriveSaver:
 
 
 if __name__ == '__main__':
-
+    os.chdir(r'D:\coding\Python_codes\Queue_Bot')
     if len(sys.argv) == 2:
         if sys.argv[1] == 'clear':
-            DriveSaver().clear_drive_folder(DriveFolder.HelperBotData, ['owners.data', 'registered.data'])
+            DriveSaver().delete_everything_on_disk()
         elif sys.argv[1] == 'show_data':
             DriveSaver().show_folder_files(DriveFolder.HelperBotData)
         elif sys.argv[1] == 'show_logs':
             DriveSaver().show_folder_files(DriveFolder.Log)
-
-    # saver = DriveSaver()
-    # saver.save(Path('logs/log.txt'), FolderType.Logs)
-    # path_list = [Path('data/owners.data'),
-    #             Path('data/registered.data'),
-    #             Path('data/queue.data'),
-    #             Path('data/bot_state.data')]
-    # lst = saver.update_file_list(path_list, FolderType.Data)
-
-    # saver.get_file_list(path_list, new_folder=Path('test'))

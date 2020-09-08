@@ -35,7 +35,7 @@ class SubjectChoiceGroup:
 
         # this variable stores dict with counts
         self.available_range = available_range
-        self.available_subjects = {i: 0 for i in range(self.available_range[0], self.available_range[1] + 1, 1)}
+        self.available_subjects = {i: 0 for i in range(self.available_range[0], self.available_range[1] + 1)}
         self.student_choices = []
 
         # self.choices_file = Path("{0}.data".format(subject_name))
@@ -50,7 +50,7 @@ class SubjectChoiceGroup:
             self.student_choices.remove(choice)
 
     def get_students_choices(self):
-        self.available_subjects = {i: 0 for i in range(self.available_range[0], self.available_range[1] + 1, 1)}
+        self.available_subjects = {i: 0 for i in range(self.available_range[0], self.available_range[1] + 1)}
         student_choices = {}
         for choice in self.student_choices:
             chosen_subject = choice.get_choice(self.available_subjects, self.repeat_limit)
@@ -59,17 +59,23 @@ class SubjectChoiceGroup:
         return sorted(student_choices, key=lambda item: item[0].name)
 
     def save_to_excel(self):
-        data = {}
+        final_choices = self.get_students_choices()
+
+        data = {'Имя': [], 'Тема': []}
+        data.update({'приоритет' + str(i): [] for i in range(1, self.priority_limit + 1)})
+
         for choice in self.student_choices:
-            data['student_name'] = choice.student.name
-            # save all 5 priorities to data dict
-            for i in range(len(choice.priority_choices)):
-                data[str(i)] = choice.priority_choices[i]
+            data['Имя'] = choice.student.name
+            # todo write choices to excel
+
+            # save all priorities to data dict
+
 
         df = pd.DataFrame(data)
         writer = pd.ExcelWriter(self.excel_file, engine='openpyxl')
         df.to_excel(writer, index=False)
         writer.save()
+        return self.excel_file
 
     def get_save_files(self):
         return [self.excel_file]
@@ -115,6 +121,9 @@ class SubjectChoiceManager(Savable):
             self.current_subject.save_to_excel()
         self.current_subject = SubjectChoiceGroup(name, value_range, priority_limit, repeat_limit)
 
+    def save_to_excel(self):
+        return self.current_subject.save_to_excel()
+
     def save_to_file(self, saver):
         self.current_subject.save_to_excel()
         saver.save(self.current_subject, self.file_current_subject, FolderType.SubjectChoices)
@@ -123,4 +132,7 @@ class SubjectChoiceManager(Savable):
         self.current_subject = saver.load(self.file_current_subject, FolderType.SubjectChoices)
 
     def get_save_files(self):
-        return [self.file_current_subject] + self.current_subject.get_save_files()
+        if self.current_subject is not None:
+            return [self.file_current_subject] + self.current_subject.get_save_files()
+        else:
+            return [self.file_current_subject]

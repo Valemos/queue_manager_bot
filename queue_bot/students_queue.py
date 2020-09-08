@@ -1,6 +1,6 @@
 import random as rnd
 from pathlib import Path
-from queue_bot.varsaver import Savable
+from queue_bot.varsaver import Savable, FolderType
 from queue_bot.bot_access_levels import AccessLevel
 from queue_bot.languages.language_interface import Translatable
 

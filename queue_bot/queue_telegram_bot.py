@@ -1,9 +1,9 @@
 from queue_bot.logger import Logger
 from queue_bot.varsaver import VariableSaver
 from queue_bot.gdrive_saver import DriveSaver, FolderType, DriveFolder
-# from queue_bot.languages.bot_messages_ukr import MessagesUkrainian
-from queue_bot.languages.bot_messages_rus import MessagesRussian
-from queue_bot import bot_commands as commands, bot_command_handler, bot_keyboards
+import queue_bot.languages.bot_messages_rus as messages_rus
+from queue_bot import bot_commands as commands, bot_keyboards
+from queue_bot.bot_command_handler import CommandHandler
 from queue_bot.registered_manager import StudentsRegisteredManager, AccessLevel
 from queue_bot.students_queue import StudentsQueue, Student_EMPTY, Student
 from queue_bot.updatable_message import UpdatableMessage
@@ -20,7 +20,6 @@ class QueueBot(Translatable):
     language_pack = None
     keyboards = bot_keyboards
 
-    command_handler = bot_command_handler.CommandHandler
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
     subject_choices_message = UpdatableMessage()
@@ -47,7 +46,7 @@ class QueueBot(Translatable):
 
     def get_language_pack(self):
         if self.language_pack is None:
-            self.language_pack = MessagesRussian
+            self.language_pack = messages_rus
         return self.language_pack
 
     def init_updater_commands(self):
@@ -65,8 +64,10 @@ class QueueBot(Translatable):
         self.updater.dispatcher.add_handler(CommandHandler('edit_registered', self._h_edit_registered))
         self.updater.dispatcher.add_handler(CommandHandler('admin', self._h_add_new_admin))
         self.updater.dispatcher.add_handler(CommandHandler('del_admin', self._h_del_admin))
+        self.updater.dispatcher.add_handler(CommandHandler('setup_subject', self._h_setup_choices))
         self.updater.dispatcher.add_handler(CommandHandler('allow_choose', self._h_allow_pick_subjects))
         self.updater.dispatcher.add_handler(CommandHandler('stop_choose', self._h_stop_pick_subjects))
+        self.updater.dispatcher.add_handler(CommandHandler('get_choice_table', self._h_get_choices_excel_file))
         self.updater.dispatcher.add_handler(CommandHandler('show_subjects', self._h_show_choices))
         self.updater.dispatcher.add_handler(CommandHandler('admin_help', self._h_show_admin_help))
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self._h_message_text))
@@ -134,13 +135,13 @@ class QueueBot(Translatable):
         return token
 
     def _h_keyboard_chosen(self, update, context):
-        self.command_handler.handle(update.callback_query.data, update, self)
+        CommandHandler.handle(update.callback_query.data, update, self)
         update.callback_query.answer()
 
     def set_request(self, cls):
         self.command_requested_answer = cls
 
-    def request_handled(self):
+    def del_request(self):
         self.command_requested_answer = None
 
     # command handlers
@@ -148,7 +149,7 @@ class QueueBot(Translatable):
         if self.command_requested_answer is None:
             return
 
-        self.logger.log(self.command_requested_answer.str())
+        self.logger.log('handled ' + self.command_requested_answer.str())
         self.command_requested_answer.handle_request(update, self)
 
     def _h_add_new_admin(self, update, context):
@@ -296,21 +297,29 @@ class QueueBot(Translatable):
         self.logger.log(context.error)
         self.logger.save_to_cloud()
 
+    def _h_setup_choices(self, update, context):
+        if self.registered_manager.check_access(update):
+            commands.CollectSubjectChoices.CreateNewCollectFile.handle(update, self)
+
     def _h_allow_pick_subjects(self, update, context):
         if self.registered_manager.check_access(update, check_chat_private=False):
-            commands.CollectSubjectChoices.Collect.handle(update, self)
+            commands.CollectSubjectChoices.Choose.handle(update, self)
 
     def _h_stop_pick_subjects(self, update, context):
         if self.registered_manager.check_access(update, check_chat_private=False):
-            commands.CollectSubjectChoices.StopCollect.handle(update, self)
+            commands.CollectSubjectChoices.StopChoose.handle(update, self)
 
     def _h_show_choices(self, update, context):
         commands.CollectSubjectChoices.ShowCurrentChoices.handle(update, self)
 
     def _h_inline_query(self, update, context):
         if self.choice_manager.can_choose:
-            commands.CollectSubjectChoices.Collect.handle_request(update, self)
+            commands.CollectSubjectChoices.Choose.handle_request(update, self)
 
     def _h_show_admin_help(self, update, context):
         if self.registered_manager.check_access(update, check_chat_private=False):
             commands.Help.ForAdmin.handle(update, self)
+
+    def _h_get_choices_excel_file(self, update, context):
+        if self.registered_manager.check_access(update, check_chat_private=False):
+            commands.CollectSubjectChoices.GetExcelFile.handle(update, self)

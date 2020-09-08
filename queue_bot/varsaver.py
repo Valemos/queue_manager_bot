@@ -35,7 +35,7 @@ class VariableSaver:
         if self.logger is not None:
             self.logger.log(content)
 
-    def save(self, var, save_path, save_folder=FolderType.NoFolder):
+    def save(self, var, save_path, save_folder=FolderType.Data):
         if save_folder is None:
             save_folder = self.default_folder
         save_path = save_folder.value / save_path
@@ -50,7 +50,7 @@ class VariableSaver:
         except pickle.PickleError:
             self.log('file {0}: save failed'.format(save_path))
 
-    def load(self, save_path, save_folder=FolderType.NoFolder):
+    def load(self, save_path, save_folder=FolderType.Data):
         if save_folder is None:
             save_folder = self.default_folder
         save_path = save_folder.value / save_path

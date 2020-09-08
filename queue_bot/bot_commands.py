@@ -2,6 +2,8 @@ from queue_bot.bot_access_levels import AccessLevel
 import queue_bot.bot_parcers as parcers
 from queue_bot.students_queue import Student_EMPTY
 
+from telegram import InputFile
+
 
 class CommandGroup:
     class Command:
@@ -63,7 +65,7 @@ class ModifyQueue(CommandGroup):
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.get_language_pack().students_set)
             bot.save_queue_to_file()
-            bot.request_handled()
+            bot.del_request()
 
 
     class CreateRandom(CommandGroup.Command):
@@ -83,7 +85,7 @@ class ModifyQueue(CommandGroup):
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.get_language_pack().students_set)
             bot.save_queue_to_file()
-            bot.request_handled()
+            bot.del_request()
 
 
     class CreateRandomFromRegistered(CommandGroup.Command):
@@ -155,7 +157,7 @@ class ModifyQueue(CommandGroup):
             finally:
                 bot.refresh_last_queue_msg(update)
                 bot.save_queue_to_file()
-                bot.request_handled()
+                bot.del_request()
                 
 
     class ClearList(CommandGroup.Command):
@@ -191,7 +193,7 @@ class ModifyQueue(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().student_added_to_end)
             except ValueError:
                 update.effective_chat.send_message(bot.get_language_pack().not_index_from_queue)
-            bot.request_handled()
+            bot.del_request()
 
 
     class RemoveStudentsList(CommandGroup.Command):
@@ -215,7 +217,7 @@ class ModifyQueue(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().error_in_this_values.format(', '.join(errors)))
             if len(positions) > 0:
                 update.effective_chat.send_message(bot.get_language_pack().users_deleted)
-            bot.request_handled()
+            bot.del_request()
 
 
     class SetStudentPosition(CommandGroup.Command):
@@ -242,7 +244,7 @@ class ModifyQueue(CommandGroup):
 
             bot.refresh_last_queue_msg(update)
             bot.save_queue_to_file()
-            bot.request_handled()
+            bot.del_request()
             
 
     class AddStudent(CommandGroup.Command):
@@ -266,7 +268,7 @@ class ModifyQueue(CommandGroup):
 
             bot.refresh_last_queue_msg(update)
             bot.save_queue_to_file()
-            bot.request_handled()
+            bot.del_request()
             
 
     class SwapStudents(CommandGroup.Command):
@@ -296,7 +298,7 @@ class ModifyQueue(CommandGroup):
             finally:
                 bot.refresh_last_queue_msg(update)
                 bot.save_queue_to_file()
-                bot.request_handled()
+                bot.del_request()
 
 
 class ModifyRegistered(CommandGroup):
@@ -329,7 +331,7 @@ class ModifyRegistered(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_added)
 
             bot.save_registered_to_file()
-            bot.request_handled()
+            bot.del_request()
 
 
     class AddUser(CommandGroup.Command):
@@ -350,7 +352,7 @@ class ModifyRegistered(CommandGroup):
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
 
             bot.save_registered_to_file()
-            bot.request_handled()
+            bot.del_request()
             
 
     class RenameAllUsers(CommandGroup.Command):
@@ -369,7 +371,7 @@ class ModifyRegistered(CommandGroup):
                     bot.registered_manager.rename(i, names[i])
             else:
                 update.effective_chat.send_message(bot.get_language_pack().names_more_than_users)
-            bot.request_handled()
+            bot.del_request()
 
 
     class RemoveListUsers(CommandGroup.Command):
@@ -394,7 +396,7 @@ class ModifyRegistered(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_deleted)
 
             bot.save_registered_to_file()
-            bot.request_handled()
+            bot.del_request()
             
 
 class UpdateQueue(CommandGroup):
@@ -432,7 +434,7 @@ class ManageUsers(CommandGroup):
             else:
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
             bot.save_registered_to_file()
-            bot.request_handled()
+            bot.del_request()
             
 
     class RemoveAdmin(CommandGroup.Command):
@@ -447,11 +449,10 @@ class ManageUsers(CommandGroup):
             else:
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
             bot.save_registered_to_file()
-            bot.request_handled()
+            bot.del_request()
             
 
     class AddUsersList(CommandGroup.Command):
-
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -465,7 +466,7 @@ class ManageUsers(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_added)
 
             bot.save_registered_to_file()
-            bot.request_handled()
+            bot.del_request()
 
 
 class CollectSubjectChoices(CommandGroup):
@@ -490,6 +491,7 @@ class CollectSubjectChoices(CommandGroup):
                 return
             else:
                 CollectSubjectChoices.command_parameters['name'] = subject_name
+                update.effective_chat.send_message(bot.get_language_pack().value_set)
                 CollectSubjectChoices.SetSubjectsRange.handle(update, bot)
 
 
@@ -509,9 +511,10 @@ class CollectSubjectChoices(CommandGroup):
             else:
                 CollectSubjectChoices.command_parameters['interval'] = (min_range, max_range)
                 update.effective_chat.send_message(bot.get_language_pack().number_interval_set)
+                CollectSubjectChoices.SetRepeatLimit.handle(update, bot)
                 
 
-    class SetRepeatableMode(CommandGroup.Command):
+    class SetRepeatLimit(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -544,8 +547,10 @@ class CollectSubjectChoices(CommandGroup):
             bot.choice_manager.set_choice_group(name, interval, repeat_limit)
             update.effective_chat.send_message(bot.get_language_pack().finished_choice_manager_creation)
 
+            bot.del_request()
 
-    class Collect(CommandGroup.Command):
+
+    class Choose(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().send_choice_numbers)
@@ -563,9 +568,10 @@ class CollectSubjectChoices(CommandGroup):
                 bot.choice_manager.add_choice(student_requested, choices)
             else:
                 update.effective_chat.send_message(bot.get_language_pack().unknown_user)
-            bot.request_handled()
+            bot.del_request()
 
-    class StopCollect(CommandGroup.Command):
+
+    class StopChoose(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -580,3 +586,16 @@ class CollectSubjectChoices(CommandGroup):
         def handle(cls, update, bot):
             choices_str = bot.get_language_pack().show_choices.format(bot.choice_manager.get_choices_str())
             bot.subject_choices_message.resend(choices_str, update.effective_chat)
+
+
+    class GetExcelFile(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().get_choices_excel_file)
+            excel_path = bot.choice_manager.save_to_excel()
+
+            with excel_path.open('rb') as fin:
+                update.effective_chat.send_document(InputFile(fin.read(), filename=str(excel_path)))
+

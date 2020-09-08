@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from queue_bot.languages.language_interface import Translatable
-from queue_bot.varsaver import Savable, VariableSaver
+from queue_bot.varsaver import Savable, VariableSaver, FolderType
 from queue_bot.students_queue import Student, Student_EMPTY
 from queue_bot.bot_access_levels import AccessLevel
 

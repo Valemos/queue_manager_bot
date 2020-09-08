@@ -23,3 +23,4 @@ drive_data/*
 queue_bot/__pycache__/
 queue_bot/languages/__pycache__/
 test_data/
+/test_bot.py
