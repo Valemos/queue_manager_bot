@@ -107,7 +107,7 @@ class SubjectChoiceGroup:
         return self.excel_file
 
     def get_save_files(self):
-        return [self.excel_file]
+        return [FolderType.SubjectChoices.value / self.excel_file]
 
 
 class SubjectChoiceManager(Savable):
@@ -173,6 +173,6 @@ class SubjectChoiceManager(Savable):
 
     def get_save_files(self):
         if self.current_subjects is not None:
-            return [self.file_current_subject] + self.current_subjects.get_save_files()
+            return [FolderType.SubjectChoices.value / self.file_current_subject] + self.current_subjects.get_save_files()
         else:
-            return [self.file_current_subject]
+            return [FolderType.SubjectChoices.value / self.file_current_subject]

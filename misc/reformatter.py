@@ -10,7 +10,7 @@ os.chdir('../')
 mode = 1
 
 if mode == 1:
-    source_file = FolderType.Backup.value / StudentsRegisteredManager._file_registered_users
+    source_file = FolderType.Data.value / StudentsRegisteredManager._file_registered_users
     registered_file = FolderType.Data.value / StudentsRegisteredManager._file_registered_users
 
     with source_file.open('rb') as fin:
@@ -22,7 +22,7 @@ if mode == 1:
         pickle.dump(students, fout)
 
 elif mode == 2:
-    access_source_file = FolderType.Data.value / Path('owners.data')
+    access_source_file = FolderType.Data.value / StudentsRegisteredManager._file_access_levels
     access_levels_path = FolderType.Data.value / StudentsRegisteredManager._file_access_levels
 
     with access_levels_path.open('rb') as fin:
@@ -33,6 +33,8 @@ elif mode == 2:
 
     for key in access.keys():
         access[key] = AccessLevel(access[key])
+
+    print(access)
 
     with access_levels_path.open('wb') as fout:
         pickle.dump(access, fout)

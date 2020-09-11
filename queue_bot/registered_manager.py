@@ -172,7 +172,7 @@ class StudentsRegisteredManager(Savable, Translatable):
             self._students_reg = []
 
     def get_save_files(self):
-        return [self._file_registered_users, self._file_access_levels]
+        return [FolderType.Data.value / self._file_registered_users, FolderType.Data.value / self._file_access_levels]
 
     # by default this function requires private chat to allow commands
     def check_access(self, update, level_requriment=AccessLevel.ADMIN, check_chat_private=True):

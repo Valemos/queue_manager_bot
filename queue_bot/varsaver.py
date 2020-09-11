@@ -63,7 +63,7 @@ class VariableSaver:
         try:
             with save_path.open('rb') as fr:
                 return pickle.load(fr)
-        except pickle.UnpicklingError:
+        except (pickle.UnpicklingError, EOFError):
             self.log('file {0}: load failed'.format(save_path))
             return None
 

@@ -5,7 +5,7 @@ from queue_bot.gdrive_saver import DriveSaver, FolderType
 
 class Logger:
     
-    def __init__(self, log_path = None):
+    def __init__(self, log_path=None):
         if log_path is None:
             log_path = FolderType.Logs.value / Path('log.txt')
             

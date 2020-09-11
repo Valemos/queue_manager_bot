@@ -94,10 +94,10 @@ class QueueBot(Translatable):
 
     def save_to_cloud(self):
         dump_path = self.logger.dump_to_file()
-        self.gdrive_saver.update_file_list([dump_path], FolderType.Logs)
-        self.gdrive_saver.update_file_list(self.queue.get_save_files() +
-                                           self.registered_manager.get_save_files(),
-                                           FolderType.Data)
+        self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)
+
+        self.gdrive_saver.update_file_list(self.queue.get_save_files() + self.registered_manager.get_save_files())
+        self.gdrive_saver.update_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
 
         self.logger.log('saved to cloud')
 
@@ -109,6 +109,7 @@ class QueueBot(Translatable):
         self.load_from_cloud()
 
         self.registered_manager.load_file(self.varsaver)
+        self.choice_manager.load_file(self.varsaver)
         self.registered_manager.update_access_levels(self.varsaver)
         self.queue.load_file(self.varsaver)
 

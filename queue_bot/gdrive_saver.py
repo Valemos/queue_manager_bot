@@ -24,6 +24,7 @@ class DriveSaver:
         self._SCOPES = ['https://www.googleapis.com/auth/drive']
         self._SERVICE_ACCOUNT_FILE = FolderType.DriveData.value / Path('queue-bot-key.json')
         self.work_email = 'programworkerbox@gmail.com'
+        # credentials mus be created after SCOPE and account file was specified
         self._credentials = self.init_credentials()
 
         FolderType.Data.value.mkdir(parents=True, exist_ok=True)
@@ -86,7 +87,7 @@ class DriveSaver:
 
         return True
 
-    def update_file_list(self, path_list, parent_folder):
+    def update_file_list(self, path_list, parent_folder=DriveFolder.HelperBotData):
 
         if self._credentials is None:
             return False
@@ -94,7 +95,7 @@ class DriveSaver:
         service = discovery.build('drive', 'v3', credentials=self._credentials)
 
         # files list
-        existing_files = service.files().list().execute()['files']
+        existing_files = service.files().list(fields='files(id,name)').execute()['files']
 
         # update if files exist
         names_dict = {p.name: p for p in path_list if p.exists()}
@@ -111,7 +112,15 @@ class DriveSaver:
                 'parents': [parent_folder]
             }
             upload_file = MediaFileUpload(path, mimetype='application/octet-stream')
-            service.files().create(body=file_metadata, media_body=upload_file).execute()
+            file = service.files().create(body=file_metadata, media_body=upload_file).execute()
+            try:
+                service.permissions().create(fileId=file['id'], transferOwnership=True,
+                                             body={'type': 'user', 'role': 'owner',
+                                                   'emailAddress': self.work_email}).execute()
+            except HttpError:
+                pass
+
+        return True
 
     # if path_list not specified, all files from folder will be written to 'new_folder'
     def get_file_list(self, path_list=None, drive_folder=DriveFolder.HelperBotData, save_folder=FolderType.Data):
@@ -135,7 +144,8 @@ class DriveSaver:
 
         if len(names_list) == 0:
             return False
-        return self.download_drive_files(drive_folder_id, save_folder.value, names_list)
+
+        return self.download_drive_files(drive_folder_id, save_folder, names_list)
 
     def download_drive_files(self, folder_id, folder_type, names_list):
         service = discovery.build('drive', 'v3', credentials=self._credentials)
@@ -187,16 +197,31 @@ class DriveSaver:
                     continue
 
             if file['mimeType'] != 'application/vnd.google-apps.folder':
-                service.files().delete(fileId=file['id']).execute()
+                service.files().remove(fileId=file['id']).execute()
 
         return True
 
     def delete_everything_on_disk(self):
         service = discovery.build('drive', 'v3', credentials=self._credentials)
-        existing_files = service.files().list(fields='files(id,name,parents,mimeType)').execute()['files']
+        existing_files = service.files().list(fields='files(id)').execute()['files']
 
         for file in existing_files:
-            service.files().delete(fileId=file['id']).execute()
+            try:
+                service.files().delete(fileId=file['id']).execute()
+            except HttpError as err:
+                pass
+
+    def update_all_permissions(self):
+        service = discovery.build('drive', 'v3', credentials=self._credentials)
+        existing_files = service.files().list(fields='files(id)').execute()['files']
+
+        for file in existing_files:
+            try:
+                service.permissions().create(fileId=file['id'], transferOwnership=True,
+                                             body={'type': 'user', 'role': 'owner',
+                                                   'emailAddress': self.work_email}).execute()
+            except HttpError as err:
+                pass
 
     def show_folder_files(self, folder: DriveFolder):
         folder_id = self.load_folder_id(folder)
@@ -224,6 +249,9 @@ class DriveSaver:
 
     @staticmethod
     def load_folder_id(drive_folder: DriveFolder):
+        if drive_folder is None:
+            return None
+
         cloud_id = None
         file = FolderType.Data.value / drive_folder.value
         if file.exists():
@@ -237,7 +265,7 @@ class DriveSaver:
 
 
 if __name__ == '__main__':
-    os.chdir(r'D:\coding\Python_codes\Queue_Bot')
+    os.chdir('../')
     if len(sys.argv) == 2:
         if sys.argv[1] == 'clear':
             DriveSaver().delete_everything_on_disk()

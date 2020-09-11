@@ -248,7 +248,7 @@ class StudentsQueue(Savable, Translatable):
         saver.save({'cur_queue_pos': self.queue_pos}, self._file_queue_state)
 
     def get_save_files(self):
-        return [self._file_queue, self._file_queue_state]
+        return [FolderType.Data.value / self._file_queue, FolderType.Data.value / self._file_queue_state]
 
     def remove(self, student: Student):
         if student in self._students:
