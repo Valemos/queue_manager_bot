@@ -20,7 +20,7 @@ class FolderType(enum.Enum):
     Data = Path('data')
     SubjectChoices = Path('subject_choices')
     DriveData = Path('drive_data')
-    Backup = Path('data-Copy')
+    Backup = Path('data_backup')
     Logs = Path('logs')
     Test = Path('test_data')
 
