@@ -35,3 +35,7 @@ modify_registered = InlineKeyboardMarkup([
     [InlineKeyboardButton('Удалить несколько пользователей',     callback_data=commands.ModifyRegistered.RemoveListUsers.str())],
     [InlineKeyboardButton('Переименовать всех пользователей',    callback_data=commands.ModifyRegistered.RenameAllUsers.str())]
 ])
+
+help_subject_choice = InlineKeyboardMarkup([
+    [InlineKeyboardButton('Как выбрать тему?', callback_data=commands.Help.HowToChooseSubject.str())]
+])

@@ -3,7 +3,7 @@ from queue_bot.varsaver import VariableSaver
 from queue_bot.gdrive_saver import DriveSaver, FolderType, DriveFolder
 import queue_bot.languages.bot_messages_rus as messages_rus
 from queue_bot import bot_commands as commands, bot_keyboards
-from queue_bot.bot_command_handler import CommandHandler
+import queue_bot.bot_command_handler as command_handler
 from queue_bot.registered_manager import StudentsRegisteredManager, AccessLevel
 from queue_bot.students_queue import StudentsQueue, Student_EMPTY, Student
 from queue_bot.updatable_message import UpdatableMessage
@@ -22,9 +22,8 @@ class QueueBot(Translatable):
 
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
-    subject_choices_message = UpdatableMessage()
+    subject_choices_message = UpdatableMessage(default_keyboard=keyboards.help_subject_choice)
     command_requested_answer = None
-    permanent_command_request = None
 
     def __init__(self, bot_token=None):
         self.logger = Logger()
@@ -67,12 +66,13 @@ class QueueBot(Translatable):
         self.updater.dispatcher.add_handler(CommandHandler('setup_subject', self._h_setup_choices))
         self.updater.dispatcher.add_handler(CommandHandler('allow_choose', self._h_allow_pick_subjects))
         self.updater.dispatcher.add_handler(CommandHandler('stop_choose', self._h_stop_pick_subjects))
+        self.updater.dispatcher.add_handler(CommandHandler('remove_choice', self._h_remove_choice))
+        self.updater.dispatcher.add_handler(CommandHandler('ch', self._h_choice))
         self.updater.dispatcher.add_handler(CommandHandler('get_choice_table', self._h_get_choices_excel_file))
-        self.updater.dispatcher.add_handler(CommandHandler('show_subjects', self._h_show_choices))
+        self.updater.dispatcher.add_handler(CommandHandler('get_subjects', self._h_show_choices))
         self.updater.dispatcher.add_handler(CommandHandler('admin_help', self._h_show_admin_help))
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self._h_message_text))
         self.updater.dispatcher.add_handler(CallbackQueryHandler(self._h_keyboard_chosen))
-        self.updater.dispatcher.add_handler(InlineQueryHandler(self._h_inline_query))
         self.updater.dispatcher.add_error_handler(self._h_error)
 
     def refresh_last_queue_msg(self, update):
@@ -135,13 +135,13 @@ class QueueBot(Translatable):
         return token
 
     def _h_keyboard_chosen(self, update, context):
-        CommandHandler.handle(update.callback_query.data, update, self)
+        command_handler.handle(update.callback_query.data, update, self)
         update.callback_query.answer()
 
-    def set_request(self, cls):
+    def request_set(self, cls):
         self.command_requested_answer = cls
 
-    def del_request(self):
+    def request_del(self):
         self.command_requested_answer = None
 
     # command handlers
@@ -162,7 +162,7 @@ class QueueBot(Translatable):
         if self.registered_manager.check_access(update, cmd.access_requirement):
             if self.command_requested_answer is None:
                 update.message.reply_text(self.get_language_pack().get_user_message)
-                self.set_request(cmd)
+                self.request_set(cmd)
             else:
                 update.message.reply_text(self.get_language_pack().already_requested_send_message)
         else:
@@ -188,6 +188,7 @@ class QueueBot(Translatable):
     def _h_stop(self, update, context):
         if self.registered_manager.check_access(update):
             update.message.reply_text(self.get_language_pack().bot_stopped)
+            self.save_to_cloud()
             self.updater.stop()
             exit(0)
 
@@ -303,7 +304,7 @@ class QueueBot(Translatable):
 
     def _h_allow_pick_subjects(self, update, context):
         if self.registered_manager.check_access(update, check_chat_private=False):
-            commands.CollectSubjectChoices.Choose.handle(update, self)
+            commands.CollectSubjectChoices.StartChoose.handle(update, self)
 
     def _h_stop_pick_subjects(self, update, context):
         if self.registered_manager.check_access(update, check_chat_private=False):
@@ -312,9 +313,11 @@ class QueueBot(Translatable):
     def _h_show_choices(self, update, context):
         commands.CollectSubjectChoices.ShowCurrentChoices.handle(update, self)
 
-    def _h_inline_query(self, update, context):
-        if self.choice_manager.can_choose:
-            commands.CollectSubjectChoices.Choose.handle_request(update, self)
+    def _h_choice(self, update, context):
+        commands.CollectSubjectChoices.Choose.handle_request(update, self)
+
+    def _h_remove_choice(self, update, context):
+        commands.CollectSubjectChoices.RemoveChoice.handle(update, self)
 
     def _h_show_admin_help(self, update, context):
         if self.registered_manager.check_access(update, check_chat_private=False):

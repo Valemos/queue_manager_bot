@@ -21,6 +21,9 @@ class Student:
     def __str__(self):
         return self.str()
 
+    def __hash__(self):
+        return self.telegram_id
+
     def str(self, position=None):
         if position is None:
             return self.name
@@ -31,7 +34,7 @@ class Student:
         return '{0} - {1}'.format(self.name, str(self.telegram_id))
 
 
-Student_EMPTY = Student('empty_student', None)
+Student_EMPTY = Student('empty_student', 0)
 
 
 class StudentsQueue(Savable, Translatable):

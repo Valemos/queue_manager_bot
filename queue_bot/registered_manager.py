@@ -46,7 +46,7 @@ class StudentsRegisteredManager(Savable, Translatable):
             self._students_reg.append(users)
         else:
             for user in users:
-                if user not in self._students_reg:  # TODO check for correct user recognition
+                if user not in self._students_reg:
                     self._students_reg.append(user)
 
     def rename(self, index, new_name):
@@ -57,8 +57,15 @@ class StudentsRegisteredManager(Savable, Translatable):
         if isinstance(index, int):
             self._students_reg.pop(index)
         else:
-            for index in index:
-                self._students_reg.pop(index)
+            to_delete = []
+            for i in index:
+                to_delete.append(self._students_reg[i])
+
+            deleted = False
+            for elem in to_delete:
+                self._students_reg.remove(elem)
+                deleted = True
+            return deleted
 
     def remove_by_id(self, remove_id: int):
         to_delete = []
@@ -72,6 +79,19 @@ class StudentsRegisteredManager(Savable, Translatable):
             deleted = True
 
         return deleted
+
+    # converts list of names to Student objects
+    def get_registered_students(self, names: list):
+        students = []
+        for name in names:
+            student = self.get_user_by_name(name)
+            if student is None:
+                student = self.find_similar_student(name)
+            elif student is None:
+                student = Student(name, 0)
+            students.append(student)
+
+        return students
 
     def get_user_by_name(self, name: int):
         for student in self._students_reg:

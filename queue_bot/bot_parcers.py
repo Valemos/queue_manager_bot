@@ -1,24 +1,7 @@
 from queue_bot.students_queue import Student
 
 
-# find students
-def parse_students(students_str):
-    if '\n' in students_str:
-        names = students_str.split('\n')
-    else:
-        names = [students_str]
-
-    students = []
-    for name in names:
-        user = self.main_bot.registered_manager.get_user_by_name(name)
-        if user is None:
-            students.append(self.main_bot.registered_manager.find_similar_student(name))
-        else:
-            students.append(user)
-    return students
-
-
-def parse_positions_list(string, max_index, min_index=0):
+def parse_positions_list(string, min_index, max_index):
     if ' ' in string:
         index_str = string.split(' ')
     else:
@@ -30,7 +13,7 @@ def parse_positions_list(string, max_index, min_index=0):
     for pos_str in index_str:
         try:
             position = int(pos_str)
-            if min_index < position <= max_index:
+            if min_index <= position <= max_index:
                 correct_indexes.append(position)
             else:
                 err_list.append(pos_str)

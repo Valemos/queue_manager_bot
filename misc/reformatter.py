@@ -1,14 +1,17 @@
 import pickle
 from pathlib import Path
+import os
 from queue_bot.registered_manager import StudentsRegisteredManager, Student
 from queue_bot.varsaver import FolderType
 from queue_bot.registered_manager import AccessLevel
+
+os.chdir('../')
 
 mode = 1
 
 if mode == 1:
     source_file = FolderType.Backup.value / StudentsRegisteredManager._file_registered_users
-    registered_file = FolderType.Data.value / FolderType.Data.value / StudentsRegisteredManager._file_registered_users
+    registered_file = FolderType.Data.value / StudentsRegisteredManager._file_registered_users
 
     with source_file.open('rb') as fin:
         print('registered')

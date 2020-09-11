@@ -45,6 +45,11 @@ class Help(CommandGroup):
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().admin_help)
 
+    class HowToChooseSubject(CommandGroup.Command):
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().send_choice_numbers)
+
 
 class ModifyQueue(CommandGroup):
 
@@ -56,16 +61,17 @@ class ModifyQueue(CommandGroup):
         def handle(cls, update, bot):
             bot.queue.clear()
             update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            students = parcers.parse_students(update.message.text)
+            names = parcers.parse_names(update.message.text)
+            students = bot.registered_manager.get_registered_students(names)
             bot.queue.generate_simple(students)
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.get_language_pack().students_set)
             bot.save_queue_to_file()
-            bot.del_request()
+            bot.request_del()
 
 
     class CreateRandom(CommandGroup.Command):
@@ -76,16 +82,17 @@ class ModifyQueue(CommandGroup):
         def handle(cls, update, bot):
             bot.queue.clear()
             update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            students = parcers.parse_students(update.message.text)
+            names = parcers.parse_names(update.message.text)
+            students = bot.registered_manager.get_registered_students(names)
             bot.queue.generate_random(students)
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.get_language_pack().students_set)
             bot.save_queue_to_file()
-            bot.del_request()
+            bot.request_del()
 
 
     class CreateRandomFromRegistered(CommandGroup.Command):
@@ -98,7 +105,7 @@ class ModifyQueue(CommandGroup):
             new_queue_students = bot.registered_manager.get_users()
             random.shuffle(new_queue_students)
             bot.queue.set_students(new_queue_students)
-            bot.last_queue_message.update_contents(bot.queue.str())
+            bot.last_queue_message.update_contents(bot.queue.str(), update.effective_chat)
             bot.save_queue_to_file()
 
 
@@ -127,7 +134,7 @@ class ModifyQueue(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -142,7 +149,7 @@ class ModifyQueue(CommandGroup):
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
             update.effective_chat.send_message(bot.get_language_pack().send_new_position)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -157,7 +164,7 @@ class ModifyQueue(CommandGroup):
             finally:
                 bot.refresh_last_queue_msg(update)
                 bot.save_queue_to_file()
-                bot.del_request()
+                bot.request_del()
                 
 
     class ClearList(CommandGroup.Command):
@@ -178,7 +185,7 @@ class ModifyQueue(CommandGroup):
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
             update.effective_chat.send_message(bot.get_language_pack().send_student_number)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -193,7 +200,7 @@ class ModifyQueue(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().student_added_to_end)
             except ValueError:
                 update.effective_chat.send_message(bot.get_language_pack().not_index_from_queue)
-            bot.del_request()
+            bot.request_del()
 
 
     class RemoveStudentsList(CommandGroup.Command):
@@ -204,11 +211,11 @@ class ModifyQueue(CommandGroup):
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
             update.effective_chat.send_message(bot.get_language_pack().send_student_numbers_with_space)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = parcers.parse_positions_list(update.message.text, len(bot.queue))
+            positions, errors = parcers.parse_positions_list(update.message.text, 1, len(bot.queue))
             bot.queue.remove_by_index([i - 1 for i in positions])
             bot.refresh_last_queue_msg(update)
             bot.save_queue_to_file()
@@ -217,7 +224,7 @@ class ModifyQueue(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().error_in_this_values.format(', '.join(errors)))
             if len(positions) > 0:
                 update.effective_chat.send_message(bot.get_language_pack().users_deleted)
-            bot.del_request()
+            bot.request_del()
 
 
     class SetStudentPosition(CommandGroup.Command):
@@ -228,11 +235,11 @@ class ModifyQueue(CommandGroup):
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
             update.effective_chat.send_message(bot.get_language_pack().send_student_number_and_new_position)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = parcers.parse_positions_list(update.message.text, len(bot.queue))
+            positions, errors = parcers.parse_positions_list(update.message.text, 1, len(bot.queue))
 
             if len(positions) >= 2:
                 if bot.queue.move_to_index(positions[0]-1, positions[1]-1):
@@ -244,7 +251,7 @@ class ModifyQueue(CommandGroup):
 
             bot.refresh_last_queue_msg(update)
             bot.save_queue_to_file()
-            bot.del_request()
+            bot.request_del()
             
 
     class AddStudent(CommandGroup.Command):
@@ -255,7 +262,7 @@ class ModifyQueue(CommandGroup):
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
             update.effective_chat.send_message(bot.get_language_pack().send_student_name_to_end)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -268,7 +275,7 @@ class ModifyQueue(CommandGroup):
 
             bot.refresh_last_queue_msg(update)
             bot.save_queue_to_file()
-            bot.del_request()
+            bot.request_del()
             
 
     class SwapStudents(CommandGroup.Command):
@@ -279,7 +286,7 @@ class ModifyQueue(CommandGroup):
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
             update.effective_chat.send_message(bot.get_language_pack().send_two_positions_students_space)
-            bot.set_request(cls)
+            bot.request_set(cls)
         
         @classmethod
         def handle_request(cls, update, bot):
@@ -298,7 +305,7 @@ class ModifyQueue(CommandGroup):
             finally:
                 bot.refresh_last_queue_msg(update)
                 bot.save_queue_to_file()
-                bot.del_request()
+                bot.request_del()
 
 
 class ModifyRegistered(CommandGroup):
@@ -318,7 +325,7 @@ class ModifyRegistered(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().set_registered_students)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -331,7 +338,7 @@ class ModifyRegistered(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_added)
 
             bot.save_registered_to_file()
-            bot.del_request()
+            bot.request_del()
 
 
     class AddUser(CommandGroup.Command):
@@ -341,7 +348,7 @@ class ModifyRegistered(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().get_user_message)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -352,7 +359,7 @@ class ModifyRegistered(CommandGroup):
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
 
             bot.save_registered_to_file()
-            bot.del_request()
+            bot.request_del()
             
 
     class RenameAllUsers(CommandGroup.Command):
@@ -362,7 +369,7 @@ class ModifyRegistered(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().enter_new_list_in_order)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         def handle_request(cls, update, bot):
             names = parcers.parse_names(update.message.text)
@@ -371,7 +378,7 @@ class ModifyRegistered(CommandGroup):
                     bot.registered_manager.rename(i, names[i])
             else:
                 update.effective_chat.send_message(bot.get_language_pack().names_more_than_users)
-            bot.del_request()
+            bot.request_del()
 
 
     class RemoveListUsers(CommandGroup.Command):
@@ -382,21 +389,21 @@ class ModifyRegistered(CommandGroup):
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.registered_manager.get_users_str())
             update.effective_chat.send_message(bot.get_language_pack().del_registered_students)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
             # parse function is inside of queue object
-            delete_indexes, errors = parcers.parse_positions_list(update.message.text, len(bot.registered_manager))
+            delete_indexes, errors = parcers.parse_positions_list(update.message.text, 1, len(bot.registered_manager))
             bot.registered_manager.remove_by_index([i - 1 for i in delete_indexes])
+            bot.save_registered_to_file()
 
             if len(errors) > 0:
                 update.effective_chat.send_message(bot.get_language_pack().error_in_this_values.format('\n'.join(errors)))
             if len(delete_indexes) > 0:
                 update.effective_chat.send_message(bot.get_language_pack().users_deleted)
 
-            bot.save_registered_to_file()
-            bot.del_request()
+            bot.request_del()
             
 
 class UpdateQueue(CommandGroup):
@@ -434,7 +441,7 @@ class ManageUsers(CommandGroup):
             else:
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
             bot.save_registered_to_file()
-            bot.del_request()
+            bot.request_del()
             
 
     class RemoveAdmin(CommandGroup.Command):
@@ -449,7 +456,7 @@ class ManageUsers(CommandGroup):
             else:
                 update.message.reply_text(bot.get_language_pack().was_not_forwarded)
             bot.save_registered_to_file()
-            bot.del_request()
+            bot.request_del()
             
 
     class AddUsersList(CommandGroup.Command):
@@ -466,12 +473,21 @@ class ManageUsers(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_added)
 
             bot.save_registered_to_file()
-            bot.del_request()
+            bot.request_del()
 
 
 class CollectSubjectChoices(CommandGroup):
 
     command_parameters = {}
+
+    @staticmethod
+    def get_choices_available_str(bot):
+        choices_str, available = bot.choice_manager.get_choices_str()
+        if choices_str == '':
+            choices_str = bot.get_language_pack().choices_not_made
+        if available == '':
+            available = bot.get_language_pack().not_available
+        return bot.get_language_pack().show_choices.format(choices_str, available)
 
     # These commands (except the last) are executed in a row
     # they collect parameters of subject choices handling
@@ -481,7 +497,7 @@ class CollectSubjectChoices(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().send_choice_file_name)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -501,7 +517,7 @@ class CollectSubjectChoices(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().send_number_range)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -520,7 +536,7 @@ class CollectSubjectChoices(CommandGroup):
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().set_repeatable_limit)
-            bot.set_request(cls)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -547,28 +563,61 @@ class CollectSubjectChoices(CommandGroup):
             bot.choice_manager.set_choice_group(name, interval, repeat_limit)
             update.effective_chat.send_message(bot.get_language_pack().finished_choice_manager_creation)
 
-            bot.del_request()
+            bot.request_del()
 
 
     class Choose(CommandGroup.Command):
         @classmethod
-        def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.get_language_pack().send_choice_numbers)
-            bot.set_request(cls)
-
-        @classmethod
         def handle_request(cls, update, bot):
+            if not bot.choice_manager.can_choose:
+                update.effective_chat.send_message(bot.get_language_pack().choices_collection_not_started)
+                return
+
             subject_range = bot.choice_manager.get_subject_range()
-            choices, errors = parcers.parse_positions_list(update.inline_query.query,
-                                                           min_index=subject_range[0],
-                                                           max_index=subject_range[1])
+            choices, errors = parcers.parse_positions_list(update.message.text, *subject_range)
 
             student_requested = bot.registered_manager.get_user_by_id(update.effective_user.id)
             if student_requested != Student_EMPTY:
-                bot.choice_manager.add_choice(student_requested, choices)
+                subject_chosen = bot.choice_manager.add_choice(student_requested, choices)
+                if subject_chosen is not None:
+                    # update choices message
+                    choices_str = CollectSubjectChoices.get_choices_available_str(bot)
+                    bot.subject_choices_message.update_contents(choices_str, update.effective_chat)
+
+                    # send message with reply
+                    update.message.reply_text(bot.get_language_pack().your_choice.format(subject_chosen))
+                else:
+                    update.effective_chat.send_message(bot.get_language_pack().cannot_choose_any_subject)
             else:
                 update.effective_chat.send_message(bot.get_language_pack().unknown_user)
-            bot.del_request()
+            bot.request_del()
+
+
+    class RemoveChoice(CommandGroup.Command):
+        @classmethod
+        def handle(cls, update, bot):
+            if not bot.choice_manager.can_choose:
+                update.effective_chat.send_message(bot.get_language_pack().choices_collection_not_started)
+                return
+
+            student_requested = bot.registered_manager.get_user_by_id(update.effective_user.id)
+            if student_requested != Student_EMPTY:
+                bot.choice_manager.remove_choice(student_requested)
+                update.effective_chat.send_message(bot.get_language_pack().your_choice_deleted)
+            else:
+                update.effective_chat.send_message(bot.get_language_pack().unknown_user)
+
+
+    class StartChoose(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().send_choice_numbers)
+            if not bot.choice_manager.start_choosing():
+                update.effective_chat.send_message(bot.get_language_pack().set_new_choice_file)
+
+            bot.request_set(cls)
 
 
     class StopChoose(CommandGroup.Command):
@@ -576,7 +625,12 @@ class CollectSubjectChoices(CommandGroup):
 
         @classmethod
         def handle(self, update, bot):
-            bot.choice_manager.current_subject.save_to_excel()
+            if not bot.choice_manager.can_choose:
+                update.effective_chat.send_message(bot.get_language_pack().choices_collection_not_started)
+                return
+
+            bot.choice_manager.current_subjects.save_to_excel()
+            bot.choice_manager.stop_choosing()
             update.effective_chat.send_message(bot.get_language_pack().choices_collection_stopped)
 
 
@@ -584,8 +638,11 @@ class CollectSubjectChoices(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            choices_str = bot.get_language_pack().show_choices.format(bot.choice_manager.get_choices_str())
-            bot.subject_choices_message.resend(choices_str, update.effective_chat)
+            if bot.choice_manager.current_subjects is not None:
+                choices_str = CollectSubjectChoices.get_choices_available_str(bot)
+                bot.subject_choices_message.resend(choices_str, update.effective_chat)
+            else:
+                update.effective_chat.send_message(bot.get_language_pack().choices_collection_not_started)
 
 
     class GetExcelFile(CommandGroup.Command):
@@ -597,5 +654,5 @@ class CollectSubjectChoices(CommandGroup):
             excel_path = bot.choice_manager.save_to_excel()
 
             with excel_path.open('rb') as fin:
-                update.effective_chat.send_document(InputFile(fin.read(), filename=str(excel_path)))
+                update.effective_chat.send_document(InputFile(fin, filename=str(excel_path)))
 
