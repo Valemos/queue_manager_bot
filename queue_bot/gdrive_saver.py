@@ -7,6 +7,7 @@ from pathlib import Path
 from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from googleapiclient.errors import HttpError
 from queue_bot.varsaver import FolderType
 
 
@@ -138,7 +139,13 @@ class DriveSaver:
 
     def download_drive_files(self, folder_id, folder_type, names_list):
         service = discovery.build('drive', 'v3', credentials=self._credentials)
-        existing_files = service.files().list(fields='files(id,name,parents)').execute()['files']
+
+        try:
+            existing_files = service.files().list(fields='files(id,name,parents)').execute()['files']
+        except HttpError as err:
+            print(err.error_details)
+            return
+
         for file in existing_files:
 
             if not file['name'] in names_list:
