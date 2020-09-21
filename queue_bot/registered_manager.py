@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from queue_bot.languages.language_interface import Translatable
-from queue_bot.varsaver import VariableSaver, FolderType
+from queue_bot.object_file_saver import ObjectSaver, FolderType
 from queue_bot.savable_interface import Savable
-from queue_bot.student import Student, Student_EMPTY
+from queue_bot.student import Student
 from queue_bot.bot_access_levels import AccessLevel
 
 from telegram import Chat
@@ -100,11 +100,11 @@ class StudentsRegisteredManager(Savable, Translatable):
                 return student
         return None
 
-    def get_user_by_id(self, search_id: int) -> Student:
+    def get_user_by_id(self, search_id: int):
         for student in self._students_reg:
             if student.telegram_id == search_id:
                 return student
-        return Student_EMPTY
+        return None
 
     def get_users_str(self):
         str_list = []
@@ -117,28 +117,28 @@ class StudentsRegisteredManager(Savable, Translatable):
 
     def set_god(self, god_id: int):
         user = self.get_user_by_id(god_id)
-        if user is not Student_EMPTY:
+        if user is not None:
             user.access_level = AccessLevel.GOD
             return True
         return False
 
     def set_admin(self, admin_id: int):
         user = self.get_user_by_id(admin_id)
-        if user is not Student_EMPTY:
+        if user is not None:
             user.access_level = AccessLevel.ADMIN
             return True
         return False
 
     def set_user(self, user_id: int):
         user = self.get_user_by_id(user_id)
-        if user is not Student_EMPTY:
+        if user is not None:
             user.access_level = AccessLevel.USER
             return True
         return False
 
     def find_similar_student(self, name: str):
         for student in self._students_reg:
-            if self.is_similar(name, student.name):
+            if StudentsRegisteredManager.is_similar(name, student.name):
                 return student
         return Student(name, None)
 
@@ -150,25 +150,24 @@ class StudentsRegisteredManager(Savable, Translatable):
         if first[0] != second[0]:
             return False
 
-        if len(first) - sum(l1 == l2 for l1, l2 in zip(first[1:], second[1:])) > 2:
+        # last number is maximum number of errors
+        if len(first) - sum(l1 == l2 for l1, l2 in zip(first[1:], second[1:])) >= 2:
             return False
         return True
 
-
-
-    def update_access_levels(self, saver: VariableSaver):
-        access_level_updates = saver.load(self._file_access_levels)
+    def update_access_levels(self, saver: ObjectSaver):
+        access_level_updates = saver.load(self._file_access_levels, FolderType.Data)
         if access_level_updates is not None:
             for student in self._students_reg:
                 if student.telegram_id in access_level_updates:
                     student.access_level = AccessLevel(access_level_updates[student.telegram_id])
             self.save_to_file(saver)
 
-    def save_to_file(self, saver: VariableSaver):
-        saver.save(self._students_reg, self._file_registered_users)
+    def save_to_file(self, saver: ObjectSaver):
+        saver.save(self._students_reg, self._file_registered_users, FolderType.Data)
 
-    def load_file(self, loader: VariableSaver):
-        self._students_reg = loader.load(self._file_registered_users)
+    def load_file(self, loader: ObjectSaver):
+        self._students_reg = loader.load(self._file_registered_users, FolderType.Data)
         if self._students_reg is None:
             self._students_reg = []
 

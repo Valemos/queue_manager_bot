@@ -15,9 +15,9 @@ class FolderType(enum.Enum):
     Test = Path('test_data')
 
 
-class VariableSaver:
+class ObjectSaver:
 
-    def __init__(self, logger=None, default_folder=FolderType.Data):
+    def __init__(self, logger=None, default_folder=FolderType.NoFolder):
         self.logger = logger
         self.default_folder = default_folder
 
@@ -25,7 +25,7 @@ class VariableSaver:
         if self.logger is not None:
             self.logger.log(content)
 
-    def save(self, var, save_path, save_folder=FolderType.Data):
+    def save(self, var, save_path, save_folder=FolderType.NoFolder):
         if save_folder is None:
             save_folder = self.default_folder
         save_path = save_folder.value / save_path
@@ -41,7 +41,7 @@ class VariableSaver:
         except pickle.PickleError:
             self.log('file {0}: save failed'.format(save_path))
 
-    def load(self, save_path, save_folder=FolderType.Data):
+    def load(self, save_path, save_folder=FolderType.NoFolder):
         if save_folder is None:
             save_folder = self.default_folder
         save_path = save_folder.value / save_path

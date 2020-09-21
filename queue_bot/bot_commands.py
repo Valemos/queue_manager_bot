@@ -1,8 +1,7 @@
 from queue_bot.bot_access_levels import AccessLevel
 import queue_bot.bot_parcers as parcers
-from queue_bot.student import Student_EMPTY
-
 from telegram import InputFile
+from queue_bot.students_queue import StudentsQueue
 
 
 class CommandGroup:
@@ -16,7 +15,10 @@ class CommandGroup:
 
         @classmethod
         def str(cls, args=None):
-            return cls.__qualname__ + '#' + args
+            if args is None:
+                return cls.__qualname__
+            else:
+                return cls.__qualname__ + '#' + args
 
         @staticmethod
         def parse_command(command_str):
@@ -65,91 +67,24 @@ class Help(CommandGroup):
             update.effective_chat.send_message(bot.get_language_pack().send_choice_numbers)
 
 
-class ModifyQueue(CommandGroup):
-
-    @staticmethod
-    def create_queue_with_function(update, bot, function):
-        names = parcers.parse_names(update.message.text)
-        students = bot.registered_manager.get_registered_students(names)
-        function(students)
-        bot.refresh_last_queue_msg(update)
-        update.effective_chat.send_message(bot.get_language_pack().students_set, bot.keyboards.add_name_to_queue)
-        bot.save_queue_to_file()
-        bot.request_del()
-
-
-    class CreateSimple(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle(cls, update, bot):
-            bot.queue.clear()
-            update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
-            bot.request_set(cls)
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            ModifyQueue.create_queue_with_function(update, bot, bot.queue.generate_simple)
-
-
-    class CreateRandom(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle(cls, update, bot):
-            bot.queue.clear()
-            update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
-            bot.request_set(cls)
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            ModifyQueue.create_queue_with_function(update, bot, bot.queue.generate_random)
-
-
-    class AddNameToQueue(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.get_language_pack().enter_queue_name)
-            bot.request_set(cls)
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            bot.queue.name = update.message.text
-            update.effective_chat.send_message(bot.get_language_pack().value_set)
-            bot.request_del()
-
-
-    class CreateRandomFromRegistered(CommandGroup.Command):
-
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle(cls, update, bot):
-            import random
-            new_queue_students = bot.registered_manager.get_users()
-            random.shuffle(new_queue_students)
-            bot.queue.set_students(new_queue_students)
-            bot.last_queue_message.update_contents(bot.queue.str(), update.effective_chat)
-            bot.save_queue_to_file()
-
+class General(CommandGroup):
 
     class Cancel(CommandGroup.Command):
-
-        access_requirement = AccessLevel.ADMIN
 
         @classmethod
         def handle(cls, update, bot):
             update.effective_message.delete()
+            bot.request_del()
 
+
+class ModifyCurrentQueue(CommandGroup):
 
     class ShowList(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
 
 
     class ShowQueueForCopy(CommandGroup.Command):
@@ -157,7 +92,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle(self, update, bot):
-            names = bot.queue.get_student_names()
+            names = bot.queues_manager.get_queue().get_student_names()
             update.effective_chat.send_message('\n'.join(names))
             update.effective_chat.send_message(bot.get_language_pack().copy_queue)
 
@@ -173,7 +108,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            ModifyQueue.CreateSimple.handle_request(update, bot)
+            QueuesManage.CreateSimple.handle_request(update, bot)
 
 
     class SetQueuePosition(CommandGroup.Command):
@@ -182,7 +117,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.get_language_pack().send_new_position)
             bot.request_set(cls)
 
@@ -190,17 +125,17 @@ class ModifyQueue(CommandGroup):
         def handle_request(cls, update, bot):
             try:
                 new_index = int(update.message.text)
-                assert 0 < new_index <= len(bot.queue)
-                bot.queue.set_position(new_index - 1)
+                assert 0 < new_index <= len(bot.queues_manager.get_queue())
+                bot.queues_manager.get_queue().set_position(new_index - 1)
 
                 update.effective_chat.send_message(bot.get_language_pack().position_set)
             except (ValueError, AssertionError):
                 update.effective_chat.send_message(bot.get_language_pack().error_in_values)
             finally:
                 bot.refresh_last_queue_msg(update)
-                bot.save_queue_to_file()
+
                 bot.request_del()
-                
+
 
     class ClearList(CommandGroup.Command):
 
@@ -208,7 +143,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            bot.queue.clear()
+            bot.queues_manager.clear_current_queue()
             update.effective_chat.send_message(bot.get_language_pack().queue_deleted)
 
 
@@ -218,7 +153,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.get_language_pack().send_student_number)
             bot.request_set(cls)
 
@@ -226,11 +161,11 @@ class ModifyQueue(CommandGroup):
         def handle_request(cls, update, bot):
             try:
                 move_pos = int(update.message.text) - 1
-                if move_pos >= len(bot.queue) or move_pos < 0:
+                if move_pos >= len(bot.queues_manager.get_queue()) or move_pos < 0:
                     
                     return
 
-                bot.queue.move_to_end(move_pos)
+                bot.queues_manager.get_queue().move_to_end(move_pos)
                 bot.refresh_last_queue_msg(update)
                 update.effective_chat.send_message(bot.get_language_pack().student_added_to_end)
             except ValueError:
@@ -244,16 +179,16 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.get_language_pack().send_student_numbers_with_space)
             bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = parcers.parse_positions_list(update.message.text, 1, len(bot.queue))
-            bot.queue.remove_by_index([i - 1 for i in positions])
+            positions, errors = parcers.parse_positions_list(update.message.text, 1, len(bot.queues_manager.get_queue()))
+            bot.queues_manager.get_queue().remove_by_index([i - 1 for i in positions])
             bot.refresh_last_queue_msg(update)
-            bot.save_queue_to_file()
+
 
             if len(errors) > 0:
                 update.effective_chat.send_message(bot.get_language_pack().error_in_this_values.format(', '.join(errors)))
@@ -268,16 +203,18 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.get_language_pack().send_student_number_and_new_position)
             bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = parcers.parse_positions_list(update.message.text, 1, len(bot.queue))
+            positions, errors = parcers.parse_positions_list(update.message.text,
+                                                             1,
+                                                             len(bot.queues_manager.get_queue()))
 
             if len(positions) >= 2:
-                if bot.queue.move_to_index(positions[0]-1, positions[1]-1):
+                if bot.queues_manager.get_queue().move_to_index(positions[0] - 1, positions[1] - 1):
                     update.effective_chat.send_message(bot.get_language_pack().students_moved)
             elif len(errors) > 0:
                 update.effective_chat.send_message(bot.get_language_pack().error_in_values)
@@ -285,7 +222,7 @@ class ModifyQueue(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().error_in_values)
 
             bot.refresh_last_queue_msg(update)
-            bot.save_queue_to_file()
+
             bot.request_del()
             
 
@@ -295,13 +232,13 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.get_language_pack().send_student_name_to_end)
             bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            if bot.queue.append_by_name(update.message.text):
+            if bot.queues_manager.get_queue().append_by_name(update.message.text):
                 bot.logger.log('student set ' + update.message.text + ' found in registered')
             else:
                 bot.logger.log('student set ' + update.message.text + ' not found')
@@ -309,7 +246,7 @@ class ModifyQueue(CommandGroup):
             update.effective_chat.send_message(bot.get_language_pack().student_set)
 
             bot.refresh_last_queue_msg(update)
-            bot.save_queue_to_file()
+
             bot.request_del()
             
 
@@ -319,7 +256,7 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queue.str())
+            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.get_language_pack().send_two_positions_students_space)
             bot.request_set(cls)
         
@@ -329,8 +266,8 @@ class ModifyQueue(CommandGroup):
                 user_str = update.message.text.split(' ')
                 cur_pos, swap_pos = int(user_str[0]) - 1, int(user_str[1]) - 1
 
-                if 0 <= cur_pos < len(bot.queue) and 0 <= swap_pos < len(bot.queue):
-                    bot.queue.swap(cur_pos, swap_pos)
+                if 0 <= cur_pos < len(bot.queues_manager.get_queue()) and 0 <= swap_pos < len(bot.queues_manager):
+                    bot.queues_manager.get_queue().swap(cur_pos, swap_pos)
                     update.effective_chat.send_message(bot.get_language_pack().students_moved)
                 else:
                     update.effective_chat.send_message(bot.get_language_pack().error_in_values)
@@ -339,8 +276,145 @@ class ModifyQueue(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().error_in_values)
             finally:
                 bot.refresh_last_queue_msg(update)
-                bot.save_queue_to_file()
+
                 bot.request_del()
+
+
+class QueuesManage(CommandGroup):
+
+    temporary_queue = None
+
+    @staticmethod
+    def finish_queue_students_set(update, bot):
+        bot.refresh_last_queue_msg(update)
+        # TODO after this line Error: Object of type InlineKeyboardMarkup is not JSON serializable
+        update.effective_chat.send_message(bot.get_language_pack().students_set, bot.keyboards.add_name_to_queue)
+        bot.request_del()
+
+    class CreateSimple(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
+            bot.request_set(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            names = parcers.parse_names(update.message.text)
+            students = bot.registered_manager.get_registered_students(names)
+
+            queue = StudentsQueue(bot)
+            queue.generate_simple(students)
+            if bot.queues_manager.add_queue(queue):
+                update.effective_chat.send_message(bot.get_language_pack().queue_set)
+            else:
+                update.effective_chat.send_message(bot.get_language_pack().queue_limit_reached)
+                bot.request_del()
+                return
+
+            QueuesManage.finish_queue_students_set(update, bot)
+            QueuesManage.temporary_queue = queue
+            QueuesManage.AddNameToQueue.handle(update, bot)
+
+
+    class CreateRandom(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().enter_students_list)
+            bot.request_set(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            names = parcers.parse_names(update.message.text)
+            students = bot.registered_manager.get_registered_students(names)
+
+            queue = StudentsQueue(bot)
+            queue.generate_random(students)
+
+            QueuesManage.finish_queue_students_set(update, bot)
+            QueuesManage.temporary_queue = queue
+            QueuesManage.AddNameToQueue.handle(update, bot)
+
+
+    class AddNameToQueue(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().enter_queue_name,
+                                               reply_markup=bot.keyboards.set_default_queue_name)
+            bot.request_set(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            if parcers.check_queue_name(update.message.text):
+                QueuesManage.temporary_queue.name = update.message.text
+                bot.queues_manager.add_queue(QueuesManage.temporary_queue)
+
+                update.effective_chat.send_message(bot.get_language_pack().value_set)
+                bot.request_del()
+            else:
+                update.effective_chat.send_message(bot.get_language_pack().name_incorrect)
+                QueuesManage.AddNameToQueue.handle(update, bot)
+
+
+    class DefaultQueueName(CommandGroup.Command):
+
+        @classmethod
+        def handle(cls, update, bot):
+            QueuesManage.temporary_queue.name = ''
+            bot.queues_manager.add_queue(QueuesManage.temporary_queue)
+
+            update.effective_message.delete()
+            update.effective_chat.send_message(bot.get_language_pack().value_set)
+            bot.request_del()
+
+
+    class CreateRandomFromRegistered(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            import random
+            new_queue_students = bot.registered_manager.get_users()
+            random.shuffle(new_queue_students)
+            bot.queues_manager.get_queue().set_students(new_queue_students)
+            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+
+
+    class DeleteQueue(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            queue_name = CommandGroup.Command.get_arguments(update.callback_query.data)
+            if queue_name is not None:
+                if bot.queues_manager.remove_queue(queue_name):
+                    update.effective_chat.send_message(bot.get_language_pack().queue_removed.format(queue_name))
+                    update.effective_message.delete()
+                else:
+                    bot.logger.log('queue not found, query: {0}'.format(update.callback_query.data))
+            else:
+                bot.logger.log('request {0} in {1} is None'.format(update.callback_query.data, cls.__qualname__))
+
+
+    class ChooseOtherQueue(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            queue_name = CommandGroup.Command.get_arguments(update.callback_query.data)
+            if queue_name is not None:
+                if bot.queues_manager.set_current_queue(queue_name):
+                    update.effective_chat.send_message(bot.get_language_pack().queue_set)
+                else:
+                    bot.logger.log('queue not found, query: {0}'.format(update.callback_query.data))
+            else:
+                bot.logger.log('request {0} in {1} is None'.format(update.callback_query.data, cls.__qualname__))
 
 
 class ModifyRegistered(CommandGroup):
@@ -445,17 +519,17 @@ class UpdateQueue(CommandGroup):
     class MovePrevious(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            if bot.queue.move_prev():
+            if bot.queues_manager.get_queue().move_prev():
                 bot.send_cur_and_next(update)
-                bot.last_queue_message.update_contents(bot.queue.str(), update.effective_chat)
+                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
 
 
     class MoveNext(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
-            if bot.queue.move_next():
+            if bot.queues_manager.get_queue().move_next():
                 bot.send_cur_and_next(update)
-                bot.last_queue_message.update_contents(bot.queue.str(), update.effective_chat)
+                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
 
 
     class Refresh(CommandGroup.Command):
@@ -463,16 +537,7 @@ class UpdateQueue(CommandGroup):
         def handle(cls, update, bot):
             if not bot.last_queue_message.message_exists(update.effective_chat):
                 update.effective_message.delete()
-            bot.last_queue_message.update_contents(bot.queue.str(), update.effective_chat)
-
-
-    class ChooseOtherQueue(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle(cls, update, bot):
-            if not bot.last_queue_message.message_exists(update.effective_chat):
-                update.effective_message.delete()
+            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
 
 
 class ManageUsers(CommandGroup):
@@ -589,7 +654,7 @@ class CollectSubjectChoices(CommandGroup):
             limit = parcers.parce_integer(update.message.text)
 
             if limit is None:
-                update.effective_chat.send_message(bot.get_language_pack().value_incorrect)
+                update.effective_chat.send_message(bot.get_language_pack().int_value_incorrect)
             else:
                 CollectSubjectChoices.command_parameters['repeat_limit'] = limit
                 update.effective_chat.send_message(bot.get_language_pack().value_set)
@@ -623,7 +688,7 @@ class CollectSubjectChoices(CommandGroup):
             choices, errors = parcers.parse_positions_list(update.message.text, *subject_range)
 
             student_requested = bot.registered_manager.get_user_by_id(update.effective_user.id)
-            if student_requested != Student_EMPTY:
+            if student_requested != None:
                 subject_chosen = bot.choice_manager.add_choice(student_requested, choices)
                 if subject_chosen is not None:
                     # update choices message
@@ -647,7 +712,7 @@ class CollectSubjectChoices(CommandGroup):
                 return
 
             student_requested = bot.registered_manager.get_user_by_id(update.effective_user.id)
-            if student_requested != Student_EMPTY:
+            if student_requested != None:
                 bot.choice_manager.remove_choice(student_requested)
                 update.effective_chat.send_message(bot.get_language_pack().your_choice_deleted)
             else:

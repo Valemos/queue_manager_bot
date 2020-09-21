@@ -64,3 +64,9 @@ def parce_integer(text):
         return int(text)
     except ValueError:
         return None
+
+
+def check_queue_name(text):
+    if ' ' in text or len(text) > 100:
+        return False
+    return True

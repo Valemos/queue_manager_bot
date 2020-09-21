@@ -8,7 +8,7 @@ from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from googleapiclient.errors import HttpError
-from queue_bot.varsaver import FolderType
+from queue_bot.object_file_saver import FolderType
 
 
 # holds file paths to folder id`s
@@ -16,6 +16,7 @@ class DriveFolder(enum.Enum):
     HelperBotData = Path('drive_folder_id.data')
     Log = Path('logs_folder_id.data')
     SubjectChoices = Path('choices_folder_id.data')
+    Queues = Path('queues_folder_id.data')
 
 
 class DriveSaver:
@@ -96,7 +97,7 @@ class DriveSaver:
 
         return True
 
-    def update_file_list(self, path_list, parent_folder=DriveFolder.HelperBotData):
+    def update_file_list(self, path_list, parent_folder):
 
         if self._credentials is None:
             return False
@@ -133,10 +134,7 @@ class DriveSaver:
         return True
 
     # if path_list not specified, all files from folder will be written to 'new_folder'
-    def get_file_list(self, path_list=None, drive_folder=DriveFolder.HelperBotData, save_folder=FolderType.Data):
-        if path_list is None:
-            path_list = []
-
+    def get_file_list(self, path_list, drive_folder, save_folder):
         if self._credentials is None:
             return False
 
@@ -178,19 +176,18 @@ class DriveSaver:
             # form path for file
             result_path = folder_type.value / file['name']
 
-            # request file and write to local drive
+            # request file from google drive and write to local storage
+            request = service.files().get_media(fileId=file['id'])
             try:
-                request = service.files().get_media(fileId=file['id'])
+                with result_path.open('wb+') as fw:
+                    downloader = MediaIoBaseDownload(fw, request)
+                    done = False
+                    while done is False:
+                        status, done = downloader.next_chunk()
             except HttpError as err:
-                print(err.error_details)
-                return
+                print('cannot download file \'{0}\' from drive'.format(str(result_path)))
+                continue
 
-            # download if request successful
-            with result_path.open('wb+') as fw:
-                downloader = MediaIoBaseDownload(fw, request)
-                done = False
-                while done is False:
-                    status, done = downloader.next_chunk()
         return True
 
     def clear_drive_folder(self, folder: DriveFolder, exceptions=None):

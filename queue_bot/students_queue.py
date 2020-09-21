@@ -1,15 +1,15 @@
 import random as rnd
 from pathlib import Path
 
-from queue_bot.student import Student, Student_EMPTY
-from queue_bot.varsaver import FolderType
+from queue_bot.student import Student
+from queue_bot.object_file_saver import FolderType
 from queue_bot.savable_interface import Savable
 from queue_bot.languages.language_interface import Translatable
 
 
 class StudentsQueue(Translatable):
 
-    name = None
+    name = ''
 
     _students = []
     _queue_pos = 0
@@ -136,16 +136,16 @@ class StudentsQueue(Translatable):
     def set_position(self, position):
         self._queue_pos = position
 
-    def get_current(self) -> Student:
+    def get_current(self):
         if 0 <= self._queue_pos < len(self):
             return self._students[self._queue_pos]
         else:
-            return Student_EMPTY
+            return None
 
     def get_last(self):
         if len(self) > 0:
             return self._students[-1]
-        return Student_EMPTY
+        return None
 
     def get_student_names(self):
         names = []
@@ -155,32 +155,40 @@ class StudentsQueue(Translatable):
     def str(self):
         if len(self._students) > 0:
             if self._queue_pos is not None:
-                # optionally add queue name
-                if self.name is not None:
-                    str_list = [self.name]
-                else:
-                    str_list = []
 
-                cur_item, next_item = self.get_cur_and_next()
-                if cur_item is None:
+                str_list = []
+
+                cur_stud, next_stud = self.get_cur_and_next()
+
+                if cur_stud is None:
                     return self.get_language_pack().queue_finished
-
-                str_list.append('Сдает:')
-                str_list.append(self._students[self._queue_pos].str(self._queue_pos + 1))
-                str_list.append('\nСледующий:')
-                if next_item is not None:
-                    str_list.append(self._students[self._queue_pos + 1].str(self._queue_pos + 2))
                 else:
-                    str_list.append('Нет')
+                    cur_stud = cur_stud.str(self._queue_pos + 1)
+
+                if next_stud is not None:
+                    next_stud = next_stud.str(self._queue_pos + 2)
+                else:
+                    next_stud = 'Нет'
 
                 if (self._queue_pos + 2) < len(self._students):
-                    str_list.append('\nОставшиеся:')
-                    for i in range(self._queue_pos + 2, len(self._students)):
-                        str_list.append(self._students[i].str(i + 1))
+                    other_studs = '\n'.join([self._students[i].str(i + 1)
+                                             for i in range(self._queue_pos + 2, len(self._students))])
+                else:
+                    other_studs = ''
 
-                return '\n'.join(str_list) + '\n\n' + self.get_language_pack().queue_commands
+                # name must be specified with '\n'
+                # to mimic telegram trimming first characters if they are '\n'
+                queue_name = self.name + '\n' if self.name != '' else ''
+                return self.get_language_pack().queue_format.format(name=queue_name,
+                                                                    current=cur_stud,
+                                                                    next=next_stud,
+                                                                    other=other_studs)
             else:
-                return 'Очередь:\n' + '\n'.join([self._students[i].str(i) for i in range(len(self._students))])
+                # the same line as above
+                queue_name = self.name + '\n' if self.name != '' else ''
+                students_str = [self._students[i].str(i + 1) for i in range(len(self._students))]
+                return self.get_language_pack().queue_simple_format.format(name=queue_name,
+                                                                           students='\n'.join(students_str))
 
         return self.get_language_pack().queue_finished
 

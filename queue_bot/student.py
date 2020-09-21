@@ -28,6 +28,3 @@ class Student:
 
     def log_str(self):
         return '{0} - {1}'.format(self.name, str(self.telegram_id))
-
-
-Student_EMPTY = Student('empty_student', 0)
