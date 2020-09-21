@@ -170,6 +170,8 @@ class SubjectChoiceManager(Savable):
 
     def load_file(self, saver):
         self.current_subjects = saver.load(self.file_current_subject, FolderType.SubjectChoices)
+        if self.current_subjects is None:
+            self.current_subjects = []
 
     def get_save_files(self):
         if self.current_subjects is not None:

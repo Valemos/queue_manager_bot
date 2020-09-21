@@ -253,5 +253,3 @@ class StudentsQueue(Savable, Translatable):
     def remove(self, student: Student):
         if student in self._students:
             self._students.remove(student)
-        else:
-            return self.get_language_pack().student_not_found.format(student.log_str())

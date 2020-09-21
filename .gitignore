@@ -24,3 +24,5 @@ queue_bot/languages/__pycache__/
 test_data/
 /test_bot.py
 /data_backup/
+data/current_choice_subject.data
+subject_choices/
