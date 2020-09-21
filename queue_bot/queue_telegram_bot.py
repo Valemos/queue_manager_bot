@@ -32,7 +32,6 @@ class QueueBot(Translatable):
         self.gdrive_saver = DriveSaver()
 
         # this bot object passed for access to both classes inside one another
-        # maybe another solution needed
         self.registered_manager = StudentsRegisteredManager(self)
         self.queue = QueuesManager(self)
 

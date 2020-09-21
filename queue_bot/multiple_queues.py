@@ -13,7 +13,7 @@ class QueuesManager(Savable):
     _file_paths_list = Path('multiple_queues_paths.data')
     _file_format_queue = 'queue_{0}.data'
 
-    def __init__(self, queues: list = None):
+    def __init__(self, main_bot, queues: list = None):
         if queues is None:
             self._queues = {}
         else:
