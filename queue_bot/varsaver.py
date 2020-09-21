@@ -44,6 +44,7 @@ class VariableSaver:
         if not save_path.exists():
             save_path.parent.mkdir(parents=True, exist_ok=True)
             save_path.touch()
+
         try:
             with save_path.open('wb') as fw:
                 pickle.dump(var, fw)
@@ -55,11 +56,12 @@ class VariableSaver:
             save_folder = self.default_folder
         save_path = save_folder.value / save_path
         self.log('loading from ' + str(save_path))
-
+        
         if not save_path.exists():
+            save_path.parent.mkdir(parents=True, exist_ok=True)
             save_path.touch()
             return None
-
+        
         try:
             with save_path.open('rb') as fr:
                 return pickle.load(fr)
