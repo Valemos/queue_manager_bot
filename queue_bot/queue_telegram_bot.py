@@ -5,7 +5,8 @@ import queue_bot.languages.bot_messages_rus as messages_rus
 from queue_bot import bot_commands as commands, bot_keyboards
 import queue_bot.bot_command_handler as command_handler
 from queue_bot.registered_manager import StudentsRegisteredManager, AccessLevel
-from queue_bot.students_queue import StudentsQueue, Student_EMPTY, Student
+from queue_bot.multiple_queues import QueuesManager
+from queue_bot.student import Student, Student_EMPTY
 from queue_bot.updatable_message import UpdatableMessage
 from queue_bot.languages.language_interface import Translatable
 from queue_bot.subject_choice_manager import SubjectChoiceManager
@@ -29,8 +30,11 @@ class QueueBot(Translatable):
         self.logger = Logger()
         self.varsaver = VariableSaver(logger=self.logger)
         self.gdrive_saver = DriveSaver()
+
+        # this bot object passed for access to both classes inside one another
+        # maybe another solution needed
         self.registered_manager = StudentsRegisteredManager(self)
-        self.queue = StudentsQueue(self)
+        self.queue = QueuesManager(self)
 
         # subject choices
         self.choice_manager = SubjectChoiceManager()
@@ -70,6 +74,7 @@ class QueueBot(Translatable):
         self.updater.dispatcher.add_handler(CommandHandler('ch', self._h_choice))
         self.updater.dispatcher.add_handler(CommandHandler('get_choice_table', self._h_get_choices_excel_file))
         self.updater.dispatcher.add_handler(CommandHandler('get_subjects', self._h_show_choices))
+        self.updater.dispatcher.add_handler(CommandHandler('select_queue', self._h_select_queue))
         self.updater.dispatcher.add_handler(CommandHandler('admin_help', self._h_show_admin_help))
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self._h_message_text))
         self.updater.dispatcher.add_handler(CallbackQueryHandler(self._h_keyboard_chosen))
@@ -87,13 +92,12 @@ class QueueBot(Translatable):
 
     def save_before_stop(self):
         # clear queue, if it was fully completed
-        if self.queue.queue_pos >= len(self.queue):
+        if self.queue.get_position() >= len(self.queue):
             self.queue.clear()
         self.save_queue_to_file()
         self.save_to_cloud()
 
     def save_to_cloud(self):
-        return  # fix bug with file not found
         dump_path = self.logger.dump_to_file()
         self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)
 
@@ -103,7 +107,6 @@ class QueueBot(Translatable):
         self.logger.log('saved to cloud')
 
     def load_from_cloud(self):
-        return  # fix bug with file not found
         self.gdrive_saver.get_file_list(self.queue.get_save_files() + self.registered_manager.get_save_files())
         self.gdrive_saver.get_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
 
@@ -138,7 +141,7 @@ class QueueBot(Translatable):
         return token
 
     def _h_keyboard_chosen(self, update, context):
-        command_handler.handle(update.callback_query.data, update, self)
+        command_handler.handle(update, self)
         update.callback_query.answer()
 
     def request_set(self, cls):
@@ -228,6 +231,15 @@ class QueueBot(Translatable):
         else:
             update.message.reply_text(self.get_language_pack().permission_denied)
 
+    def _h_select_queue(self, update, context):
+        if self.registered_manager.check_access(update):
+            # todo generate keyboard
+            keyboard = None
+            update.message.reply_text(self.get_language_pack().title_select_queue,
+                                      reply_markup=keyboard)
+        else:
+            update.message.reply_text(self.get_language_pack().permission_denied)
+
     def _h_edit_registered(self, update, context):
         if self.registered_manager.check_access(update):
             update.effective_chat.send_message(self.get_language_pack().title_edit_registered,
@@ -284,10 +296,11 @@ class QueueBot(Translatable):
 
     def _h_add_me_to_queue(self, update, context):
         student = self.registered_manager.get_user_by_id(update.effective_user.id)
-        if student is not Student_EMPTY:
-            self.queue.remove(student)
-            self.queue.append(student)
+        if student is Student_EMPTY:
+            self.queue.remove_by_name(update.effective_user.full_name)
+            self.queue.append_by_name(update.effective_user.full_name)
         else:
+            self.queue.remove_by_id(update.effective_user.id)
             self.queue.append_new(update.effective_user.full_name, update.effective_user.id)
 
         self.last_queue_message.update_contents(self.queue.str(), update.effective_chat)

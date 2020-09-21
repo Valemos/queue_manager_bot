@@ -1,8 +1,12 @@
 from queue_bot import bot_commands
 
 
-def handle(command_str, update, bot):
-    group, cmd = bot_commands.CommandGroup.Command.parse_command(command_str)
+# this function requires callback query to be present
+def handle(update, bot):
+    if update.callback_query is None:
+        raise ValueError('update does not have any callback query')
+
+    group, cmd = bot_commands.CommandGroup.Command.parse_command(update.callback_query.data)
 
     # find command
     group = getattr(bot_commands, group)

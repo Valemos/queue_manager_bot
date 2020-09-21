@@ -1,6 +1,5 @@
 # this class controls telegram message, that must be located somewhere in chat
 # this message must be updated, or destroyed and created again
-from telegram import Message, Chat
 
 
 class UpdatableMessage:

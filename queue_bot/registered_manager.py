@@ -1,8 +1,9 @@
 from pathlib import Path
 
 from queue_bot.languages.language_interface import Translatable
-from queue_bot.varsaver import Savable, VariableSaver, FolderType
-from queue_bot.students_queue import Student, Student_EMPTY
+from queue_bot.varsaver import VariableSaver, FolderType
+from queue_bot.savable_interface import Savable
+from queue_bot.student import Student, Student_EMPTY
 from queue_bot.bot_access_levels import AccessLevel
 
 from telegram import Chat
@@ -176,13 +177,13 @@ class StudentsRegisteredManager(Savable, Translatable):
 
     # by default this function requires private chat to allow commands
     def check_access(self, update, level_requriment=AccessLevel.ADMIN, check_chat_private=True):
-        user = self.get_user_by_id(update.effective_user.id)
+        student = self.get_user_by_id(update.effective_user.id)
 
         if check_chat_private:
             if update.effective_chat.type != Chat.PRIVATE:
                 return False
 
-        if user is not None:
-            if user.access_level.value <= level_requriment.value:
+        if student is not None:
+            if student.access_level.value <= level_requriment.value:
                 return True
         return False

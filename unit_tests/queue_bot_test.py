@@ -2,7 +2,8 @@ import unittest
 
 import pickle
 from pathlib import Path
-from queue_bot.students_queue import StudentsQueue, Student
+from queue_bot.students_queue import StudentsQueue
+from queue_bot.student import Student
 from queue_bot.registered_manager import StudentsRegisteredManager
 from queue_bot.varsaver import VariableSaver, FolderType
 

@@ -39,3 +39,7 @@ modify_registered = InlineKeyboardMarkup([
 help_subject_choice = InlineKeyboardMarkup([
     [InlineKeyboardButton('Как выбрать тему?', callback_data=commands.Help.HowToChooseSubject.str())]
 ])
+
+add_name_to_queue = InlineKeyboardMarkup([
+    [InlineKeyboardButton('Добавить имя (Опционально)', callback_data=commands.ModifyQueue.AddNameToQueue.str())]
+])

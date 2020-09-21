@@ -4,20 +4,10 @@ import shutil
 import pickle
 
 
-class Savable:
-    def get_save_files(self):
-        raise NotImplementedError
-
-    def save_to_file(self, saver):
-        raise NotImplementedError
-
-    def load_file(self, saver):
-        raise NotImplementedError
-
-
 class FolderType(enum.Enum):
     NoFolder = Path()
     Data = Path('data')
+    QueuesData = Path('queues_data')
     SubjectChoices = Path('subject_choices')
     DriveData = Path('drive_data')
     Backup = Path('data_backup')

@@ -101,3 +101,6 @@ your_choice_deleted = 'Ваша запись удалена'
 cannot_choose_any_subject = 'Не удалось выбрать ни одной темы'
 set_new_choice_file = 'Установите новый файл для сохранения тем\n' \
                       '(в личном чате бота /admin_help)'
+copy_queue = 'Чтобы скопировать очередь, вставьте текст сообщения в команду /new_queue'
+enter_queue_name = 'Введите имя для очереди (Опционально)'
+title_select_queue = 'Выбор очереди'

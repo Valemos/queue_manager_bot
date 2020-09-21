@@ -1,6 +1,6 @@
 from queue_bot.bot_access_levels import AccessLevel
 import queue_bot.bot_parcers as parcers
-from queue_bot.students_queue import Student_EMPTY
+from queue_bot.student import Student_EMPTY
 
 from telegram import InputFile
 
@@ -15,17 +15,31 @@ class CommandGroup:
             return cls.__qualname__
 
         @classmethod
-        def str(cls):
-            return cls.__qualname__
+        def str(cls, args=None):
+            return cls.__qualname__ + '#' + args
 
         @staticmethod
         def parse_command(command_str):
             try:
-                # __qualname__ returns class in format Class.Subclass and query formed only from it
-                items = command_str.split('.')
-                return items[0], ''.join(items[1:])
+                parts = command_str.split('.')
+
+                cmd_group = parts[0]
+                cmd = ''.join(parts[1:])
+
+                if '#' in cmd:
+                    cmd = cmd[:cmd.index('#')]
+
+                return cmd_group, cmd
             except ValueError:
                 return None, None
+
+        @staticmethod
+        def get_arguments(string):
+            if '#' in string:
+                parts = string.split('#')
+                return parts[1]
+            else:
+                return None
 
         @classmethod
         def handle(cls, update, bot):
@@ -53,8 +67,18 @@ class Help(CommandGroup):
 
 class ModifyQueue(CommandGroup):
 
-    class CreateSimple(CommandGroup.Command):
+    @staticmethod
+    def create_queue_with_function(update, bot, function):
+        names = parcers.parse_names(update.message.text)
+        students = bot.registered_manager.get_registered_students(names)
+        function(students)
+        bot.refresh_last_queue_msg(update)
+        update.effective_chat.send_message(bot.get_language_pack().students_set, bot.keyboards.add_name_to_queue)
+        bot.save_queue_to_file()
+        bot.request_del()
 
+
+    class CreateSimple(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -65,17 +89,10 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            names = parcers.parse_names(update.message.text)
-            students = bot.registered_manager.get_registered_students(names)
-            bot.queue.generate_simple(students)
-            bot.refresh_last_queue_msg(update)
-            update.effective_chat.send_message(bot.get_language_pack().students_set)
-            bot.save_queue_to_file()
-            bot.request_del()
+            ModifyQueue.create_queue_with_function(update, bot, bot.queue.generate_simple)
 
 
     class CreateRandom(CommandGroup.Command):
-
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -86,12 +103,21 @@ class ModifyQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            names = parcers.parse_names(update.message.text)
-            students = bot.registered_manager.get_registered_students(names)
-            bot.queue.generate_random(students)
-            bot.refresh_last_queue_msg(update)
-            update.effective_chat.send_message(bot.get_language_pack().students_set)
-            bot.save_queue_to_file()
+            ModifyQueue.create_queue_with_function(update, bot, bot.queue.generate_random)
+
+
+    class AddNameToQueue(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            update.effective_chat.send_message(bot.get_language_pack().enter_queue_name)
+            bot.request_set(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            bot.queue.name = update.message.text
+            update.effective_chat.send_message(bot.get_language_pack().value_set)
             bot.request_del()
 
 
@@ -119,12 +145,21 @@ class ModifyQueue(CommandGroup):
 
 
     class ShowList(CommandGroup.Command):
-
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
         def handle(cls, update, bot):
             update.effective_chat.send_message(bot.queue.str())
+
+
+    class ShowQueueForCopy(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(self, update, bot):
+            names = bot.queue.get_student_names()
+            update.effective_chat.send_message('\n'.join(names))
+            update.effective_chat.send_message(bot.get_language_pack().copy_queue)
 
 
     class SetStudents(CommandGroup.Command):
@@ -156,7 +191,7 @@ class ModifyQueue(CommandGroup):
             try:
                 new_index = int(update.message.text)
                 assert 0 < new_index <= len(bot.queue)
-                bot.queue.queue_pos = new_index - 1
+                bot.queue.set_position(new_index - 1)
 
                 update.effective_chat.send_message(bot.get_language_pack().position_set)
             except (ValueError, AssertionError):
@@ -414,6 +449,7 @@ class UpdateQueue(CommandGroup):
                 bot.send_cur_and_next(update)
                 bot.last_queue_message.update_contents(bot.queue.str(), update.effective_chat)
 
+
     class MoveNext(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
@@ -421,12 +457,22 @@ class UpdateQueue(CommandGroup):
                 bot.send_cur_and_next(update)
                 bot.last_queue_message.update_contents(bot.queue.str(), update.effective_chat)
 
+
     class Refresh(CommandGroup.Command):
         @classmethod
         def handle(cls, update, bot):
             if not bot.last_queue_message.message_exists(update.effective_chat):
                 update.effective_message.delete()
             bot.last_queue_message.update_contents(bot.queue.str(), update.effective_chat)
+
+
+    class ChooseOtherQueue(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle(cls, update, bot):
+            if not bot.last_queue_message.message_exists(update.effective_chat):
+                update.effective_message.delete()
 
 
 class ManageUsers(CommandGroup):

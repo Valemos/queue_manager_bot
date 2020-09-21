@@ -1,4 +1,5 @@
-from queue_bot.varsaver import Savable, FolderType
+from queue_bot.varsaver import FolderType
+from queue_bot.savable_interface import Savable
 from pathlib import Path
 import pandas as pd
 

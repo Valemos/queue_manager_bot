@@ -62,10 +62,15 @@ class DriveSaver:
                 main_folder_id = self.create_drive_folder(DriveFolder.HelperBotData)
             folder_metadata['parents'] = [main_folder_id]
 
-        service = discovery.build('drive', 'v3', credentials=self._credentials)
-        cloud_folder = service.files().create(body=folder_metadata).execute()
-        service.permissions().create(fileId=cloud_folder['id'], transferOwnership=True,
-                                     body={'type': 'user', 'role': 'owner', 'emailAddress': self.work_email}).execute()
+        try:
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
+            cloud_folder = service.files().create(body=folder_metadata).execute()
+            service.permissions().create(fileId=cloud_folder['id'], transferOwnership=True,
+                                         body={'type': 'user', 'role': 'owner', 'emailAddress': self.work_email}).execute()
+        except Exception as err:
+            print(err)
+            return None
+
         return cloud_folder['id']
 
     def save(self, file_path, folder: DriveFolder):
@@ -82,8 +87,12 @@ class DriveSaver:
             'parents': [folder_id]
         }
 
-        upload_file = MediaFileUpload(file_path, mimetype='application/octet-stream')
-        service.files().create(body=file_metadata, media_body=upload_file, fields='id').execute()
+        try:
+            upload_file = MediaFileUpload(file_path, mimetype='application/octet-stream')
+            service.files().create(body=file_metadata, media_body=upload_file, fields='id').execute()
+        except Exception as err:
+            print(err)
+            return None
 
         return True
 
@@ -105,6 +114,7 @@ class DriveSaver:
                 service.files().update(fileId=file['id'], media_body=update_file).execute()
                 del names_dict[file['name']]
 
+        # download to folder if file does not exists
         parent_folder = self.load_folder_id(parent_folder)
         for path in names_dict.values():
             file_metadata = {
@@ -117,8 +127,8 @@ class DriveSaver:
                 service.permissions().create(fileId=file['id'], transferOwnership=True,
                                              body={'type': 'user', 'role': 'owner',
                                                    'emailAddress': self.work_email}).execute()
-            except HttpError:
-                pass
+            except HttpError as err:
+                print(err.error_details)
 
         return True
 
@@ -169,7 +179,13 @@ class DriveSaver:
             result_path = folder_type.value / file['name']
 
             # request file and write to local drive
-            request = service.files().get_media(fileId=file['id'])
+            try:
+                request = service.files().get_media(fileId=file['id'])
+            except HttpError as err:
+                print(err.error_details)
+                return
+
+            # download if request successful
             with result_path.open('wb+') as fw:
                 downloader = MediaIoBaseDownload(fw, request)
                 done = False
@@ -209,7 +225,7 @@ class DriveSaver:
             try:
                 service.files().delete(fileId=file['id']).execute()
             except HttpError as err:
-                pass
+                print(err.content)
 
     def update_all_permissions(self):
         service = discovery.build('drive', 'v3', credentials=self._credentials)
@@ -221,7 +237,7 @@ class DriveSaver:
                                              body={'type': 'user', 'role': 'owner',
                                                    'emailAddress': self.work_email}).execute()
             except HttpError as err:
-                pass
+                print(err.content)
 
     def show_folder_files(self, folder: DriveFolder):
         folder_id = self.load_folder_id(folder)

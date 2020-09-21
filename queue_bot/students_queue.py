@@ -1,49 +1,18 @@
 import random as rnd
 from pathlib import Path
-from queue_bot.varsaver import Savable, FolderType
-from queue_bot.bot_access_levels import AccessLevel
+
+from queue_bot.student import Student, Student_EMPTY
+from queue_bot.varsaver import FolderType
+from queue_bot.savable_interface import Savable
 from queue_bot.languages.language_interface import Translatable
 
 
-class Student:
+class StudentsQueue(Translatable):
 
-    def __init__(self, name, telegram_id):
-        self.name = name
-        self.telegram_id = telegram_id
-        self.access_level = AccessLevel.USER
-
-    def __eq__(self, other):
-        return self.telegram_id == other.telegram_id
-
-    def __ne__(self, other):
-        return self.telegram_id != other.telegram_id
-
-    def __str__(self):
-        return self.str()
-
-    def __hash__(self):
-        return self.telegram_id
-
-    def str(self, position=None):
-        if position is None:
-            return self.name
-        else:
-            return '{0} - {1}'.format(position, self.name)
-
-    def log_str(self):
-        return '{0} - {1}'.format(self.name, str(self.telegram_id))
-
-
-Student_EMPTY = Student('empty_student', 0)
-
-
-class StudentsQueue(Savable, Translatable):
+    name = None
 
     _students = []
-    queue_pos = 0
-
-    _file_queue = Path('queue.data')
-    _file_queue_state = Path('queue_state.data')
+    _queue_pos = 0
 
     def get_language_pack(self):
         if self.main_bot is not None:
@@ -74,14 +43,14 @@ class StudentsQueue(Savable, Translatable):
         return False
 
     def move_prev(self):
-        if self.queue_pos > 0:
-            self.queue_pos -= 1
+        if self._queue_pos > 0:
+            self._queue_pos -= 1
             return True
         return False
 
     def move_next(self):
-        if self.queue_pos < len(self._students):
-            self.queue_pos += 1
+        if self._queue_pos < len(self._students):
+            self._queue_pos += 1
             return True
         return False
 
@@ -110,6 +79,7 @@ class StudentsQueue(Savable, Translatable):
         else:
             self._students.append(self.main_bot.registered_manager.find_similar_student(name))
             return False
+
     def append_new(self, name, user_id):
         student = self.main_bot.registered_manager.get_user_by_id(user_id)
         if student is not None:
@@ -125,7 +95,7 @@ class StudentsQueue(Savable, Translatable):
 
     def clear(self):
         self._students = []
-        self.queue_pos = 0
+        self._queue_pos = 0
 
     def remove_by_index(self, index):
         if isinstance(index, int):
@@ -146,22 +116,29 @@ class StudentsQueue(Savable, Translatable):
                 self.adjust_queue_position(remove_index)
                 break
 
-    def remove_by_object(self, student):
+    def remove_by_name(self, student_name):
         for remove_index in range(len(self._students)):
-            if self._students[remove_index] is student:
-                self._students.pop(remove_index)
-                self.adjust_queue_position(remove_index)
-                break
+            if self._students[remove_index].telegram_id is None:
+                if self._students[remove_index].name == student_name:
+                    self._students.pop(remove_index)
+                    self.adjust_queue_position(remove_index)
+                    break
 
     # if we delete element, that is before current queue position,
     # it will shift queue forward by one position
     def adjust_queue_position(self, deleted_pos):
-        if deleted_pos < self.queue_pos:
-            self.queue_pos -= 1
+        if deleted_pos < self._queue_pos:
+            self._queue_pos -= 1
+
+    def get_position(self):
+        return self._queue_pos
+
+    def set_position(self, position):
+        self._queue_pos = position
 
     def get_current(self) -> Student:
-        if 0 <= self.queue_pos < len(self):
-            return self._students[self.queue_pos]
+        if 0 <= self._queue_pos < len(self):
+            return self._students[self._queue_pos]
         else:
             return Student_EMPTY
 
@@ -170,26 +147,35 @@ class StudentsQueue(Savable, Translatable):
             return self._students[-1]
         return Student_EMPTY
 
+    def get_student_names(self):
+        names = []
+        for student in self._students:
+            names.append(student.name)
+
     def str(self):
         if len(self._students) > 0:
-            if self.queue_pos is not None:
-                str_list = []
+            if self._queue_pos is not None:
+                # optionally add queue name
+                if self.name is not None:
+                    str_list = [self.name]
+                else:
+                    str_list = []
 
                 cur_item, next_item = self.get_cur_and_next()
                 if cur_item is None:
                     return self.get_language_pack().queue_finished
 
                 str_list.append('Сдает:')
-                str_list.append(self._students[self.queue_pos].str(self.queue_pos + 1))
+                str_list.append(self._students[self._queue_pos].str(self._queue_pos + 1))
                 str_list.append('\nСледующий:')
                 if next_item is not None:
-                    str_list.append(self._students[self.queue_pos + 1].str(self.queue_pos + 2))
+                    str_list.append(self._students[self._queue_pos + 1].str(self._queue_pos + 2))
                 else:
                     str_list.append('Нет')
 
-                if (self.queue_pos + 2) < len(self._students):
+                if (self._queue_pos + 2) < len(self._students):
                     str_list.append('\nОставшиеся:')
-                    for i in range(self.queue_pos + 2, len(self._students)):
+                    for i in range(self._queue_pos + 2, len(self._students)):
                         str_list.append(self._students[i].str(i + 1))
 
                 return '\n'.join(str_list) + '\n\n' + self.get_language_pack().queue_commands
@@ -199,10 +185,10 @@ class StudentsQueue(Savable, Translatable):
         return self.get_language_pack().queue_finished
 
     def get_cur_and_next(self):
-        if 0 <= self.queue_pos < len(self._students) - 1:
-            return self._students[self.queue_pos], self._students[self.queue_pos + 1]
-        elif self.queue_pos == len(self._students) - 1:
-            return self._students[self.queue_pos], None
+        if 0 <= self._queue_pos < len(self._students) - 1:
+            return self._students[self._queue_pos], self._students[self._queue_pos + 1]
+        elif self._queue_pos == len(self._students) - 1:
+            return self._students[self._queue_pos], None
         return None, None
 
     # get string format of result of get_cur_and_next() call
@@ -231,25 +217,3 @@ class StudentsQueue(Savable, Translatable):
         else:
             rnd.shuffle(students)
             self._students = students
-
-    def load_file(self, saver):
-        self._students = saver.load(self._file_queue)
-        if self._students is None:
-            self._students = []
-
-        state = saver.load(self._file_queue_state)
-        if state is not None:
-            self.queue_pos = state['cur_queue_pos']
-        else:
-            self.queue_pos = 0
-
-    def save_to_file(self, saver):
-        saver.save(self._students, self._file_queue)
-        saver.save({'cur_queue_pos': self.queue_pos}, self._file_queue_state)
-
-    def get_save_files(self):
-        return [FolderType.Data.value / self._file_queue, FolderType.Data.value / self._file_queue_state]
-
-    def remove(self, student: Student):
-        if student in self._students:
-            self._students.remove(student)

@@ -1,4 +1,4 @@
-from queue_bot.students_queue import Student
+from queue_bot.student import Student
 
 
 def parse_positions_list(string, min_index, max_index):
