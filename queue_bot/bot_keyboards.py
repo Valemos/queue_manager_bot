@@ -39,8 +39,5 @@ modify_registered = InlineKeyboardMarkup([
 help_subject_choice = InlineKeyboardMarkup([
     [InlineKeyboardButton('Как выбрать тему?', callback_data=commands.Help.HowToChooseSubject.str())]])
 
-add_name_to_queue = InlineKeyboardMarkup([
-    [InlineKeyboardButton('Добавить имя (Опционально)', callback_data=commands.QueuesManage.AddNameToQueue.str())]])
-
 set_default_queue_name = InlineKeyboardMarkup([
-    [InlineKeyboardButton('Оставить стандартное имя - \'\'', callback_data=commands.QueuesManage.DefaultQueueName.str())]])
+    [InlineKeyboardButton('Оставить пустое имя', callback_data=commands.QueuesManage.DefaultQueueName.str())]])

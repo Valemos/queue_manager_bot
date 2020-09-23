@@ -1,6 +1,6 @@
 from queue_bot.logger import Logger
-from queue_bot.object_file_saver import ObjectSaver
-from queue_bot.gdrive_saver import DriveSaver, FolderType, DriveFolder
+from queue_bot.object_file_saver import ObjectSaver, FolderType
+from queue_bot.gdrive_saver import DriveSaver, DriveFolder
 import queue_bot.languages.bot_messages_rus as messages_rus
 from queue_bot import bot_commands as commands, bot_keyboards
 import queue_bot.bot_command_handler as command_handler
@@ -96,7 +96,7 @@ class QueueBot(Translatable):
         self.save_to_cloud()
 
     def save_queue_to_file(self):
-        self.queues_manager.save_current_to_file(self.object_saver)
+        self.queues_manager.save_current_to_file()
 
     # paths inside .get_save_files() must match
     # with paths in load_from_cloud by folders to load correctly
@@ -111,24 +111,16 @@ class QueueBot(Translatable):
         self.logger.log('saved to cloud')
 
     def load_from_cloud(self):
-        self.gdrive_saver.get_file_list(self.registered_manager.get_save_files(),
-                                        DriveFolder.HelperBotData,
-                                        FolderType.Data)
-
-        self.gdrive_saver.get_file_list(self.choice_manager.get_save_files(),
-                                        DriveFolder.SubjectChoices,
-                                        FolderType.SubjectChoices)
-
-        self.gdrive_saver.get_file_list(self.queues_manager.get_save_files(),
-                                        DriveFolder.Queues,
-                                        FolderType.QueuesData)
+        self.gdrive_saver.get_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
+        self.gdrive_saver.get_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
+        self.gdrive_saver.get_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
 
     def load_defaults(self):
         self.load_from_cloud()
 
         self.registered_manager.load_file(self.object_saver)
-        self.choice_manager.load_file(self.object_saver)
         self.registered_manager.update_access_levels(self.object_saver)
+        self.choice_manager.load_file(self.object_saver)
         self.queues_manager.load_file(self.object_saver)
 
         self.logger.log('loaded data')
@@ -142,7 +134,7 @@ class QueueBot(Translatable):
         if path is None:
             token = os.environ.get('TELEGRAM_TOKEN')
         else:
-            token = self.object_saver.load(path, FolderType.Data)
+            token = self.object_saver.load(path)
 
         if token is None:
             self.logger.log('Fatal error: token is empty')

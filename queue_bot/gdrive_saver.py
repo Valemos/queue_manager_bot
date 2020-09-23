@@ -23,7 +23,7 @@ class DriveSaver:
 
     def __init__(self):
         self._SCOPES = ['https://www.googleapis.com/auth/drive']
-        self._SERVICE_ACCOUNT_FILE = FolderType.DriveData.value / Path('queue-bot-key.json')
+        self._SERVICE_ACCOUNT_FILE = Path(r'D:\coding\Python_codes\Queue_Bot\drive_data\queue-bot-key.json')
         self.work_email = 'programworkerbox@gmail.com'
         # credentials mus be created after SCOPE and account file was specified
         self._credentials = self.init_credentials()
@@ -44,9 +44,11 @@ class DriveSaver:
         return None
 
     def init_drive_folder(self, drive_folder):
-        if self.load_folder_id(drive_folder) is None:
+        folder_id = self.load_folder_id(drive_folder)
+        if folder_id is None:
             folder_id = self.create_drive_folder(drive_folder)
             self.save_folder_id(drive_folder, folder_id)
+        return folder_id
 
     def create_drive_folder(self, folder_type):
         if (FolderType.Data.value / folder_type.value).exists():
@@ -66,8 +68,9 @@ class DriveSaver:
         try:
             service = discovery.build('drive', 'v3', credentials=self._credentials)
             cloud_folder = service.files().create(body=folder_metadata).execute()
-            service.permissions().create(fileId=cloud_folder['id'], transferOwnership=True,
-                                         body={'type': 'user', 'role': 'owner', 'emailAddress': self.work_email}).execute()
+            service.permissions().create(fileId=cloud_folder['id'],
+                                         body={'type': 'user', 'role': 'writer',
+                                               'emailAddress': self.work_email}).execute()
         except Exception as err:
             print(err)
             return None
@@ -79,9 +82,13 @@ class DriveSaver:
         if self._credentials is None:
             return False
 
-        service = discovery.build('drive', 'v3', credentials=self._credentials)
+        try:
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
+        except Exception as err:
+            print(err)
+            return False
 
-        folder_id = self.load_folder_id(folder)
+        folder_id = self.init_drive_folder(folder)
 
         file_metadata = {
             'name': file_path.name,
@@ -102,10 +109,12 @@ class DriveSaver:
         if self._credentials is None:
             return False
 
-        service = discovery.build('drive', 'v3', credentials=self._credentials)
-
-        # files list
-        existing_files = service.files().list(fields='files(id,name)').execute()['files']
+        try:
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
+            existing_files = service.files().list(fields='files(id,name)').execute()['files']
+        except Exception as err:
+            print(err)
+            return False
 
         # update if files exist
         names_dict = {p.name: p for p in path_list if p.exists()}
@@ -116,7 +125,7 @@ class DriveSaver:
                 del names_dict[file['name']]
 
         # download to folder if file does not exists
-        parent_folder = self.load_folder_id(parent_folder)
+        parent_folder = self.init_drive_folder(parent_folder)
         for path in names_dict.values():
             file_metadata = {
                 'name': path.name,
@@ -125,8 +134,8 @@ class DriveSaver:
             upload_file = MediaFileUpload(path, mimetype='application/octet-stream')
             file = service.files().create(body=file_metadata, media_body=upload_file).execute()
             try:
-                service.permissions().create(fileId=file['id'], transferOwnership=True,
-                                             body={'type': 'user', 'role': 'owner',
+                service.permissions().create(fileId=file['id'],
+                                             body={'type': 'user', 'role': 'writer',
                                                    'emailAddress': self.work_email}).execute()
             except HttpError as err:
                 print(err.error_details)
@@ -134,35 +143,34 @@ class DriveSaver:
         return True
 
     # if path_list not specified, all files from folder will be written to 'new_folder'
-    def get_file_list(self, path_list, drive_folder, save_folder):
+    def get_file_list(self, path_list, drive_folder):
+        if len(path_list) == 0:
+            return True
+
         if self._credentials is None:
             return False
 
-        drive_folder_id = self.load_folder_id(drive_folder)
+        drive_folder_id = self.init_drive_folder(drive_folder)
         if drive_folder_id is None:
-            self.create_drive_folder(drive_folder)
+            self.init_drive_folder(drive_folder)
             return False
 
-        # create folder on local drive
-        if not save_folder.value.exists():
-            save_folder.value.mkdir(parents=True)
+        # create folders on local drive
+        for path in path_list:
+            if not path.parent.exists():
+                path.parent.mkdir(parents=True)
 
-        # get only names for files in path list
-        names_list = [p.name for p in path_list]
+        return self.download_drive_files(drive_folder_id, path_list)
 
-        if len(names_list) == 0:
-            return False
-
-        return self.download_drive_files(drive_folder_id, save_folder, names_list)
-
-    def download_drive_files(self, folder_id, folder_type, names_list):
-        service = discovery.build('drive', 'v3', credentials=self._credentials)
-
+    def download_drive_files(self, folder_id, path_list):
         try:
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
             existing_files = service.files().list(fields='files(id,name,parents)').execute()['files']
-        except HttpError as err:
-            print(err.error_details)
-            return
+        except Exception as err:
+            print(err)
+            return False
+
+        names_list = {p.name: p for p in path_list}
 
         for file in existing_files:
 
@@ -174,7 +182,7 @@ class DriveSaver:
                 continue
 
             # form path for file
-            result_path = folder_type.value / file['name']
+            result_path = names_list[file['name']]
 
             # request file from google drive and write to local storage
             request = service.files().get_media(fileId=file['id'])
@@ -192,14 +200,16 @@ class DriveSaver:
 
     def clear_drive_folder(self, folder: DriveFolder, exceptions=None):
 
-        folder_id = self.load_folder_id(folder)
+        folder_id = self.init_drive_folder(folder)
         if exceptions is None:
             exceptions = []
 
-        service = discovery.build('drive', 'v3', credentials=self._credentials)
-
-        # files list
-        existing_files = service.files().list(fields='files(id,name,parents,mimeType)').execute()['files']
+        try:
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
+            existing_files = service.files().list(fields='files(id,name,parents,mimeType)').execute()['files']
+        except Exception as err:
+            print(err)
+            return False
 
         for file in existing_files:
             if file['name'] in exceptions:
@@ -225,22 +235,30 @@ class DriveSaver:
                 print(err.content)
 
     def update_all_permissions(self):
-        service = discovery.build('drive', 'v3', credentials=self._credentials)
-        existing_files = service.files().list(fields='files(id)').execute()['files']
+        try:
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
+            existing_files = service.files().list(fields='files(id)').execute()['files']
+        except Exception as err:
+            print(err)
+            return False
 
         for file in existing_files:
             try:
-                service.permissions().create(fileId=file['id'], transferOwnership=True,
-                                             body={'type': 'user', 'role': 'owner',
+                service.permissions().create(fileId=file['id'],
+                                             body={'type': 'user', 'role': 'writer',
                                                    'emailAddress': self.work_email}).execute()
             except HttpError as err:
                 print(err.content)
 
     def show_folder_files(self, folder: DriveFolder):
-        folder_id = self.load_folder_id(folder)
-        service = discovery.build('drive', 'v3', credentials=self._credentials)
+        folder_id = self.init_drive_folder(folder)
 
-        existing_files = service.files().list(fields='files(name,parents,id)').execute()['files']
+        try:
+            service = discovery.build('drive', 'v3', credentials=self._credentials)
+            existing_files = service.files().list(fields='files(name,parents,id)').execute()['files']
+        except Exception as err:
+            print(err)
+            return False
 
         c = 1  # counter of files
         for file in existing_files:
@@ -278,7 +296,7 @@ class DriveSaver:
 
 
 if __name__ == '__main__':
-    os.chdir('../')
+    DriveSaver().delete_everything_on_disk()
     if len(sys.argv) == 2:
         if sys.argv[1] == 'clear':
             DriveSaver().delete_everything_on_disk()

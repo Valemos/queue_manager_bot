@@ -113,7 +113,7 @@ class SubjectChoiceGroup:
 
 class SubjectChoiceManager(Savable):
 
-    file_current_subject = Path('current_choice_subject.data')
+    file_current_subject = FolderType.SubjectChoices.value / Path('current_choice_subject.data')
 
     def __init__(self):
         self.current_subjects = None
@@ -167,15 +167,12 @@ class SubjectChoiceManager(Savable):
 
     def save_to_file(self, saver):
         self.current_subjects.save_to_excel()
-        saver.save(self.current_subjects, self.file_current_subject, FolderType.SubjectChoices)
+        saver.save(self.current_subjects, self.file_current_subject)
 
     def load_file(self, saver):
-        self.current_subjects = saver.load(self.file_current_subject, FolderType.SubjectChoices)
+        self.current_subjects = saver.load(self.file_current_subject)
         if self.current_subjects is None:
             self.current_subjects = []
 
     def get_save_files(self):
-        if self.current_subjects is not None:
-            return [FolderType.SubjectChoices.value / self.file_current_subject] + self.current_subjects.get_save_files()
-        else:
-            return [FolderType.SubjectChoices.value / self.file_current_subject]
+        return [FolderType.SubjectChoices.value / self.file_current_subject]

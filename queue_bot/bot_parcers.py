@@ -67,6 +67,6 @@ def parce_integer(text):
 
 
 def check_queue_name(text):
-    if ' ' in text or len(text) > 100:
+    if ' ' in text or '\n' in text or len(text) > 100:
         return False
     return True

@@ -7,12 +7,15 @@ from queue_bot.savable_interface import Savable
 from queue_bot.languages.language_interface import Translatable
 
 
-class StudentsQueue(Translatable):
+class StudentsQueue(Savable, Translatable):
 
     name = ''
 
-    _students = []
     _queue_pos = 0
+    _students = []
+
+    _file_format_queue = 'queue_{0}.data'
+    _file_format_queue_state = 'state_{0}.data'
 
     def get_language_pack(self):
         if self.main_bot is not None:
@@ -41,6 +44,9 @@ class StudentsQueue(Translatable):
                 if student.telegram_id == item:
                     return True
         return False
+
+    def __str__(self):
+        return self.name + ':' + str(len(self._students))
 
     def move_prev(self):
         if self._queue_pos > 0:
@@ -225,3 +231,22 @@ class StudentsQueue(Translatable):
         else:
             rnd.shuffle(students)
             self._students = students
+
+    def get_state_save_file(self):
+        return FolderType.QueuesData.value / Path(self._file_format_queue_state.format(self.name))
+
+    def get_queue_save_file(self):
+        return FolderType.QueuesData.value / Path(self._file_format_queue.format(self.name))
+
+    def get_save_files(self):
+        return [self.get_state_save_file(), self.get_queue_save_file()]
+
+    def save_to_file(self, saver):
+        state = {'_queue_pos': self._queue_pos}
+        saver.save(state, self.get_state_save_file())
+        saver.save(self._students, self.get_queue_save_file())
+
+    def load_file(self, saver):
+        self._students = saver.load(self.get_queue_save_file())
+        state = saver.load(self.get_state_save_file())
+        self._queue_pos = state['_queue_pos']

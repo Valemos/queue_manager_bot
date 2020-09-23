@@ -282,14 +282,22 @@ class ModifyCurrentQueue(CommandGroup):
 
 class QueuesManage(CommandGroup):
 
-    temporary_queue = None
+    new_queue = None
 
     @staticmethod
-    def finish_queue_students_set(update, bot):
-        bot.refresh_last_queue_msg(update)
-        # TODO after this line Error: Object of type InlineKeyboardMarkup is not JSON serializable
-        update.effective_chat.send_message(bot.get_language_pack().students_set, bot.keyboards.add_name_to_queue)
-        bot.request_del()
+    def queue_parce_students(update, bot, generate_function):
+        names = parcers.parse_names(update.message.text)
+        students = bot.registered_manager.get_registered_students(names)
+
+        queue = StudentsQueue(bot)
+        generate_function(queue, students)  # we specify parameter in "self"
+
+        if not bot.queues_manager.add_queue(queue):
+            update.effective_chat.send_message(bot.get_language_pack().queue_limit_reached)
+            bot.request_del()
+            return None
+
+        return queue
 
     class CreateSimple(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
@@ -301,20 +309,11 @@ class QueuesManage(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            names = parcers.parse_names(update.message.text)
-            students = bot.registered_manager.get_registered_students(names)
-
-            queue = StudentsQueue(bot)
-            queue.generate_simple(students)
-            if bot.queues_manager.add_queue(queue):
-                update.effective_chat.send_message(bot.get_language_pack().queue_set)
-            else:
-                update.effective_chat.send_message(bot.get_language_pack().queue_limit_reached)
-                bot.request_del()
+            queue = QueuesManage.queue_parce_students(update, bot, StudentsQueue.generate_simple)
+            if queue is None:
                 return
 
-            QueuesManage.finish_queue_students_set(update, bot)
-            QueuesManage.temporary_queue = queue
+            QueuesManage.new_queue = queue
             QueuesManage.AddNameToQueue.handle(update, bot)
 
 
@@ -328,14 +327,12 @@ class QueuesManage(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            names = parcers.parse_names(update.message.text)
-            students = bot.registered_manager.get_registered_students(names)
+            queue = QueuesManage.queue_parce_students(update, bot, StudentsQueue.generate_random)
+            if queue is None:
+                return
 
-            queue = StudentsQueue(bot)
-            queue.generate_random(students)
-
-            QueuesManage.finish_queue_students_set(update, bot)
-            QueuesManage.temporary_queue = queue
+            # must save queue to add name to it in next iteration
+            QueuesManage.new_queue = queue
             QueuesManage.AddNameToQueue.handle(update, bot)
 
 
@@ -344,18 +341,22 @@ class QueuesManage(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.get_language_pack().enter_queue_name,
-                                               reply_markup=bot.keyboards.set_default_queue_name)
-            bot.request_set(cls)
+            if QueuesManage.new_queue is not None:
+                update.effective_chat.send_message(bot.get_language_pack().enter_queue_name,
+                                                   reply_markup=bot.keyboards.set_default_queue_name)
+                bot.request_set(cls)
+            else:
+                bot.request_del()
+                bot.logger.log('in AddNameToQueue queue is None. Error')
+
 
         @classmethod
         def handle_request(cls, update, bot):
-            if parcers.check_queue_name(update.message.text):
-                QueuesManage.temporary_queue.name = update.message.text
-                bot.queues_manager.add_queue(QueuesManage.temporary_queue)
 
-                update.effective_chat.send_message(bot.get_language_pack().value_set)
-                bot.request_del()
+
+            if parcers.check_queue_name(update.message.text):
+                bot.queues_manager.rename_queue(QueuesManage.new_queue.name, update.message.text)
+                QueuesManage.FinishQueueCreation.handle(update, bot)
             else:
                 update.effective_chat.send_message(bot.get_language_pack().name_incorrect)
                 QueuesManage.AddNameToQueue.handle(update, bot)
@@ -365,11 +366,16 @@ class QueuesManage(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            QueuesManage.temporary_queue.name = ''
-            bot.queues_manager.add_queue(QueuesManage.temporary_queue)
+            bot.queues_manager.rename_queue(QueuesManage.new_queue.name, '')
+            QueuesManage.FinishQueueCreation.handle(update, bot)
 
-            update.effective_message.delete()
+
+    class FinishQueueCreation(CommandGroup.Command):
+
+        @classmethod
+        def handle(cls, update, bot):
             update.effective_chat.send_message(bot.get_language_pack().value_set)
+            bot.save_queue_to_file()
             bot.request_del()
 
 
@@ -379,11 +385,16 @@ class QueuesManage(CommandGroup):
 
         @classmethod
         def handle(cls, update, bot):
-            import random
-            new_queue_students = bot.registered_manager.get_users()
-            random.shuffle(new_queue_students)
-            bot.queues_manager.get_queue().set_students(new_queue_students)
+            queue = StudentsQueue(bot)
+            queue.generate_random(bot.registered_manager.get_users())  # we specify parameter in "self"
+
+            if not bot.queues_manager.add_queue(queue):
+                update.effective_chat.send_message(bot.get_language_pack().queue_limit_reached)
+                bot.request_del()
+                return
             bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            update.effective_chat.send_message(bot.get_language_pack().queue_set)
+            bot.request_del()
 
 
     class DeleteQueue(CommandGroup.Command):

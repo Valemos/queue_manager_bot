@@ -11,10 +11,10 @@ from telegram import Chat
 
 class StudentsRegisteredManager(Savable, Translatable):
 
-    _file_registered_users = Path('registered.data')
+    _file_registered_users = FolderType.Data.value / Path('registered.data')
 
     # dictionary with id`s as keys and levels as values stored in file
-    _file_access_levels = Path('access_levels.data')
+    _file_access_levels = FolderType.Data.value / Path('access_levels.data')
     _students_reg = []
 
     def __init__(self, main_bot, students=None):
@@ -156,7 +156,7 @@ class StudentsRegisteredManager(Savable, Translatable):
         return True
 
     def update_access_levels(self, saver: ObjectSaver):
-        access_level_updates = saver.load(self._file_access_levels, FolderType.Data)
+        access_level_updates = saver.load(self._file_access_levels)
         if access_level_updates is not None:
             for student in self._students_reg:
                 if student.telegram_id in access_level_updates:
@@ -164,10 +164,10 @@ class StudentsRegisteredManager(Savable, Translatable):
             self.save_to_file(saver)
 
     def save_to_file(self, saver: ObjectSaver):
-        saver.save(self._students_reg, self._file_registered_users, FolderType.Data)
+        saver.save(self._students_reg, self._file_registered_users)
 
     def load_file(self, loader: ObjectSaver):
-        self._students_reg = loader.load(self._file_registered_users, FolderType.Data)
+        self._students_reg = loader.load(self._file_registered_users)
         if self._students_reg is None:
             self._students_reg = []
 
