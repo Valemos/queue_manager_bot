@@ -1,5 +1,5 @@
 from pathlib import Path
-
+from pyjarowinkler import distance  # string similarity
 from queue_bot.languages.language_interface import Translatable
 from queue_bot.object_file_saver import ObjectSaver, FolderType
 from queue_bot.savable_interface import Savable
@@ -94,6 +94,12 @@ class StudentsRegisteredManager(Savable, Translatable):
 
         return students
 
+    def get_user_by_update(self, update):
+        student = self.get_user_by_id(update.effective_user.id)
+        if student is None:
+            return Student(update.effective_user.full_name, None)
+        return student
+
     def get_user_by_name(self, name: int):
         for student in self._students_reg:
             if student.name == name:
@@ -144,16 +150,8 @@ class StudentsRegisteredManager(Savable, Translatable):
 
     @staticmethod
     def is_similar(first: str, second: str):
-        if (len(first) - len(second)) > 2:
-            return False
-
-        if first[0] != second[0]:
-            return False
-
-        # last number is maximum number of errors
-        if len(first) - sum(l1 == l2 for l1, l2 in zip(first[1:], second[1:])) >= 2:
-            return False
-        return True
+        dist = distance.get_jaro_distance(first, second)
+        return dist > 0.9
 
     def update_access_levels(self, saver: ObjectSaver):
         access_level_updates = saver.load(self._file_access_levels)

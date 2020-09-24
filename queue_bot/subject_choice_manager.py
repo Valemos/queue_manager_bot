@@ -13,14 +13,13 @@ class Choice:
         self.finally_chosen = None
 
     def __eq__(self, other):
-        if self.student == other.student:
-            return True
-        return False
+        return self.student == other.student
 
     def __ne__(self, other):
-        if self.student != other.student:
-            return True
-        return False
+        return self.student != other.student
+
+    def __hash__(self):
+        return self.student.__hash__()
 
     def update_final_choice(self, available: dict, limit=1):
         for choice in self.priority_choices:
@@ -58,8 +57,9 @@ class SubjectChoiceGroup:
         else:
             choice_idx = self.student_choices.index(choice)
 
-            # revert previous subject choice
+            # undo previous subject choice
             self.available_subjects[self.student_choices[choice_idx].finally_chosen] -= 1
+
             # update using current choice
             chosen_subject, self.available_subjects = choice.update_final_choice(self.available_subjects, self.repeat_limit)
 

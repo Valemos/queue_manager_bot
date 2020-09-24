@@ -25,10 +25,9 @@ class DriveSaver:
         self._SCOPES = ['https://www.googleapis.com/auth/drive']
         self._SERVICE_ACCOUNT_FILE = Path(r'D:\coding\Python_codes\Queue_Bot\drive_data\queue-bot-key.json')
         self.work_email = 'programworkerbox@gmail.com'
-        # credentials mus be created after SCOPE and account file was specified
-        self._credentials = self.init_credentials()
 
-        FolderType.Data.value.mkdir(parents=True, exist_ok=True)
+        # credentials must be created after SCOPE and account file was specified
+        self._credentials = self.init_credentials()
 
         # must create main folder first
         self.init_drive_folder(DriveFolder.HelperBotData)
@@ -54,16 +53,13 @@ class DriveSaver:
         if (FolderType.Data.value / folder_type.value).exists():
             return self.load_folder_id(folder_type)
 
-        folder_metadata = {
-            'name': folder_type.name,
-            'mimeType': 'application/vnd.google-apps.folder'
-        }
+        folder_metadata = self.get_folder_metadata(folder_type.name)  # use name of enum as folder name
 
         if folder_type is not DriveFolder.HelperBotData:  # function requests main folder id
             main_folder_id = self.load_folder_id(DriveFolder.HelperBotData)
             if main_folder_id is None:
                 main_folder_id = self.create_drive_folder(DriveFolder.HelperBotData)
-            folder_metadata['parents'] = [main_folder_id]
+            folder_metadata = self.get_folder_metadata(folder_type.name, main_folder_id)
 
         try:
             service = discovery.build('drive', 'v3', credentials=self._credentials)
@@ -89,18 +85,14 @@ class DriveSaver:
             return False
 
         folder_id = self.init_drive_folder(folder)
-
-        file_metadata = {
-            'name': file_path.name,
-            'parents': [folder_id]
-        }
+        file_metadata = DriveSaver.get_file_metadata(file_path.name, folder_id)
 
         try:
             upload_file = MediaFileUpload(file_path, mimetype='application/octet-stream')
             service.files().create(body=file_metadata, media_body=upload_file, fields='id').execute()
         except Exception as err:
             print(err)
-            return None
+            return False
 
         return True
 
@@ -120,27 +112,26 @@ class DriveSaver:
         names_dict = {p.name: p for p in path_list if p.exists()}
         for file in existing_files:
             if file['name'] in names_dict:
-                update_file = MediaFileUpload(names_dict[file['name']], mimetype='application/octet-stream')
-                service.files().update(fileId=file['id'], media_body=update_file).execute()
-                del names_dict[file['name']]
+                try:
+                    update_file = MediaFileUpload(names_dict[file['name']], mimetype='application/octet-stream')
+                    service.files().update(fileId=file['name'], media_body=update_file).execute()
+                except HttpError as err:
+                    print(err.error_details)
+                finally:
+                    del names_dict[file['name']]  # we delete from dict no matter what error happened
 
         # download to folder if file does not exists
         parent_folder = self.init_drive_folder(parent_folder)
         for path in names_dict.values():
-            file_metadata = {
-                'name': path.name,
-                'parents': [parent_folder]
-            }
-            upload_file = MediaFileUpload(path, mimetype='application/octet-stream')
-            file = service.files().create(body=file_metadata, media_body=upload_file).execute()
+            file_metadata = DriveSaver.get_file_metadata(path.name, parent_folder)
             try:
-                service.permissions().create(fileId=file['id'],
-                                             body={'type': 'user', 'role': 'writer',
-                                                   'emailAddress': self.work_email}).execute()
+                upload_file = MediaFileUpload(path, mimetype='application/octet-stream')
+                file = service.files().create(body=file_metadata, media_body=upload_file).execute()
+                # service.permissions().create(fileId=file['id'],
+                #                              body={'type': 'user', 'role': 'writer',
+                #                                    'emailAddress': self.work_email}).execute()
             except HttpError as err:
                 print(err.error_details)
-
-        return True
 
     # if path_list not specified, all files from folder will be written to 'new_folder'
     def get_file_list(self, path_list, drive_folder):
@@ -230,7 +221,8 @@ class DriveSaver:
 
         for file in existing_files:
             try:
-                service.files().delete(fileId=file['id']).execute()
+                result = service.files().delete(fileId=file['id']).execute()
+                print('deleted {0}'.format(result['name']))
             except HttpError as err:
                 print(err.content)
 
@@ -268,14 +260,15 @@ class DriveSaver:
 
     @staticmethod
     def save_folder_id(drive_folder, folder_id):
-        file = FolderType.Data.value / drive_folder.value
+        file = FolderType.DataDriveFolders.value / drive_folder.value
         if not file.exists():
+            file.parent.mkdir(parents=True, exist_ok=True)
             file.touch()
 
         try:
-            with file.open('wb') as fout:
-                pickle.dump(folder_id, fout)
-        except pickle.UnpicklingError:
+            with file.open('w', encoding='utf-8') as fout:
+                fout.write(folder_id)
+        except Exception:
             print('failed to load id from \"{}\"'.format(file))
 
     @staticmethod
@@ -284,18 +277,42 @@ class DriveSaver:
             return None
 
         cloud_id = None
-        file = FolderType.Data.value / drive_folder.value
+        file = FolderType.DataDriveFolders.value / drive_folder.value
         if file.exists():
             try:
-                with file.open('rb') as fr:
-                    cloud_id = pickle.load(fr)
-            except pickle.UnpicklingError:
+                with file.open('r', encoding='utf-8') as fr:
+                    cloud_id = fr.read()
+            except Exception:
                 print('failed to load id from \"{}\"'.format(file))
 
         return cloud_id
 
+    @staticmethod
+    def get_file_metadata(name, folder_id):
+        return {
+            'name': name,
+            'parents': [folder_id]
+        }
+
+    @staticmethod
+    def get_folder_metadata(name, parent_folder=None):
+        if parent_folder is None:
+            return \
+                {
+                    'name': name,
+                    'mimeType': 'application/vnd.google-apps.folder'
+                }
+        else:
+            return \
+                {
+                    'name': name,
+                    'mimeType': 'application/vnd.google-apps.folder',
+                    'parents': [parent_folder]
+                }
+
 
 if __name__ == '__main__':
+    os.chdir(r'D:\coding\Python_codes\Queue_Bot')
     DriveSaver().delete_everything_on_disk()
     if len(sys.argv) == 2:
         if sys.argv[1] == 'clear':

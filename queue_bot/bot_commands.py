@@ -1,6 +1,8 @@
 from queue_bot.bot_access_levels import AccessLevel
 import queue_bot.bot_parcers as parcers
 from telegram import InputFile
+
+from queue_bot.student import Student
 from queue_bot.students_queue import StudentsQueue
 
 
@@ -18,7 +20,7 @@ class CommandGroup:
             if args is None:
                 return cls.__qualname__
             else:
-                return cls.__qualname__ + '#' + args
+                return cls.__qualname__ + '#' + str(args)
 
         @staticmethod
         def parse_command(command_str):
@@ -92,8 +94,7 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle(self, update, bot):
-            names = bot.queues_manager.get_queue().get_student_names()
-            update.effective_chat.send_message('\n'.join(names))
+            update.effective_chat.send_message(bot.queues_manager.get_queue().get_str_for_copy())
             update.effective_chat.send_message(bot.get_language_pack().copy_queue)
 
 
@@ -239,16 +240,43 @@ class ModifyCurrentQueue(CommandGroup):
         @classmethod
         def handle_request(cls, update, bot):
             if bot.queues_manager.get_queue().append_by_name(update.message.text):
-                bot.logger.log('student set ' + update.message.text + ' found in registered')
+                bot.logger.log('student ' + update.message.text + ' found in registered and added to queue')
             else:
-                bot.logger.log('student set ' + update.message.text + ' not found')
+                bot.logger.log('student set ' + update.message.text + ' not found added empty')
 
             update.effective_chat.send_message(bot.get_language_pack().student_set)
-
             bot.refresh_last_queue_msg(update)
-
             bot.request_del()
             
+
+    class AddMe(CommandGroup.Command):
+        @classmethod
+        def handle(cls, update, bot):
+            student = bot.registered_manager.get_user_by_update(update)
+            bot.queues_manager.get_queue().append_to_queue(student)
+
+            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            update.message.reply_text(bot.get_language_pack().you_added_to_queue)
+
+            bot.save_queue_to_file()
+            bot.logger.log('added {0}'.format(bot.queues_manager.get_queue().get_last()))
+
+
+    class RemoveMe(CommandGroup.Command):
+        @classmethod
+        def handle(cls, update, bot):
+            student = bot.registered_manager.get_user_by_update(update)
+            if student in bot.queues_manager.get_queue():
+                bot.queues_manager.get_queue().remove_student(student)
+
+                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+                update.message.reply_text(bot.get_language_pack().you_deleted)
+
+                bot.save_queue_to_file()
+                bot.logger.log('removed {0}'.format(bot.registered_manager.get_user_by_update(update).log_str()))
+            else:
+                update.message.reply_text(bot.get_language_pack().you_not_found)
+
 
     class SwapStudents(CommandGroup.Command):
 
@@ -407,6 +435,7 @@ class QueuesManage(CommandGroup):
                 if bot.queues_manager.remove_queue(queue_name):
                     update.effective_chat.send_message(bot.get_language_pack().queue_removed.format(queue_name))
                     update.effective_message.delete()
+                    bot.refresh_last_queue_msg(update)
                 else:
                     bot.logger.log('queue not found, query: {0}'.format(update.callback_query.data))
             else:
@@ -422,6 +451,7 @@ class QueuesManage(CommandGroup):
             if queue_name is not None:
                 if bot.queues_manager.set_current_queue(queue_name):
                     update.effective_chat.send_message(bot.get_language_pack().queue_set)
+                    bot.refresh_last_queue_msg(update)
                 else:
                     bot.logger.log('queue not found, query: {0}'.format(update.callback_query.data))
             else:
@@ -524,7 +554,7 @@ class ModifyRegistered(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().users_deleted)
 
             bot.request_del()
-            
+
 
 class UpdateQueue(CommandGroup):
     class MovePrevious(CommandGroup.Command):
@@ -698,20 +728,22 @@ class CollectSubjectChoices(CommandGroup):
             subject_range = bot.choice_manager.get_subject_range()
             choices, errors = parcers.parse_positions_list(update.message.text, *subject_range)
 
-            student_requested = bot.registered_manager.get_user_by_id(update.effective_user.id)
-            if student_requested != None:
-                subject_chosen = bot.choice_manager.add_choice(student_requested, choices)
-                if subject_chosen is not None:
-                    # update choices message
-                    choices_str = CollectSubjectChoices.get_choices_available_str(bot)
-                    bot.subject_choices_message.update_contents(choices_str, update.effective_chat)
+            student_requested = bot.registered_manager.get_user_by_update(update)
 
-                    # send message with reply
-                    update.message.reply_text(bot.get_language_pack().your_choice.format(subject_chosen))
-                else:
-                    update.effective_chat.send_message(bot.get_language_pack().cannot_choose_any_subject)
+            if student_requested is None:
+                student_requested = Student(update.effective_user.full_name, None)
+
+            subject_chosen = bot.choice_manager.add_choice(student_requested, choices)
+            if subject_chosen is not None:
+                # update choices message
+                choices_str = CollectSubjectChoices.get_choices_available_str(bot)
+                bot.subject_choices_message.update_contents(choices_str, update.effective_chat)
+
+                # send message with reply
+                update.message.reply_text(bot.get_language_pack().your_choice.format(subject_chosen))
             else:
-                update.effective_chat.send_message(bot.get_language_pack().unknown_user)
+                update.effective_chat.send_message(bot.get_language_pack().cannot_choose_any_subject)
+
             bot.request_del()
 
 
@@ -722,12 +754,9 @@ class CollectSubjectChoices(CommandGroup):
                 update.effective_chat.send_message(bot.get_language_pack().choices_collection_not_started)
                 return
 
-            student_requested = bot.registered_manager.get_user_by_id(update.effective_user.id)
-            if student_requested != None:
-                bot.choice_manager.remove_choice(student_requested)
-                update.effective_chat.send_message(bot.get_language_pack().your_choice_deleted)
-            else:
-                update.effective_chat.send_message(bot.get_language_pack().unknown_user)
+            student_requested = bot.registered_manager.get_user_by_update(update)
+            bot.choice_manager.remove_choice(student_requested)
+            update.effective_chat.send_message(bot.get_language_pack().your_choice_deleted)
 
 
     class StartChoose(CommandGroup.Command):

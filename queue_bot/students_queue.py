@@ -36,9 +36,7 @@ class StudentsQueue(Savable, Translatable):
 
     def __contains__(self, item):
         if isinstance(item, Student):
-            for student in self._students:
-                if student.telegram_id == item.telegram_id:
-                    return True
+            return item in self._students
         elif isinstance(item, int):
             for student in self._students:
                 if student.telegram_id == item:
@@ -73,10 +71,6 @@ class StudentsQueue(Savable, Translatable):
     def swap(self, position1, position2):
         self._students[position1], self._students[position2] = self._students[position2], self._students[position1]
 
-    # if student registered as user, returns True, otherwise False
-    def append(self, student: Student):
-        self._students.append(student)
-
     def append_by_name(self, name):
         student = self.main_bot.registered_manager.get_user_by_name(name)
         if student is not None:
@@ -86,13 +80,15 @@ class StudentsQueue(Savable, Translatable):
             self._students.append(self.main_bot.registered_manager.find_similar_student(name))
             return False
 
-    def append_new(self, name, user_id):
-        student = self.main_bot.registered_manager.get_user_by_id(user_id)
+    def append_to_queue(self, student):
+        if student in self._students:
+            self._students.remove(student)
+
         if student is not None:
             self._students.append(student)
             return True
         else:
-            new_user = self.main_bot.registered_manager.append_new_user(name, user_id)
+            new_user = self.main_bot.registered_manager.append_users(student)
             self._students.append(new_user)
             return False
 
@@ -102,6 +98,12 @@ class StudentsQueue(Savable, Translatable):
     def clear(self):
         self._students = []
         self._queue_pos = 0
+
+    def remove_student(self, student):
+        if student.telegram_id is not None:
+            self.remove_by_id(student.telegram_id)
+        else:
+            self.remove_by_name(student.name)
 
     def remove_by_index(self, index):
         if isinstance(index, int):
@@ -159,44 +161,41 @@ class StudentsQueue(Savable, Translatable):
             names.append(student.name)
 
     def str(self):
-        if len(self._students) > 0:
-            if self._queue_pos is not None:
+        if len(self._students) > 0 and self._queue_pos is not None:
 
-                str_list = []
-
-                cur_stud, next_stud = self.get_cur_and_next()
-
-                if cur_stud is None:
-                    return self.get_language_pack().queue_finished
-                else:
-                    cur_stud = cur_stud.str(self._queue_pos + 1)
-
-                if next_stud is not None:
-                    next_stud = next_stud.str(self._queue_pos + 2)
-                else:
-                    next_stud = 'Нет'
-
-                if (self._queue_pos + 2) < len(self._students):
-                    other_studs = '\n'.join([self._students[i].str(i + 1)
-                                             for i in range(self._queue_pos + 2, len(self._students))])
-                else:
-                    other_studs = ''
-
-                # name must be specified with '\n'
-                # to mimic telegram trimming first characters if they are '\n'
-                queue_name = self.name + '\n' if self.name != '' else ''
-                return self.get_language_pack().queue_format.format(name=queue_name,
-                                                                    current=cur_stud,
-                                                                    next=next_stud,
-                                                                    other=other_studs)
+            cur_stud, next_stud = self.get_cur_and_next()
+            if cur_stud is None:
+                return self.get_language_pack().queue_finished
             else:
-                # the same line as above
-                queue_name = self.name + '\n' if self.name != '' else ''
-                students_str = [self._students[i].str(i + 1) for i in range(len(self._students))]
-                return self.get_language_pack().queue_simple_format.format(name=queue_name,
-                                                                           students='\n'.join(students_str))
+                cur_stud = cur_stud.str(self._queue_pos + 1)
 
-        return self.get_language_pack().queue_finished
+            if next_stud is not None:
+                next_stud = next_stud.str(self._queue_pos + 2)
+            else:
+                next_stud = 'Нет'
+
+            if (self._queue_pos + 2) < len(self._students):
+                other_studs = '\n'.join([self._students[i].str(i + 1)
+                                         for i in range(self._queue_pos + 2, len(self._students))])
+            else:
+                other_studs = ''
+
+            # name must be specified with '\n'
+            # to mimic telegram trimming first characters if they are '\n'
+            queue_name = self.name + '\n\n' if self.name != '' else ''
+            return self.get_language_pack().queue_format.format(name=queue_name,
+                                                                current=cur_stud,
+                                                                next=next_stud,
+                                                                other=other_studs)
+        else:
+            return self.get_language_pack().queue_finished
+
+    def get_str_for_copy(self):
+        # the same line as above
+        queue_name = self.name + '\n\n' if self.name != '' else ''
+        students_str = [self._students[i].str() for i in range(len(self._students))]
+        return self.get_language_pack().queue_simple_format.format(name=queue_name,
+                                                                   students='\n'.join(students_str))
 
     def get_cur_and_next(self):
         if 0 <= self._queue_pos < len(self._students) - 1:

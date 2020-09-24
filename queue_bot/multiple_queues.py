@@ -33,10 +33,7 @@ class QueuesManager(Savable):
 
     def set_default_queue(self):
         self._selected_queue = StudentsQueue(self.main_bot)  # default queue
-        if self._selected_queue.name not in self._queues:
-            self._queues[self._selected_queue.name] = self._selected_queue
-        else:
-            self._selected_queue = self._queues[self._selected_queue.name]
+        self._queues[self._selected_queue.name] = self._selected_queue
 
     def rename_queue(self, prev_name, new_name):
         if prev_name in self._queues:
@@ -93,11 +90,11 @@ class QueuesManager(Savable):
     def generate_choice_keyboard(self, command):
         buttons = []
 
-        for queue in self._queues:
-            buttons.append(InlineKeyboardButton(queue.name, callback_data=command.str(queue.name)))
-
-        buttons.append(InlineKeyboardButton('', callback_data=General.Cancel))
-
+        for name in self._queues.keys():
+            if name == '':
+                name = '*нет имени*'
+            buttons.append([InlineKeyboardButton(name, callback_data=command.str(name))])
+        buttons.append([InlineKeyboardButton('Отменить', callback_data=General.Cancel.str())])
         return InlineKeyboardMarkup(buttons)
 
     def clear_finished_queues(self):
@@ -132,7 +129,7 @@ class QueuesManager(Savable):
 
     def save_to_file(self, saver):
         self.save_queue_paths()
-        for queue in self._queues:
+        for queue in self._queues.values():
             queue.save_to_file(saver)
 
     def load_file(self, saver):

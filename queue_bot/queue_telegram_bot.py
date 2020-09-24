@@ -53,7 +53,7 @@ class QueueBot(Translatable):
     def init_updater_commands(self):
         self.updater.dispatcher.add_handler(CommandHandler('i_finished', self._h_i_finished))
         self.updater.dispatcher.add_handler(CommandHandler('remove_me', self._h_remove_me))
-        self.updater.dispatcher.add_handler(CommandHandler('add_me', self._h_add_me_to_queue))
+        self.updater.dispatcher.add_handler(CommandHandler('add_me', self._h_add_me))
         self.updater.dispatcher.add_handler(CommandHandler('start', self._h_start))
         self.updater.dispatcher.add_handler(CommandHandler('stop', self._h_stop))
         self.updater.dispatcher.add_handler(CommandHandler('logs', self._h_show_logs))
@@ -101,6 +101,7 @@ class QueueBot(Translatable):
     # paths inside .get_save_files() must match
     # with paths in load_from_cloud by folders to load correctly
     def save_to_cloud(self):
+        return  # todo fix load and save to google drive in future (problem with file paths and folders)
         dump_path = self.logger.dump_to_file()
         self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)
 
@@ -111,6 +112,7 @@ class QueueBot(Translatable):
         self.logger.log('saved to cloud')
 
     def load_from_cloud(self):
+        return  # todo see earlier todo
         self.gdrive_saver.get_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.get_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
         self.gdrive_saver.get_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
@@ -128,7 +130,7 @@ class QueueBot(Translatable):
     # loads default values from external file
     def save_registered_to_file(self):
         self.registered_manager.save_to_file(self.object_saver)
-        self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), FolderType.Data)
+        # self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), FolderType.Data)
 
     def get_token(self, path=None):
         if path is None:
@@ -153,6 +155,16 @@ class QueueBot(Translatable):
         self.command_requested_answer = None
 
     # command handlers
+    def handle_access_check(self, update, access_level=AccessLevel.ADMIN, check_chat_private=True):
+        if self.registered_manager.check_access(update, access_level, check_chat_private):
+            return True
+        else:
+            self.logger.log('user {0} tried to get access to {1} command'.format(
+                                self.registered_manager.get_user_by_update(update),
+                                access_level.name))
+            update.message.reply_text(self.get_language_pack().permission_denied)
+            return False
+
     def _h_message_text(self, update, context):
         if self.command_requested_answer is None:
             return
@@ -175,7 +187,7 @@ class QueueBot(Translatable):
                 update.message.reply_text(self.get_language_pack().already_requested_send_message)
         else:
             self.logger.log('user {0} tried to get access to admin command'
-                            .format(self.registered_manager.get_user_by_id(update.effective_message.user.id)))
+                            .format(self.registered_manager.get_user_by_update(update)))
             update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_start(self, update, context):
@@ -196,10 +208,9 @@ class QueueBot(Translatable):
             update.message.reply_text(self.get_language_pack().bot_already_running)
 
     def _h_stop(self, update, context):
-        if self.registered_manager.check_access(update):
+        if self.registered_manager.check_access(update, AccessLevel.GOD):
             update.message.reply_text(self.get_language_pack().bot_stopped)
             self.save_to_cloud()
-            self.updater.stop()
             exit(0)
 
     def _h_show_logs(self, update, context):
@@ -218,58 +229,37 @@ class QueueBot(Translatable):
         self._generate_queue_message(update, self.keyboards.create_simple_queue)
 
     def _generate_queue_message(self, update, keyboard):
-        if self.registered_manager.check_access(update):
+        if self.handle_access_check(update):
             if self.queues_manager.queue_empty():
                 update.effective_chat.send_message(self.get_language_pack().queue_not_exists_create_new,
                                                    reply_markup=keyboard)
             else:
                 update.effective_chat.send_message(self.get_language_pack().create_new_queue,
                                                    reply_markup=keyboard)
-        else:
-            self.logger.log('user {0} tried to get access to admin command'
-                            .format(self.registered_manager.get_user_by_id(update.effective_message.user.id)))
-            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_edit_queue(self, update, context):
-        if self.registered_manager.check_access(update):
+        if self.handle_access_check(update):
             update.message.reply_text(self.get_language_pack().title_edit_queue,
                                       reply_markup=self.keyboards.modify_queue)
-        else:
-            self.logger.log('user {0} tried to get access to admin command'
-                            .format(self.registered_manager.get_user_by_id(update.effective_message.user.id)))
-            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_delete_queue(self, update, context):
-        if self.registered_manager.check_access(update):
+        if self.handle_access_check(update):
             keyboard = self.queues_manager.generate_choice_keyboard(commands.QueuesManage.DeleteQueue)
             update.message.reply_text(self.get_language_pack().title_select_queue, reply_markup=keyboard)
-        else:
-            self.logger.log('user {0} tried to get access to admin command'
-                            .format(self.registered_manager.get_user_by_id(update.effective_message.user.id)))
-            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_select_queue(self, update, context):
-        if self.registered_manager.check_access(update):
+        if self.handle_access_check(update):
             keyboard = self.queues_manager.generate_choice_keyboard(commands.QueuesManage.ChooseOtherQueue)
             update.message.reply_text(self.get_language_pack().title_select_queue, reply_markup=keyboard)
-        else:
-            self.logger.log('user {0} tried to get access to admin command'
-                            .format(self.registered_manager.get_user_by_id(update.effective_message.user.id)))
-            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_edit_registered(self, update, context):
-        if self.registered_manager.check_access(update):
+        if self.handle_access_check(update):
             update.effective_chat.send_message(self.get_language_pack().title_edit_registered,
                                                reply_markup=self.keyboards.modify_registered)
-        else:
-            self.logger.log('user {0} tried to get access to admin command'
-                            .format(self.registered_manager.get_user_by_id(update.effective_message.user.id)))
-            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_get_queue(self, update, context):
         if self.queues_manager.queue_empty():
-            requriment = commands.QueuesManage.CreateSimple.access_requirement
-            if self.registered_manager.check_access(update, requriment):
+            if self.registered_manager.check_access(update, AccessLevel.USER):
                 update.effective_chat.send_message(self.get_language_pack().queue_not_exists_create_new,
                                                    reply_markup=self.keyboards.create_simple_queue)
             else:
@@ -278,63 +268,40 @@ class QueueBot(Translatable):
             self.last_queue_message.resend(self.queues_manager.get_queue_str(), update.effective_chat)
 
             self.logger.log('user {0} in {1} chat requested queue'.format(
-                self.registered_manager.get_user_by_id(update.effective_user.id).log_str(), update.effective_chat.type))
+                self.registered_manager.get_user_by_update(update).log_str(), update.effective_chat.type))
 
     def send_cur_and_next(self, update, context=None):
         self.cur_students_message.resend(self.queues_manager.get_queue().get_cur_and_next_str(), update.effective_chat)
 
     def _h_i_finished(self, update, context):
-        cur_user_id = update.effective_user.id
-        student_finished = self.registered_manager.get_user_by_id(cur_user_id)
+        student_finished = self.registered_manager.get_user_by_update(update)
 
-        if student_finished is not None:  # user is registered
-            if self.queues_manager.get_queue().get_current() == student_finished:  # finished user currently first
-                self.queues_manager.get_queue().move_next()
-                self.send_cur_and_next(update)
-            else:
-                update.message.reply_text(self.get_language_pack().your_turn_not_now
-                                .format(self.registered_manager.get_user_by_id(cur_user_id).str()))
+        if self.queues_manager.get_queue().get_current() == student_finished:  # finished user currently first
+            self.queues_manager.get_queue().move_next()
+            self.send_cur_and_next(update)
         else:
-            update.message.reply_text(self.get_language_pack().unknown_user)
+            update.message.reply_text(self.get_language_pack().your_turn_not_now
+                            .format(self.registered_manager.get_user_by_update(update).str()))
+            self.queues_manager.get_queue()
 
         self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat)
         self.save_queue_to_file()
         self.logger.log('finished: {0}'.format(self.queues_manager.get_queue().get_current().log_str()))
 
     def _h_remove_me(self, update, context):
-        if update.effective_user.id in self.queues_manager:
-            self.queues_manager.get_queue().remove_by_id(update.effective_user.id)
+        commands.ModifyCurrentQueue.RemoveMe.handle(update, self)
 
-            self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat)
-            update.message.reply_text(self.get_language_pack().you_deleted)
-
-            self.save_queue_to_file()
-            self.logger.log('removed {0}'.format(self.registered_manager.get_user_by_id(update.effective_user.id).log_str()))
-        else:
-            update.message.reply_text(self.get_language_pack().you_not_found)
-
-    def _h_add_me_to_queue(self, update, context):
-        student = self.registered_manager.get_user_by_id(update.effective_user.id)
-        if student is None:
-            self.queues_manager.get_queue().remove_by_name(update.effective_user.full_name)
-            self.queues_manager.get_queue().append_by_name(update.effective_user.full_name)
-        else:
-            self.queues_manager.get_queue().remove_by_id(update.effective_user.id)
-            self.queues_manager.get_queue().append_new(update.effective_user.full_name, update.effective_user.id)
-
-        self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat)
-        update.message.reply_text(self.get_language_pack().you_added_to_queue)
-
-        self.save_queue_to_file()
-        self.logger.log('added {0}'.format(self.queues_manager.get_queue().get_last()))
+    def _h_add_me(self, update, context):
+        commands.ModifyCurrentQueue.AddMe.handle(update, self)
 
     def _h_error(self, update, context):
-        print('Error: {0}'.format(context.error))
-        self.logger.log(context.error)
+        string = '{0}: {1}'.format(context.error.__qualname__, context.error)
+        print(string)
+        self.logger.log(string)
         self.logger.save_to_cloud()
 
     def _h_setup_choices(self, update, context):
-        if self.registered_manager.check_access(update):
+        if self.handle_access_check(update):
             commands.CollectSubjectChoices.CreateNewCollectFile.handle(update, self)
 
     def _h_allow_pick_subjects(self, update, context):
@@ -342,30 +309,24 @@ class QueueBot(Translatable):
             commands.CollectSubjectChoices.StartChoose.handle(update, self)
 
     def _h_stop_pick_subjects(self, update, context):
-        if self.registered_manager.check_access(update, check_chat_private=False):
+        if self.handle_access_check(update, check_chat_private=False):
             commands.CollectSubjectChoices.StopChoose.handle(update, self)
 
     def _h_show_choices(self, update, context):
-        commands.CollectSubjectChoices.ShowCurrentChoices.handle(update, self)
+        if self.handle_access_check(update):
+            commands.CollectSubjectChoices.ShowCurrentChoices.handle(update, self)
 
     def _h_choice(self, update, context):
-        commands.CollectSubjectChoices.Choose.handle_request(update, self)
+        if self.handle_access_check(update, AccessLevel.USER):
+            commands.CollectSubjectChoices.Choose.handle_request(update, self)
 
     def _h_remove_choice(self, update, context):
         commands.CollectSubjectChoices.RemoveChoice.handle(update, self)
 
     def _h_show_admin_help(self, update, context):
-        if self.registered_manager.check_access(update, check_chat_private=False):
+        if self.handle_access_check(update, check_chat_private=False):
             commands.Help.ForAdmin.handle(update, self)
-        else:
-            self.logger.log('user {0} tried to get access to admin command'
-                            .format(self.registered_manager.get_user_by_id(update.effective_message.from_user.id)))
-            update.message.reply_text(self.get_language_pack().permission_denied)
 
     def _h_get_choices_excel_file(self, update, context):
-        if self.registered_manager.check_access(update, check_chat_private=False):
+        if self.handle_access_check(update, check_chat_private=False):
             commands.CollectSubjectChoices.GetExcelFile.handle(update, self)
-        else:
-            self.logger.log('user {0} tried to get access to admin command'
-                            .format(self.registered_manager.get_user_by_id(update.effective_message.user.id)))
-            update.message.reply_text(self.get_language_pack().permission_denied)
