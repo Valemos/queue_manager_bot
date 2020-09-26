@@ -47,7 +47,7 @@ def parse_names(string):
         names = string.split('\n')
     else:
         names = [string]
-    return names
+    return [name for name in names if name != '']
 
 
 def parce_number_range(text):
