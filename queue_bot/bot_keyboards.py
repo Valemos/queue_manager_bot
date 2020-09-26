@@ -17,7 +17,7 @@ modify_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton('Удалить студентов', callback_data=commands.ModifyCurrentQueue.RemoveStudentsList.str())],
     [InlineKeyboardButton('Добавить студента', callback_data=commands.ModifyCurrentQueue.AddStudent.str())],
     [InlineKeyboardButton('Установить позицию очереди', callback_data=commands.ModifyCurrentQueue.SetQueuePosition.str())],
-    [InlineKeyboardButton('Показать очередь', callback_data=commands.ModifyCurrentQueue.ShowList.str())],
+    [InlineKeyboardButton('Показать очередь для копирования', callback_data=commands.ModifyCurrentQueue.ShowQueueForCopy.str())],
     [InlineKeyboardButton('Установить новую очередь', callback_data=commands.ModifyCurrentQueue.SetStudents.str())],
     [InlineKeyboardButton('Очистить очередь', callback_data=commands.ModifyCurrentQueue.ClearList.str())]
 ])

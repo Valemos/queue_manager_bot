@@ -101,7 +101,6 @@ class QueueBot(Translatable):
     # paths inside .get_save_files() must match
     # with paths in load_from_cloud by folders to load correctly
     def save_to_cloud(self):
-        return  # todo fix load and save to google drive in future (problem with file paths and folders)
         dump_path = self.logger.dump_to_file()
         self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)
 
@@ -112,7 +111,6 @@ class QueueBot(Translatable):
         self.logger.log('saved to cloud')
 
     def load_from_cloud(self):
-        return  # todo see earlier todo
         self.gdrive_saver.get_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.get_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
         self.gdrive_saver.get_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)

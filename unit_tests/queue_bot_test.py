@@ -103,7 +103,17 @@ class TestQueue(unittest.TestCase):
 
 Вороной + Василюк
 
-Люлька + Кущевой'''
+Люлька + Кущевой
+
+Прокопенко + Гречко
+
+Мотрук + Скицюк
+
+Воловик + Комисар
+
+Копылаш + Редька
+
+Северян + Дорошенко'''
 
         tg_write_message(update, message)
         bot._h_message_text(update, context)
@@ -113,7 +123,12 @@ class TestQueue(unittest.TestCase):
 
         self.assertListEqual([Student('Дурда + Козинцева', None),
                               Student('Вороной + Василюк', None),
-                              Student('Люлька + Кущевой', None)],
+                              Student('Люлька + Кущевой', None),
+                              Student('Прокопенко + Гречко', None),
+                              Student('Мотрук + Скицюк', None),
+                              Student('Воловик + Комисар', None),
+                              Student('Копылаш + Редька', None),
+                              Student('Северян + Дорошенко', None)],
                              bot.queues_manager.get_queue()._students)
 
 
@@ -460,10 +475,16 @@ class TestBotCommands(unittest.TestCase):
 
 
 class TestGoogleDriveLoad(unittest.TestCase):
-    # todo mock connections to google drive and files
-    # todo simulate bot saving data
-    pass
 
+
+    def test_load_to_google_drive(self):
+        bot = setup_test_bot(self)
+        bot = setup_test_queue(bot, 'test1', [Student('0', 0), Student('1', 1), Student('3', 3)])
+        bot = setup_test_queue(bot, 'test2', [Student('0', 0), Student('1', 1), Student('3', 3)])
+
+        self.assertEqual(2, len(bot.queues_manager._queues))
+
+        # test file unload
 
 class TestFileSaving(unittest.TestCase):
     # todo mock functionality of saver, and test what files are saved from objects

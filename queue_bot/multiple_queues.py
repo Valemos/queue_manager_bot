@@ -69,7 +69,7 @@ class QueuesManager(Savable):
                 return queue
         return None
 
-    def get_queue(self):
+    def get_queue(self) -> StudentsQueue:
         if self._selected_queue is None:
             self.set_default_queue()
         return self._selected_queue

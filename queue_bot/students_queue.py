@@ -44,7 +44,7 @@ class StudentsQueue(Savable, Translatable):
         return False
 
     def __str__(self):
-        return self.name + ':' + str(len(self._students))
+        return self.name + ' : ' + str(len(self._students))
 
     def move_prev(self):
         if self._queue_pos > 0:
