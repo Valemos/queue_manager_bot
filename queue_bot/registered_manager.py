@@ -1,6 +1,5 @@
 from pathlib import Path
 from pyjarowinkler import distance  # string similarity
-from queue_bot.languages.language_interface import Translatable
 from queue_bot.object_file_saver import ObjectSaver, FolderType
 from queue_bot.savable_interface import Savable
 from queue_bot.student import Student
@@ -9,7 +8,7 @@ from queue_bot.bot_access_levels import AccessLevel
 from telegram import Chat
 
 
-class StudentsRegisteredManager(Savable, Translatable):
+class StudentsRegisteredManager(Savable):
 
     _file_registered_users = FolderType.Data.value / Path('registered.data')
 
@@ -30,9 +29,6 @@ class StudentsRegisteredManager(Savable, Translatable):
             if student.telegram_id == item.telegram_id:
                 return True
         return False
-
-    def get_language_pack(self):
-        return self.main_bot.get_language_pack()
 
     def get_users(self):
         return self._students_reg
@@ -119,7 +115,7 @@ class StudentsRegisteredManager(Savable, Translatable):
             str_list.append('{0}. {1}-{2}'.format(i, student.name, str(student.telegram_id)))
             i += 1
 
-        return self.get_language_pack().all_known_users.format('\n'.join(str_list))
+        return self.main_bot.language_pack.all_known_users.format('\n'.join(str_list))
 
     def set_god(self, god_id: int):
         user = self.get_user_by_id(god_id)
@@ -170,7 +166,7 @@ class StudentsRegisteredManager(Savable, Translatable):
             self._students_reg = []
 
     def get_save_files(self):
-        return [FolderType.Data.value / self._file_registered_users, FolderType.Data.value / self._file_access_levels]
+        return [self._file_registered_users, self._file_access_levels]
 
     # by default this function requires private chat to allow commands
     def check_access(self, update, level_requriment=AccessLevel.ADMIN, check_chat_private=True):

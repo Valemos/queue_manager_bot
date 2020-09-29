@@ -175,4 +175,4 @@ class SubjectChoiceManager(Savable):
             self.current_subjects = []
 
     def get_save_files(self):
-        return [FolderType.SubjectChoices.value / self.file_current_subject]
+        return [self.file_current_subject]

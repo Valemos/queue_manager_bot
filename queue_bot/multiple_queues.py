@@ -3,50 +3,55 @@ from pathlib import Path
 
 from queue_bot.savable_interface import Savable
 from queue_bot.object_file_saver import FolderType
-from queue_bot.bot_commands import QueuesManage, General
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from queue_bot.bot_commands import ManageQueues, General
+from queue_bot import bot_keyboards
 
 from queue_bot.students_queue import StudentsQueue
 
 
 class QueuesManager(Savable):
 
-    _queues = {}
+    queues = {}
     _selected_queue = None
 
-    _file_names_list = FolderType.Data.value / Path('multiple_queues_paths.data')
+    file_names_list = FolderType.Data.value / Path('multiple_queues_paths.data')
 
     def __init__(self, main_bot, queues: list = None):
         if queues is None:
-            self._queues = {}
+            self.queues = {}
         else:
-            self._queues = {queue.name: queue for queue in queues}
-
+            self.queues = {queue.name: queue for queue in queues}
         self.main_bot = main_bot
-        self.add_queue(StudentsQueue(main_bot))
+
+    def __len__(self):
+        return len(self.queues)
 
     def set_current_queue(self, name):
-        if name in self._queues:
-            self._selected_queue = self._queues[name]
+        if name in self.queues:
+            self._selected_queue = self.queues[name]
             return True
         return False
 
     def set_default_queue(self):
         self._selected_queue = StudentsQueue(self.main_bot)  # default queue
-        self._queues[self._selected_queue.name] = self._selected_queue
+        self.queues[self._selected_queue.name] = self._selected_queue
 
     def rename_queue(self, prev_name, new_name):
-        if prev_name in self._queues:
-            queue = self._queues[prev_name]
+        if prev_name in self.queues:
+            queue = self.queues[prev_name]
             queue.name = new_name
 
-            del self._queues[prev_name]
+            del self.queues[prev_name]
             self.add_queue(queue)
+
+    @staticmethod
+    def create_queue(*args):
+        return StudentsQueue(*args)
 
     # handle queue limit
     def add_queue(self, queue):
-        if len(self._queues) < 10:
-            self._queues[queue.name] = queue
+        if len(self.queues) < 10:
+            self.queues[queue.name] = queue
             self._selected_queue = queue
             self.save_current_to_file()
             self.save_queue_paths()
@@ -58,13 +63,13 @@ class QueuesManager(Savable):
             self._selected_queue.clear()
 
     def remove_queue(self, name):
-        if name in self._queues:
-            del self._queues[name]
+        if name in self.queues:
+            del self.queues[name]
             self.delete_queue_file(name)
             self.save_queue_paths()
 
     def get_queue_by_name(self, find_name):
-        for queue in self._queues:
+        for queue in self.queues:
             if queue.name == find_name:
                 return queue
         return None
@@ -75,46 +80,46 @@ class QueuesManager(Savable):
         return self._selected_queue
 
     def get_queue_str(self):
-        if self._selected_queue is None:
+        if self._selected_queue is None and '' not in self.queues:
             self.set_default_queue()
         return self._selected_queue.str()
 
     def queue_empty(self):
         if self._selected_queue is None:
-            self.set_default_queue()
             return True
         elif len(self._selected_queue) == 0:
             return True
         return False
 
     def generate_choice_keyboard(self, command):
-        buttons = []
-
-        for name in self._queues.keys():
-            if name == '':
-                name = '*нет имени*'
-            buttons.append([InlineKeyboardButton(name, callback_data=command.str(name))])
-        buttons.append([InlineKeyboardButton('Отменить', callback_data=General.Cancel.str())])
-        return InlineKeyboardMarkup(buttons)
+        return bot_keyboards.generate_keyboard(command, self.queues.keys())
 
     def clear_finished_queues(self):
         to_delete = None
-        for name, queue in self._queues.items():
+        for name, queue in self.queues.items():
             if queue.get_position() >= len(queue):
                 to_delete = name
 
         if to_delete is not None:
-            del self._queues[to_delete]
+            del self.queues[to_delete]
             self.delete_queue_file(to_delete)
             self.save_queue_paths()
 
+    def get_queues_files(self, names=None):
+        queues_files = []
+        if names is None:
+            for queue in self.queues.values():
+                queues_files.extend(queue.get_save_files())
+        else:
+            temp_queue = StudentsQueue(self.main_bot)
+            for name in names:
+                temp_queue.name = name
+                queues_files.extend(temp_queue.get_save_files())
+        return queues_files
+
     # method used to save all queue files to drive
     def get_save_files(self):
-        queues_files = []
-        for queue in self._queues.values():
-            queues_files.extend(queue.get_save_files())
-
-        return [FolderType.Data.value / self._file_names_list] + queues_files
+        return [self.file_names_list] + self.get_queues_files()
 
     def save_current_to_file(self):
         self._selected_queue.save_to_file(self.main_bot.object_saver)
@@ -124,20 +129,27 @@ class QueuesManager(Savable):
             self.main_bot.object_saver.delete(file)
 
     def save_queue_paths(self):
-        queues_names = list(self._queues.keys())
-        self.main_bot.object_saver.save(queues_names, self._file_names_list)
+        queues_names = list(self.queues.keys())
+        self.main_bot.object_saver.save(queues_names, self.file_names_list)
 
     def save_to_file(self, saver):
         self.save_queue_paths()
-        for queue in self._queues.values():
+        for queue in self.queues.values():
             queue.save_to_file(saver)
 
     def load_file(self, saver):
-        queues_names = saver.load(self._file_names_list)
-        self._queues = {}
+        queues_names = saver.load(self.file_names_list)
+        self.queues = {}
         if queues_names is not None:
             for name in queues_names:
                 queue = StudentsQueue(self.main_bot)
                 queue.name = name
                 queue.load_file(saver)
-                self._queues[queue.name] = queue
+                self.queues[queue.name] = queue
+
+    def load_queues_from_drive(self, drive_saver, object_saver):
+        from queue_bot.gdrive_saver import DriveFolder
+        drive_saver.get_files_from_drive([self.file_names_list], DriveFolder.Queues)
+        queues_names = object_saver.load(self.file_names_list)
+        drive_saver.get_files_from_drive(self.get_queues_files(queues_names), DriveFolder.Queues)
+        self.load_file(object_saver)

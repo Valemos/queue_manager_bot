@@ -1,4 +1,7 @@
 from queue_bot.student import Student
+from parse import parse
+
+from queue_bot.students_queue import StudentsQueue
 
 
 def parse_positions_list(string, min_index, max_index):
@@ -70,3 +73,22 @@ def check_queue_name(text):
     if ' ' in text or '\n' in text or len(text) > 100:
         return False
     return True
+
+
+def parse_student(argument):
+    name, tg_id = parse(Student.student_format, argument)
+
+    if tg_id == 'None':
+        tg_id = None
+    else:
+        tg_id = int(tg_id)
+
+    return Student(name, tg_id)
+
+
+def parse_queue_message(message):
+    result = parse(StudentsQueue.copy_queue_format, message)
+    if result is not None:
+        return result['name'], parse_names(result['students'])
+    else:
+        return None, None

@@ -1,3 +1,5 @@
+import os
+import pathlib
 from unittest.mock import MagicMock
 import mock
 import unittest
@@ -49,17 +51,42 @@ def tg_set_user(update, user_id, user_name=''):
 
     update.effective_message.user.full_name = user_name
     update.effective_message.user.id = user_id
+    update.callback_query = None
 
 
 def tg_choose_command(update, cmd_class, button_args=None):
+    update.callback_query = MagicMock()
     update.callback_query.data = cmd_class.str(button_args)
 
 
 def tg_write_message(update, contents):
     update.message.text = contents
+    update.callback_query = None
+
+
+def tg_set_callback_query(update, query):
+    update.callback_query = MagicMock()
+    update.callback_query.data = query
 
 
 class TestQueue(unittest.TestCase):
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    def test_queue_no_starting_queue(self, *mocks):
+        bot = setup_test_bot(self)
+
+        self.assertEqual(0, len(bot.queues_manager))
+
+        update = MagicMock()
+        context = MagicMock()
+
+        tg_set_user(update, 2)
+        bot._h_i_finished(update, context)
+        bot._h_remove_me(update, context)
+
 
     @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
     @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
@@ -72,7 +99,7 @@ class TestQueue(unittest.TestCase):
         context = MagicMock()
 
         tg_set_user(update, 1)
-        tg_choose_command(update, commands.QueuesManage.CreateSimple)
+        tg_choose_command(update, commands.ManageQueues.CreateSimple)
         bot._h_keyboard_chosen(update, context)
 
         tg_write_message(update, '0\n1\ntest\n2')
@@ -83,6 +110,22 @@ class TestQueue(unittest.TestCase):
 
         self.assertListEqual(bot.queues_manager.get_queue()._students,
                              [Student('0', 0), Student('1', 1), Student('test', None), Student('2', 2)])
+
+        tg_write_message(update, bot.get_queue().get_str_for_copy())
+        bot.queues_manager.remove_queue('Name')
+        bot._h_create_queue(update, context)
+
+        self.assertListEqual(bot.queues_manager.get_queue()._students,
+                             [Student('0', 0), Student('1', 1), Student('test', None), Student('2', 2)])
+
+        bot.queues_manager.remove_queue('Name')
+        tg_write_message(update, '/new_queue')
+        bot._h_create_queue(update, context)
+        self.assertNotIn('Name', bot.queues_manager.queues)
+
+        tg_write_message(update, '/new_queue ')
+        bot._h_create_queue(update, context)
+        self.assertListEqual(bot.queues_manager._selected_queue._students, [])
 
 
     @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
@@ -96,7 +139,7 @@ class TestQueue(unittest.TestCase):
         context = MagicMock()
 
         tg_set_user(update, 1)
-        tg_choose_command(update, commands.QueuesManage.CreateSimple)
+        tg_choose_command(update, commands.ManageQueues.CreateSimple)
         bot._h_keyboard_chosen(update, context)
 
         message = '''Дурда + Козинцева
@@ -118,7 +161,7 @@ class TestQueue(unittest.TestCase):
         tg_write_message(update, message)
         bot._h_message_text(update, context)
 
-        tg_choose_command(update, commands.QueuesManage.DefaultQueueName)
+        tg_choose_command(update, commands.ManageQueues.DefaultQueueName)
         bot._h_keyboard_chosen(update, context)
 
         self.assertListEqual([Student('Дурда + Козинцева', None),
@@ -144,7 +187,7 @@ class TestQueue(unittest.TestCase):
         context = MagicMock()
 
         tg_set_user(update, 1)
-        tg_choose_command(update, commands.QueuesManage.CreateRandom)
+        tg_choose_command(update, commands.ManageQueues.CreateRandom)
         bot._h_keyboard_chosen(update, context)
 
         tg_write_message(update, '0\n1\ntest\n2')
@@ -246,7 +289,7 @@ class TestQueue(unittest.TestCase):
         context = MagicMock()
 
         tg_set_user(update, 1)
-        tg_choose_command(update, commands.QueuesManage.ChooseOtherQueue, 'test1')
+        tg_choose_command(update, commands.ManageQueues.ChooseOtherQueue, 'test1')
         bot._h_keyboard_chosen(update, context)
 
         self.assertEqual(bot.queues_manager.get_queue().name, 'test1')
@@ -431,10 +474,36 @@ class TestBotCommands(unittest.TestCase):
     @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
     @mock.patch('queue_bot.queue_telegram_bot.Logger')
     @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    def test_move_to_end(self, *mocks):
+        bot = setup_test_bot(self)
+
+        students = bot.registered_manager.get_users() + [Student('Unknown', None)]
+        bot = setup_test_queue(bot, 'test1', students)
+
+        update = MagicMock()
+        context = MagicMock()
+
+        tg_set_user(update, 1)
+        tg_choose_command(update, commands.ModifyCurrentQueue.MoveStudentToEnd, Student.student_format.format('2', 2))
+        bot._h_keyboard_chosen(update, context)
+        self.assertEqual(bot.get_queue()._students[-1], bot.registered_manager.get_user_by_id(2))
+
+        tg_choose_command(update, commands.ModifyCurrentQueue.MoveStudentToEnd, Student('Unknown', None).str_name_id())
+        bot._h_keyboard_chosen(update, context)
+        self.assertEqual(Student('Unknown', None), bot.get_queue()._students[-1])
+
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
     def test_append_delete_user(self, *mocks):
         bot = setup_test_bot(self)
         bot.registered_manager.append_new_user('Test', 100)
         self.assertIn(Student('Test', 100), bot.registered_manager._students_reg)
+
+        bot.registered_manager.remove_by_id(100)
+        self.assertNotIn(Student('Test', 100), bot.registered_manager._students_reg)
 
 
     @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
@@ -473,22 +542,37 @@ class TestBotCommands(unittest.TestCase):
         bot._h_i_finished(update, context)
         self.assertEqual(idx + 1, bot.queues_manager.get_queue().get_position())
 
-
-class TestGoogleDriveLoad(unittest.TestCase):
-
-
-    def test_load_to_google_drive(self):
-        bot = setup_test_bot(self)
-        bot = setup_test_queue(bot, 'test1', [Student('0', 0), Student('1', 1), Student('3', 3)])
-        bot = setup_test_queue(bot, 'test2', [Student('0', 0), Student('1', 1), Student('3', 3)])
-
-        self.assertEqual(2, len(bot.queues_manager._queues))
-
-        # test file unload
-
-class TestFileSaving(unittest.TestCase):
-    # todo mock functionality of saver, and test what files are saved from objects
-    pass
+#
+# class TestGoogleDriveLoad(unittest.TestCase):
+#
+#     @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+#     @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+#     @mock.patch('queue_bot.queue_telegram_bot.Logger')
+#     @mock.patch('queue_bot.queue_telegram_bot.Updater')
+#     def test_save_load_google_drive(self, *mocks):
+#
+#         bot = setup_test_bot(self)
+#         bot = setup_test_queue(bot, 'test1', [Student('0', 0), Student('1', 1), Student('3', 3)])
+#         bot = setup_test_queue(bot, 'test2', [Student('0', 0), Student('1', 1), Student('3', 3)])
+#
+#         # 2 other
+#         self.assertEqual(2, len(bot.queues_manager.queues))
+#
+#         # test file unload
+#         bot.save_to_cloud()
+#         saved_files = []
+#         for call in bot.gdrive_saver.update_file_list.call_args_list:
+#             saved_files.extend(call.args[0])
+#
+#         saved_files = [f for f in saved_files if isinstance(f, pathlib.Path)]
+#
+#         bot.load_from_cloud()
+#         loaded_files = []
+#         for call in bot.gdrive_saver.get_files_from_drive.call_args_list:
+#             loaded_files.extend(call.args[0])
+#         loaded_files = [f for f in loaded_files if isinstance(f, pathlib.Path)]
+#
+#         self.assertListEqual(saved_files, loaded_files)
 
 
 if __name__ == '__main__':

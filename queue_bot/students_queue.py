@@ -1,26 +1,22 @@
 import random as rnd
 from pathlib import Path
 
-from queue_bot.student import Student
+from queue_bot.student import Student, EmptyStudent
 from queue_bot.object_file_saver import FolderType
 from queue_bot.savable_interface import Savable
-from queue_bot.languages.language_interface import Translatable
 
 
-class StudentsQueue(Savable, Translatable):
+class StudentsQueue(Savable):
 
     name = ''
 
     _queue_pos = 0
     _students = []
 
-    _file_format_queue = 'queue_{0}.data'
-    _file_format_queue_state = 'state_{0}.data'
+    file_format_queue = 'queue_{0}.data'
+    file_format_queue_state = 'state_{0}.data'
 
-    def get_language_pack(self):
-        if self.main_bot is not None:
-            return self.main_bot.get_language_pack()
-        return None
+    copy_queue_format = '/new_queue {name}\n\n{students}'
 
     def __init__(self, bot, students=None):
         if students is None:
@@ -65,8 +61,12 @@ class StudentsQueue(Savable, Translatable):
         except ValueError:
             return False
 
-    def move_to_end(self, position):
-        self._students.append(self._students.pop(position))
+    def move_to_end(self, student):
+        if student in self._students:
+            self._students.append(self._students.pop(self._students.index(student)))
+            return True
+        else:
+            return False
 
     def swap(self, position1, position2):
         self._students[position1], self._students[position2] = self._students[position2], self._students[position1]
@@ -93,7 +93,7 @@ class StudentsQueue(Savable, Translatable):
             return False
 
     def set_students(self, students):
-        self._students = students
+        self._students = list(students)
 
     def clear(self):
         self._students = []
@@ -148,24 +148,31 @@ class StudentsQueue(Savable, Translatable):
         if 0 <= self._queue_pos < len(self):
             return self._students[self._queue_pos]
         else:
-            return None
+            return EmptyStudent
 
     def get_last(self):
         if len(self) > 0:
             return self._students[-1]
         return None
 
-    def get_student_names(self):
+    def get_names_with_positions(self):
         names = []
-        for student in self._students:
-            names.append(student.name)
+        for i in range(len(self._students)):
+            names.append(self._students[i].str(i))
+        return names
+
+    def get_student_identifiers(self):
+        names = []
+        for i in range(len(self._students)):
+            names.append(self._students[i].str(i))
+        return names
 
     def str(self):
         if len(self._students) > 0 and self._queue_pos is not None:
 
             cur_stud, next_stud = self.get_cur_and_next()
             if cur_stud is None:
-                return self.get_language_pack().queue_finished
+                return self.main_bot.language_pack.queue_finished
             else:
                 cur_stud = cur_stud.str(self._queue_pos + 1)
 
@@ -181,21 +188,24 @@ class StudentsQueue(Savable, Translatable):
                 other_studs = ''
 
             # name must be specified with '\n'
-            # to mimic telegram trimming first characters if they are '\n'
+            # because telegram trims first characters if they are '\n'
             queue_name = self.name + '\n\n' if self.name != '' else ''
-            return self.get_language_pack().queue_format.format(name=queue_name,
-                                                                current=cur_stud,
-                                                                next=next_stud,
-                                                                other=other_studs)
+            return self.main_bot.language_pack.queue_format.format(name=queue_name,
+                                                                   current=cur_stud,
+                                                                   next=next_stud,
+                                                                   other=other_studs)
         else:
-            return self.get_language_pack().queue_finished
+            return self.main_bot.language_pack.queue_finished
+
+    def str_simple(self):
+        queue_name = (self.name + '\n\n') if self.name != '' else ''
+        students_str = [self._students[i].str() for i in range(len(self._students))]
+        return self.main_bot.language_pack.queue_simple_format.format(name=queue_name,
+                                                                      students='\n'.join(students_str))
 
     def get_str_for_copy(self):
-        # the same line as above
-        queue_name = self.name + '\n\n' if self.name != '' else ''
         students_str = [self._students[i].str() for i in range(len(self._students))]
-        return self.get_language_pack().queue_simple_format.format(name=queue_name,
-                                                                   students='\n'.join(students_str))
+        return self.copy_queue_format.format(name=self.name, students='\n'.join(students_str))
 
     def get_cur_and_next(self):
         if 0 <= self._queue_pos < len(self._students) - 1:
@@ -214,7 +224,12 @@ class StudentsQueue(Savable, Translatable):
         if next_stud is not None:
             msg += '\nГотовится - {0}'.format(next_stud.str())
 
-        return msg if msg != '' else self.get_language_pack().queue_finished
+        return msg if msg != '' else self.main_bot.language_pack.queue_finished
+
+    def get_students_keyboard(self, command):
+        return self.main_bot.keyboards.generate_keyboard(command,
+                                                         [s.name for s in self._students],
+                                                         [s.str_name_id() for s in self._students])
 
     def generate_simple(self, students=None):
         if students is None:
@@ -232,10 +247,10 @@ class StudentsQueue(Savable, Translatable):
             self._students = students
 
     def get_state_save_file(self):
-        return FolderType.QueuesData.value / Path(self._file_format_queue_state.format(self.name))
+        return FolderType.QueuesData.value / Path(self.file_format_queue_state.format(self.name))
 
     def get_queue_save_file(self):
-        return FolderType.QueuesData.value / Path(self._file_format_queue.format(self.name))
+        return FolderType.QueuesData.value / Path(self.file_format_queue.format(self.name))
 
     def get_save_files(self):
         return [self.get_state_save_file(), self.get_queue_save_file()]
