@@ -59,12 +59,39 @@ class CommandGroup:
                 return None
 
         @classmethod
-        def handle(cls, update, bot):
-            pass
+        def check_access(cls, update, bot, check_chat_private):
+            if bot.registered_manager.check_access(update, cls.access_requirement, check_chat_private):
+                return True
+            else:
+                log_bot_user(update, bot, 'tried to get access to {0} command', cls.access_requirement.name)
+                if check_chat_private:
+                    update.message.reply_text(bot.language_pack.command_for_private_chat)
+                else:
+                    update.message.reply_text(bot.language_pack.permission_denied)
+                return False
 
+        # used as starting point and it checks for user access rights
+        @classmethod
+        def handle_command(cls, update, bot):
+            private_chat_needed = cls.access_requirement is not AccessLevel.USER
+            if cls.check_access(update, bot, private_chat_needed):
+                cls.handle_reply(update, bot)
+
+        # used to generate message, keyboard and handle_request properly
+        @classmethod
+        def handle_reply(cls, update, bot):
+            cls.handle_request(update, bot)
+
+        # used to handle intermediate states, or multiple choices by keyboard
+        # this function will be called only if arguments for command exist
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            cls.handle_request(update, bot)
+
+        # used for main request handling
         @classmethod
         def handle_request(cls, update, bot):
-            pass
+            print('{0} called default method', cls.str())
 
 
 class Help(CommandGroup):
@@ -73,12 +100,12 @@ class Help(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.admin_help)
 
     class HowToSelectSubject(CommandGroup.Command):
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.send_choice_numbers)
 
 
@@ -87,18 +114,68 @@ class General(CommandGroup):
     class Cancel(CommandGroup.Command):
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_message.delete()
             bot.request_del()
 
+    class Start(CommandGroup.Command):
+        @classmethod
+        def handle_request(cls, update, bot):
+            # if god user not exists, set current user as AccessLevel.GOD and set admins as AccessLevel.ADMIN
+            if not bot.registered_manager.exists_user_access(AccessLevel.GOD):
+                bot.registered_manager.append_new_user(update.message.from_user.username, update.message.from_user.id)
+                bot.registered_manager.set_god(update.message.from_user.id)
+                update.message.reply_text(bot.language_pack.first_user_added.format(update.message.from_user.username))
+
+                for admin in update.effective_chat.get_administrators():
+                    bot.registered_manager.append_new_user(admin.user.username, admin.user.id)
+                    bot.registered_manager.set_admin(admin.user.id)
+
+                bot.save_registered_to_file()
+                update.effective_chat.send_message(bot.language_pack.admins_added)
+            else:
+                update.message.reply_text(bot.language_pack.bot_already_running)
+
+
+    class Stop(CommandGroup.Command):
+        access_requirement = AccessLevel.GOD
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            update.message.reply_text(bot.language_pack.bot_stopped)
+            bot.save_before_stop()
+            exit(0)
+
+
+    class ShowLogs(CommandGroup.Command):
+        access_requirement = AccessLevel.GOD
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            trim = 4090
+            trimmed_msg = bot.logger.get_logs()[-trim:]
+            if len(trimmed_msg) >= trim:
+                trimmed_msg = "...\n" + trimmed_msg[trimmed_msg.index('\n'):]
+
+            update.effective_chat.send_message(trimmed_msg)
+
 
 class ModifyCurrentQueue(CommandGroup):
+
+    class ShowMenu(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            update.message.reply_text(bot.language_pack.title_edit_queue,
+                                      reply_markup=bot.keyboards.modify_queue)
+
 
     class ShowList(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.get_queue().str_simple())
             log_bot_queue(update, bot, 'showed list')
 
@@ -107,7 +184,7 @@ class ModifyCurrentQueue(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(self, update, bot):
+        def handle_request(cls, update, bot):
             update.effective_chat.send_message(bot.get_queue().get_str_for_copy())
             update.effective_chat.send_message(bot.language_pack.copy_queue)
             log_bot_queue(update, bot, 'showed list for copy')
@@ -118,7 +195,7 @@ class ModifyCurrentQueue(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.enter_students_list)
             bot.request_set(cls)
 
@@ -134,7 +211,7 @@ class ModifyCurrentQueue(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.language_pack.send_new_position)
             bot.request_set(cls)
@@ -160,87 +237,111 @@ class ModifyCurrentQueue(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             bot.queues_manager.clear_current_queue()
             update.effective_chat.send_message(bot.language_pack.queue_deleted)
             log_bot_queue(update, bot, 'clear queue')
 
 
     class MoveStudentToEnd(CommandGroup.Command):
-
         access_requirement = AccessLevel.ADMIN
 
+        move_student = None
+
         @classmethod
-        def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
+        def handle_reply(cls, update, bot):
+            cls.move_student = None
             keyboard = bot.get_queue().get_students_keyboard(cls)
             update.effective_chat.send_message(bot.language_pack.select_student, reply_markup=keyboard)
+            update.effective_chat.send_message(bot.language_pack.select_student)
             bot.request_set(cls)
 
         @classmethod
+        def handle_keyboard(cls, update, bot):
+            argument = cls.get_arguments(update.callback_query.data)
+            cls.move_student = parsers.parse_student(argument)
+            cls.handle_request(update, bot)
+
+        @classmethod
         def handle_request(cls, update, bot):
-            argument = CommandGroup.Command.get_arguments(update.callback_query.data)
-            move_stud = parsers.parse_student(argument)
-            bot.get_queue().move_to_end(move_stud)
+            if cls.move_student is None:
+                update.callback_query.reply()
+                return
+            bot.get_queue().move_to_end(cls.move_student)
 
             bot.refresh_last_queue_msg(update)
-            update.effective_chat.send_message(bot.language_pack.student_added_to_end)
+            update.effective_chat.send_message(bot.language_pack.student_added_to_end.format(cls.move_student.str()))
             bot.request_del()
-            log_bot_queue(update, bot, 'moved {2} to end', str(move_stud))
+            log_bot_queue(update, bot, 'moved {0} to end', str(cls.move_student))
 
 
-    class RemoveStudentsList(CommandGroup.Command):
+    class RemoveListStudents(CommandGroup.Command):
 
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
-            update.effective_chat.send_message(bot.language_pack.send_student_numbers_with_space)
-            bot.request_set(cls)
+        def handle_reply(cls, update, bot):
+            keyboard = bot.get_queue().get_students_keyboard(cls)
+            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            cls.handle_request(update, bot)
+
+            # after student deleted, message updates
+            keyboard = bot.get_queue().get_students_keyboard(cls)
+            # keyboards not equal
+            if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
+                update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
 
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = parsers.parse_positions_list(update.message.text,
-                                                             1, len(bot.get_queue()))
-            bot.get_queue().remove_by_index([i - 1 for i in positions])
+            student_str = cls.get_arguments(update.callback_query.data)
+            student = parsers.parse_student(student_str)
+            bot.get_queue().remove_student(student)
             bot.refresh_last_queue_msg(update)
 
-
-            if len(errors) > 0:
-                update.effective_chat.send_message(bot.language_pack.error_in_this_values.format(', '.join(errors)))
-            if len(positions) > 0:
-                update.effective_chat.send_message(bot.language_pack.users_deleted)
             bot.request_del()
-            log_bot_queue(update, bot, 'removed {0} students', positions)
+            log_bot_queue(update, bot, 'removed student {0}', student)
 
 
     class SetStudentPosition(CommandGroup.Command):
-
         access_requirement = AccessLevel.ADMIN
 
+        student = None
+        new_position = -1
+
         @classmethod
-        def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
-            update.effective_chat.send_message(bot.language_pack.send_student_number_and_new_position)
-            bot.request_set(cls)
+        def handle_reply(cls, update, bot):
+            cls.student = None
+            cls.new_position = -1
+            keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            if cls.student is None:
+                student_str = cls.get_arguments(update.callback_query.data)
+                student = parsers.parse_student(student_str)
+                cls.student = student
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+            elif cls.new_position == -1:
+                student = cls.get_arguments(update.callback_query.data)
+                position = bot.get_queue().get_student_position(student)
+                if position is not None:
+                    update.effective_chat.send_message(bot.language_pack.selected_position.format(str(position)))
+                    cls.handle_request(update, bot)
+                else:
+                    update.effective_chat.send_message(bot.language_pack.selected_position_not_exists)
 
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = parsers.parse_positions_list(update.message.text,
-                                                             1, len(bot.get_queue()))
-
-            if len(positions) >= 2:
-                if bot.get_queue().move_to_index(positions[0] - 1, positions[1] - 1):
-                    update.effective_chat.send_message(bot.language_pack.students_moved)
-            elif len(errors) > 0:
-                update.effective_chat.send_message(bot.language_pack.error_in_values)
-            else:
-                update.effective_chat.send_message(bot.language_pack.error_in_values)
+            bot.get_queue().set_student_position(cls.student, cls.new_position)
+            update.effective_chat.send_message(bot.language_pack.student_moved_to_position.format(cls.student))
 
             bot.refresh_last_queue_msg(update)
             bot.request_del()
-            log_bot_queue(update, bot, 'set student position {0}', positions)
+            log_bot_queue(update, bot, 'set student position {0}', cls.new_position)
             
 
     class AddStudent(CommandGroup.Command):
@@ -248,7 +349,7 @@ class ModifyCurrentQueue(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.language_pack.send_student_name_to_end)
             bot.request_set(cls)
@@ -267,8 +368,9 @@ class ModifyCurrentQueue(CommandGroup):
             
 
     class AddMe(CommandGroup.Command):
+
         @classmethod
-        def handle(cls, update, bot):
+        def handle_request(cls, update, bot):
             student = bot.registered_manager.get_user_by_update(update)
             bot.get_queue().append_to_queue(student)
 
@@ -281,7 +383,7 @@ class ModifyCurrentQueue(CommandGroup):
 
     class RemoveMe(CommandGroup.Command):
         @classmethod
-        def handle(cls, update, bot):
+        def handle_request(cls, update, bot):
             student = bot.registered_manager.get_user_by_update(update)
             if student in bot.get_queue():
                 bot.get_queue().remove_student(student)
@@ -295,54 +397,68 @@ class ModifyCurrentQueue(CommandGroup):
                 update.message.reply_text(bot.language_pack.you_not_found)
 
 
-    class SwapStudents(CommandGroup.Command):
-
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.queues_manager.get_queue_str())
-            update.effective_chat.send_message(bot.language_pack.send_two_positions_students_space)
-            bot.request_set(cls)
-        
+    class StudentFinished(CommandGroup.Command):
         @classmethod
         def handle_request(cls, update, bot):
-            positions, errors = parsers.parse_positions_list(update.message.text,
-                                                             1, len(bot.get_queue()))
-            try:
-                assert len(positions) < 2
+            student_finished = bot.registered_manager.get_user_by_update(update)
 
-                cur_pos, swap_pos = positions[0], positions[1]
+            if student_finished == bot.queues_manager.get_queue().get_current():  # finished user currently first
+                bot.queues_manager.get_queue().move_next()
+                bot.send_cur_and_next(update)
+            else:
+                update.message.reply_text(bot.language_pack.your_turn_not_now
+                                          .format(bot.registered_manager.get_user_by_update(update).str()))
 
-                if 0 <= cur_pos < len(bot.get_queue()) and 0 <= swap_pos < len(bot.queues_manager):
-                    bot.get_queue().swap(cur_pos, swap_pos)
-                    update.effective_chat.send_message(bot.language_pack.students_moved)
-                else:
-                    update.effective_chat.send_message(bot.language_pack.error_in_values)
+            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            bot.save_queue_to_file()
+            log_bot_queue(update, bot, 'finished: {0}', bot.get_queue().get_current().str_name_id())
 
-            except (ValueError, AssertionError):
-                update.effective_chat.send_message(bot.language_pack.error_in_values)
-            finally:
-                bot.refresh_last_queue_msg(update)
-                bot.request_del()
-                log_bot_queue(update, bot, 'swapped {0}', positions)
+
+    class SwapStudents(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        first_student = None
+        second_student = None
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            cls.first_student = None
+            cls.second_student = None
+            keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+            bot.request_set(cls)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            student_str = cls.get_arguments(update.callback_query.data)
+            student = parsers.parse_student(student_str)
+            if cls.first_student is None:
+                cls.first_student = student
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+            elif cls.second_student is None:
+                cls.second_student = student
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+                cls.handle_request(update, bot)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            bot.get_queue().swap_students(cls.first_student, cls.second_student)
+            update.effective_chat.send_message(
+                bot.language_pack.students_swapped.format(
+                    cls.first_student.str(),
+                    cls.second_student.str()))
+            bot.refresh_last_queue_msg(update)
+            bot.request_del()
+            log_bot_queue(update, bot, 'swapped {0} and {1}', cls.first_student, cls.second_student)
 
 
 class ManageQueues(CommandGroup):
 
-    new_queue = None
+    edited_queue = None
 
     @staticmethod
     def handle_queue_create_request(update, bot, generate_function):
         queue_name, names = parsers.parse_queue_message(update.message.text)
-
-        if queue_name is None:
-            text = update.message.text
-            if text.startswith('/new_queue'):
-                text = text[len('/new_queue') + 1:]
-            names = parsers.parse_names(text)
-            queue_name = ''
-
         students = bot.registered_manager.get_registered_students(names)
         queue = bot.queues_manager.create_queue(bot)
         queue.name = queue_name
@@ -355,18 +471,18 @@ class ManageQueues(CommandGroup):
         else:
             if queue.name == '':
                 # must save queue to add name to it in next command
-                ManageQueues.new_queue = queue
+                ManageQueues.edited_queue = queue
                 log_bot_queue(update, bot, 'set students for queue')
-                ManageQueues.AddNameToQueue.handle(update, bot)
+                ManageQueues.AddNameToQueue.handle_reply(update, bot)
             else:
-                ManageQueues.FinishQueueCreation.handle(update, bot)
+                ManageQueues.FinishQueueCreation.handle_reply(update, bot)
 
 
     class CreateSimple(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.enter_students_list)
             bot.request_set(cls)
 
@@ -379,7 +495,7 @@ class ManageQueues(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.enter_students_list)
             bot.request_set(cls)
 
@@ -392,8 +508,8 @@ class ManageQueues(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
-            if ManageQueues.new_queue is not None:
+        def handle_reply(cls, update, bot):
+            if ManageQueues.edited_queue is not None:
                 update.effective_chat.send_message(bot.language_pack.enter_queue_name,
                                                    reply_markup=bot.keyboards.set_default_queue_name)
                 bot.request_set(cls)
@@ -401,34 +517,50 @@ class ManageQueues(CommandGroup):
                 bot.request_del()
                 log_bot_queue(update, bot, 'in AddNameToQueue queue is None. Error')
 
-
         @classmethod
         def handle_request(cls, update, bot):
-
-
             if parsers.check_queue_name(update.message.text):
-                bot.queues_manager.rename_queue(ManageQueues.new_queue.name, update.message.text)
-                ManageQueues.FinishQueueCreation.handle(update, bot)
+                bot.queues_manager.rename_queue(ManageQueues.edited_queue.name, update.message.text)
+                ManageQueues.FinishQueueCreation.handle_reply(update, bot)
             else:
                 update.effective_chat.send_message(bot.language_pack.name_incorrect)
-                ManageQueues.AddNameToQueue.handle(update, bot)
+                ManageQueues.AddNameToQueue.handle_reply(update, bot)
 
             log_bot_queue(update, bot, 'queue name set {0}', update.message.text)
 
 
     class DefaultQueueName(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
-            bot.queues_manager.rename_queue(ManageQueues.new_queue.name, '')
+        def handle_request(cls, update, bot):
+            bot.queues_manager.rename_queue(ManageQueues.edited_queue.name, '')
             log_bot_user(update, bot, 'queue set default name')
-            ManageQueues.FinishQueueCreation.handle(update, bot)
+            ManageQueues.FinishQueueCreation.handle_reply(update, bot)
+
+
+    class RenameQueue(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            keyboard = bot.queues_manager.generate_choice_keyboard(cls)
+            update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            queue_name = cls.get_arguments(update.callback_query.data)
+            if queue_name is not None:
+                ManageQueues.edited_queue = bot.queues_manager.get_queue_by_name(queue_name)
+                ManageQueues.AddNameToQueue.handle_reply(update, bot)
+            else:
+                log_bot_user(update, bot, 'queue not selected while renaming')
 
 
     class FinishQueueCreation(CommandGroup.Command):
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.value_set)
             bot.save_queue_to_file()
             bot.request_del()
@@ -440,7 +572,7 @@ class ManageQueues(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             queue = StudentsQueue(bot)
             queue.generate_random(bot.registered_manager.get_users())  # we specify parameter in "self"
 
@@ -452,14 +584,19 @@ class ManageQueues(CommandGroup):
                 bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
                 update.effective_chat.send_message(bot.language_pack.queue_set)
                 log_bot_queue(update, bot, 'queue added')
-                ManageQueues.AddNameToQueue.handle(update, bot)
+                ManageQueues.AddNameToQueue.handle_reply(update, bot)
 
 
     class DeleteQueue(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
+            keyboard = bot.queues_manager.generate_choice_keyboard(cls)
+            update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
+
+        @classmethod
+        def handle_request(cls, update, bot):
             queue_name = CommandGroup.Command.get_arguments(update.callback_query.data)
             if queue_name is not None:
                 if bot.queues_manager.remove_queue(queue_name):
@@ -473,11 +610,16 @@ class ManageQueues(CommandGroup):
             update.callback_query.answer()
 
 
-    class ChooseOtherQueue(CommandGroup.Command):
+    class SelectOtherQueue(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
+            keyboard = bot.queues_manager.generate_choice_keyboard(cls)
+            update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
             queue_name = CommandGroup.Command.get_arguments(update.callback_query.data)
             if queue_name is not None:
                 if bot.queues_manager.set_current_queue(queue_name):
@@ -491,12 +633,22 @@ class ManageQueues(CommandGroup):
 
 
 class ModifyRegistered(CommandGroup):
+
+    class ShowMenu(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            update.effective_chat.send_message(bot.language_pack.title_edit_registered,
+                                               reply_markup=bot.keyboards.modify_registered)
+
+
     class ShowListUsers(CommandGroup.Command):
 
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.registered_manager.get_users_str())
 
 
@@ -505,7 +657,7 @@ class ModifyRegistered(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.set_registered_students)
             bot.request_set(cls)
 
@@ -529,7 +681,7 @@ class ModifyRegistered(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.get_user_message)
             bot.request_set(cls)
 
@@ -551,7 +703,7 @@ class ModifyRegistered(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.enter_new_list_in_order)
             bot.request_set(cls)
 
@@ -559,45 +711,96 @@ class ModifyRegistered(CommandGroup):
             names = parsers.parse_names(update.message.text)
             if len(names) <= len(bot.registered_manager):
                 for i in range(len(names)):
-                    bot.registered_manager.rename(i, names[i])
+                    bot.registered_manager.rename_user(i, names[i])
             else:
                 update.effective_chat.send_message(bot.language_pack.names_more_than_users)
                 bot.logger.log('names more than users - {0}'
                                .format(bot.registered_manager.get_user_by_update(update)))
-
             bot.request_del()
 
-
-    class RemoveListUsers(CommandGroup.Command):
-
+    class RenameUser(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
+        edited_user = None
+
         @classmethod
-        def handle(cls, update, bot):
-            update.effective_chat.send_message(bot.registered_manager.get_users_str())
-            update.effective_chat.send_message(bot.language_pack.del_registered_students)
+        def handle_reply(cls, update, bot):
+            cls.edited_user = None
+            keyboard = bot.get_queue().get_students_keyboard(cls)
+            update.effective_chat.send_message(bot.language_pack.select_student, reply_markup=keyboard)
+            update.effective_chat.send_message(bot.language_pack.select_student)
+            bot.request_set(cls)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            argument = cls.get_arguments(update.callback_query.data)
+            cls.edited_user = parsers.parse_student(argument)
+            update.effective_chat.send_message(bot.language_pack.enter_student_name)
             bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
-            # parse function is inside of queue object
-            delete_indexes, errors = parsers.parse_positions_list(update.message.text,
-                                                                  1, len(bot.registered_manager))
-            bot.registered_manager.remove_by_index([i - 1 for i in delete_indexes])
-            bot.save_registered_to_file()
+            if cls.edited_user is not None:
+                bot.registered_manager.rename_user(cls.edited_user, update.message.text)
+                update.effective_chat.send_message(bot.language_pack.value_set)
+                log_bot_user(update, bot, 'student {0} renamed to {1}', cls.edited_user, update.message.text)
+            else:
+                log_bot_user(update, bot, 'error, student was none in {0}', cls.str())
 
-            if len(errors) > 0:
-                update.effective_chat.send_message(bot.language_pack.error_in_this_values.format('\n'.join(errors)))
-            if len(delete_indexes) > 0:
-                update.effective_chat.send_message(bot.language_pack.users_deleted)
-            bot.request_del()
-            log_bot_user(update, bot, 'removed users {0}', delete_indexes)
+
+
+    class RemoveListUsers(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            keyboard = bot.registered_manager.get_users_keyboard(cls)
+            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            cls.handle_request(update, bot)
+            keyboard = bot.registered_manager.get_users_keyboard(cls)
+            # if keyboards not equal
+            if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
+                update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            student_str = cls.get_arguments(update.callback_query.data)
+            user = parsers.parse_student(student_str)
+            if user.telegram_id is not None:
+                bot.registered_manager.remove_by_id(user.telegram_id)
+                bot.refresh_last_queue_msg(update)
+
+                bot.request_del()
+                log_bot_queue(update, bot, 'removed user {0}', user)
+            else:
+                log_bot_user(update, bot, 'error, user id is None in {0}', cls.str())
 
 
 class UpdateQueue(CommandGroup):
+
+    class ShowCurrent(CommandGroup.Command):
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            bot.last_queue_message.resend(bot.queues_manager.get_queue_str(),
+                                          update.effective_chat,
+                                          bot.keyboards.move_queue)
+            log_bot_user(update, bot, ' in {0} chat requested queue', update.effective_chat.type)
+
+
+    class ShowCurrentAndNext(CommandGroup.Command):
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            bot.cur_students_message.resend(bot.get_queue().get_cur_and_next_str(), update.effective_chat)
+
+
     class MovePrevious(CommandGroup.Command):
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             if bot.get_queue().move_prev():
                 bot.send_cur_and_next(update)
                 bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
@@ -606,7 +809,7 @@ class UpdateQueue(CommandGroup):
 
     class MoveNext(CommandGroup.Command):
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             if bot.get_queue().move_next():
                 bot.send_cur_and_next(update)
                 bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
@@ -615,63 +818,68 @@ class UpdateQueue(CommandGroup):
 
     class Refresh(CommandGroup.Command):
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             if not bot.last_queue_message.message_exists(update.effective_chat):
                 update.effective_message.delete()
             bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
             log_bot_user(update, bot, 'refreshed queue')
 
 
-class ManageUsers(CommandGroup):
+class ManageAccessRights(CommandGroup):
+
     class AddAdmin(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle_request(cls, update, bot):
-            if update.message.forward_from is not None:
-                if bot.registered_manager.set_admin(update.effective_user.id):
-                    update.message.reply_text(bot.language_pack.admin_set)
-                    bot.save_registered_to_file()
-                    log_bot_user(update, bot, 'added admin {0}', update.message.forward_from.full_name)
-            else:
-                update.message.reply_text(bot.language_pack.was_not_forwarded)
-                log_bot_user(update, bot, 'admin message not forwarded - {0}')
-            bot.request_del()
-            
-
-    class RemoveAdmin(CommandGroup.Command):
-
-        access_requirement = AccessLevel.ADMIN
+        def handle_reply(cls, update, bot):
+            update.effective_chat.send_message(bot.language_pack.get_user_message)
+            bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
             if update.message.forward_from is not None:
-                if bot.registered_manager.set_user(update.message.forward_from.id):
+                if bot.registered_manager.set_admin(update.message.forward_from.id):
+                    update.message.reply_text(bot.language_pack.admin_set)
+                    bot.save_registered_to_file()
+                    log_bot_user(update, bot, 'added admin {0}', update.message.forward_from.full_name)
+                else:
+                    bot.registered_manager.append_new_user(
+                        update.message.forward_from.full_name,
+                        update.message.forward_from.id)
+                    bot.registered_manager.set_admin(update.message.forward_from.id)
+            else:
+                update.message.reply_text(bot.language_pack.was_not_forwarded)
+                log_bot_user(update, bot, 'admin message not forwarded in {0}', cls.str())
+            bot.request_del()
+
+
+    class RemoveAdmin(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            keyboard = bot.registered_manager.get_admins_keyboard(cls)
+            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            cls.handle_request(update, bot)
+            keyboard = bot.registered_manager.get_admins_keyboard(cls)
+            if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
+                update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            student_str = cls.get_arguments(update.callback_query.data)
+            user = parsers.parse_student(student_str)
+            if user.telegram_id is not None:
+                if bot.registered_manager.set_user(user.telegram_id):
                     bot.save_registered_to_file()
                     update.message.reply_text(bot.language_pack.admin_deleted)
                     log_bot_user(update, bot, 'deleted admin {0}', update.message.forward_from.full_name)
             else:
-                update.message.reply_text(bot.language_pack.was_not_forwarded)
-                log_bot_user(update, bot, 'admin message not forwarded')
+                log_bot_user(update, bot, 'error, admin id was None in {0}', cls.str())
             bot.request_del()
-            
-
-    class AddUsersList(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            users, errors = parsers.parse_users(update.message.text)
-            bot.registered_manager.append_users(users)
-
-            if len(errors) > 0:
-                update.effective_chat.send_message(bot.language_pack.error_in_this_values('\n'.join(errors)))
-            if len(users) > 0:
-                update.effective_chat.send_message(bot.language_pack.users_added)
-
-            bot.save_registered_to_file()
-            bot.request_del()
-            log_bot_user(update, bot, 'users list added')
 
 
 class CollectSubjectChoices(CommandGroup):
@@ -693,7 +901,7 @@ class CollectSubjectChoices(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.send_choice_file_name)
             bot.request_set(cls)
 
@@ -707,14 +915,14 @@ class CollectSubjectChoices(CommandGroup):
                 CollectSubjectChoices.command_parameters['name'] = subject_name
                 update.effective_chat.send_message(bot.language_pack.value_set)
                 log_bot_user(update, bot, 'start setting new subject')
-                CollectSubjectChoices.SetSubjectsRange.handle(update, bot)
+                CollectSubjectChoices.SetSubjectsRange.handle_reply(update, bot)
 
 
     class SetSubjectsRange(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.send_number_range)
             bot.request_set(cls)
 
@@ -727,14 +935,14 @@ class CollectSubjectChoices(CommandGroup):
                 CollectSubjectChoices.command_parameters['interval'] = (min_range, max_range)
                 update.effective_chat.send_message(bot.language_pack.number_interval_set)
                 log_bot_user(update, bot, 'set number interval')
-                CollectSubjectChoices.SetRepeatLimit.handle(update, bot)
+                CollectSubjectChoices.SetRepeatLimit.handle_reply(update, bot)
                 
 
     class SetRepeatLimit(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.set_repeatable_limit)
             bot.request_set(cls)
 
@@ -748,14 +956,14 @@ class CollectSubjectChoices(CommandGroup):
                 CollectSubjectChoices.command_parameters['repeat_limit'] = limit
                 update.effective_chat.send_message(bot.language_pack.value_set)
                 log_bot_user(update, bot, 'set repeat limit')
-                CollectSubjectChoices.FinishSubjectChoiceCreation.handle(update, bot)
+                CollectSubjectChoices.FinishSubjectChoiceCreation.handle_reply(update, bot)
 
 
     class FinishSubjectChoiceCreation(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_reply(cls, update, bot):
             name = CollectSubjectChoices.command_parameters['name']
             interval = CollectSubjectChoices.command_parameters['interval']
             repeat_limit = CollectSubjectChoices.command_parameters['repeat_limit']
@@ -800,7 +1008,7 @@ class CollectSubjectChoices(CommandGroup):
 
     class RemoveChoice(CommandGroup.Command):
         @classmethod
-        def handle(cls, update, bot):
+        def handle_request(cls, update, bot):
             if not bot.choice_manager.can_choose:
                 update.effective_chat.send_message(bot.language_pack.choices_collection_not_started)
                 log_bot_user(update, bot, 'requested remove while choice not started')
@@ -816,7 +1024,7 @@ class CollectSubjectChoices(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_request(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.send_choice_numbers)
             if not bot.choice_manager.start_choosing():
                 update.effective_chat.send_message(bot.language_pack.set_new_choice_file)
@@ -831,7 +1039,7 @@ class CollectSubjectChoices(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(self, update, bot):
+        def handle_request(cls, update, bot):
             if not bot.choice_manager.can_choose:
                 update.effective_chat.send_message(bot.language_pack.choices_collection_not_started)
                 log_bot_user(update, bot, 'requested stop while choice not started')
@@ -846,7 +1054,7 @@ class CollectSubjectChoices(CommandGroup):
     class ShowCurrentChoices(CommandGroup.Command):
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_request(cls, update, bot):
             if bot.choice_manager.current_subjects is not None:
                 choices_str = CollectSubjectChoices.get_choices_available_str(bot)
                 bot.subject_choices_message.resend(choices_str, update.effective_chat)
@@ -859,7 +1067,7 @@ class CollectSubjectChoices(CommandGroup):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
-        def handle(cls, update, bot):
+        def handle_request(cls, update, bot):
             update.effective_chat.send_message(bot.language_pack.get_choices_excel_file)
             excel_path = bot.choice_manager.save_to_excel()
 

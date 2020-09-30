@@ -12,7 +12,7 @@ from queue_bot.students_queue import StudentsQueue
 class QueuesManager(Savable):
 
     queues = {}
-    _selected_queue = None
+    selected_queue = None
 
     file_names_list = FolderType.Data.value / Path('multiple_queues_paths.data')
 
@@ -26,21 +26,23 @@ class QueuesManager(Savable):
     def __len__(self):
         return len(self.queues)
 
+    def __contains__(self, item):
+        return item in self.queues
+
     def set_current_queue(self, name):
         if name in self.queues:
-            self._selected_queue = self.queues[name]
+            self.selected_queue = self.queues[name]
             return True
         return False
 
     def set_default_queue(self):
-        self._selected_queue = StudentsQueue(self.main_bot)  # default queue
-        self.queues[self._selected_queue.name] = self._selected_queue
+        self.selected_queue = StudentsQueue(self.main_bot)  # default queue
+        self.queues[self.selected_queue.name] = self.selected_queue
 
     def rename_queue(self, prev_name, new_name):
         if prev_name in self.queues:
             queue = self.queues[prev_name]
             queue.name = new_name
-
             del self.queues[prev_name]
             self.add_queue(queue)
 
@@ -52,42 +54,46 @@ class QueuesManager(Savable):
     def add_queue(self, queue):
         if len(self.queues) < 10:
             self.queues[queue.name] = queue
-            self._selected_queue = queue
+            self.selected_queue = queue
             self.save_current_to_file()
             self.save_queue_paths()
             return True
         return False
 
     def clear_current_queue(self):
-        if self._selected_queue is not None:
-            self._selected_queue.clear()
+        if self.selected_queue is not None:
+            self.selected_queue.clear()
 
     def remove_queue(self, name):
         if name in self.queues:
             del self.queues[name]
             self.delete_queue_file(name)
             self.save_queue_paths()
+            if self.selected_queue.name == name and len(self.queues) > 0:
+                self.selected_queue = list(self.queues.values())[0]
+            else:
+                self.selected_queue = None
 
     def get_queue_by_name(self, find_name):
-        for queue in self.queues:
-            if queue.name == find_name:
+        for name, queue in self.queues.items():
+            if name == find_name:
                 return queue
         return None
 
     def get_queue(self) -> StudentsQueue:
-        if self._selected_queue is None:
+        if self.selected_queue is None:
             self.set_default_queue()
-        return self._selected_queue
+        return self.selected_queue
 
     def get_queue_str(self):
-        if self._selected_queue is None and '' not in self.queues:
+        if self.selected_queue is None and '' not in self.queues:
             self.set_default_queue()
-        return self._selected_queue.str()
+        return self.selected_queue.str()
 
     def queue_empty(self):
-        if self._selected_queue is None:
+        if self.selected_queue is None:
             return True
-        elif len(self._selected_queue) == 0:
+        elif len(self.selected_queue) == 0:
             return True
         return False
 
@@ -122,10 +128,10 @@ class QueuesManager(Savable):
         return [self.file_names_list] + self.get_queues_files()
 
     def save_current_to_file(self):
-        self._selected_queue.save_to_file(self.main_bot.object_saver)
+        self.selected_queue.save_to_file(self.main_bot.object_saver)
 
     def delete_queue_file(self, name):
-        for file in self._selected_queue.get_save_files():
+        for file in self.selected_queue.get_save_files():
             self.main_bot.object_saver.delete(file)
 
     def save_queue_paths(self):

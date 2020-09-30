@@ -14,68 +14,59 @@ class StudentsRegisteredManager(Savable):
 
     # dictionary with id`s as keys and levels as values stored in file
     _file_access_levels = FolderType.Data.value / Path('access_levels.data')
-    _students_reg = []
+    students_reg = []
 
     def __init__(self, main_bot, students=None):
         if students is None:
-            self._students_reg = []
+            self.students_reg = []
         self.main_bot = main_bot
 
     def __len__(self):
-        return len(self._students_reg)
+        return len(self.students_reg)
 
     def __contains__(self, item):
-        for student in self._students_reg:
-            if student.telegram_id == item.telegram_id:
-                return True
-        return False
+        return item in self.students_reg
 
     def get_users(self):
-        return self._students_reg
+        return self.students_reg
 
     def append_new_user(self, name, telegram_id):
         new_student = Student(name, telegram_id)
-        self._students_reg.append(new_student)
+        self.students_reg.append(new_student)
         return new_student
 
     def append_users(self, users):
         if isinstance(users, Student):
-            self._students_reg.append(users)
+            self.students_reg.append(users)
         else:
             for user in users:
-                if user not in self._students_reg:
-                    self._students_reg.append(user)
+                if user not in self.students_reg:
+                    self.students_reg.append(user)
 
-    def rename(self, index, new_name):
-        if 0 <= index < len(self._students_reg):
-            self._students_reg[index].name = new_name
+    def rename_user(self, student, new_name):
+        if student in self.students_reg:
+            self.students_reg[self.students_reg.index(student)].name = new_name
 
     def remove_by_index(self, index):
         if isinstance(index, int):
-            self._students_reg.pop(index)
+            self.students_reg.pop(index)
         else:
             to_delete = []
             for i in index:
-                to_delete.append(self._students_reg[i])
+                to_delete.append(self.students_reg[i])
 
             deleted = False
             for elem in to_delete:
-                self._students_reg.remove(elem)
+                self.students_reg.remove(elem)
                 deleted = True
             return deleted
 
     def remove_by_id(self, remove_id: int):
-        to_delete = []
-        for i in range(len(self._students_reg)):
-            if self._students_reg[i].telegram_id == remove_id:
-                to_delete.append(self._students_reg[i])
-
-        deleted = False
-        for elem in to_delete:
-            self._students_reg.remove(elem)
-            deleted = True
-
-        return deleted
+        for i in range(len(self.students_reg)):
+            if self.students_reg[i].telegram_id == remove_id:
+                self.students_reg.pop(i)
+                return True
+        return False
 
     # converts list of names to Student objects
     def get_registered_students(self, names: list):
@@ -97,13 +88,13 @@ class StudentsRegisteredManager(Savable):
         return student
 
     def get_user_by_name(self, name: int):
-        for student in self._students_reg:
+        for student in self.students_reg:
             if student.name == name:
                 return student
         return None
 
     def get_user_by_id(self, search_id: int):
-        for student in self._students_reg:
+        for student in self.students_reg:
             if student.telegram_id == search_id:
                 return student
         return None
@@ -111,11 +102,34 @@ class StudentsRegisteredManager(Savable):
     def get_users_str(self):
         str_list = []
         i = 1
-        for student in self._students_reg:
+        for student in self.students_reg:
             str_list.append('{0}. {1}-{2}'.format(i, student.name, str(student.telegram_id)))
             i += 1
 
         return self.main_bot.language_pack.all_known_users.format('\n'.join(str_list))
+
+    def get_users_keyboard(self, command):
+        return self.main_bot.keyboards.generate_keyboard(
+            command,
+            [s.name for s in self.students_reg],
+            [s.str_name_id() for s in self.students_reg])
+
+    def get_admins_keyboard(self, command):
+        admins = []
+        for user in self.students_reg:
+            if user.access_level is AccessLevel.ADMIN:
+                admins.append(user)
+
+        return self.main_bot.keyboards.generate_keyboard(
+            command,
+            [s.name for s in admins],
+            [s.str_name_id() for s in admins])
+
+    def exists_user_access(self, access_level):
+        for user in self.students_reg:
+            if user.access_level is access_level:
+                return True
+        return False
 
     def set_god(self, god_id: int):
         user = self.get_user_by_id(god_id)
@@ -139,7 +153,7 @@ class StudentsRegisteredManager(Savable):
         return False
 
     def find_similar_student(self, name: str):
-        for student in self._students_reg:
+        for student in self.students_reg:
             if StudentsRegisteredManager.is_similar(name, student.name):
                 return student
         return Student(name, None)
@@ -152,31 +166,28 @@ class StudentsRegisteredManager(Savable):
     def update_access_levels(self, saver: ObjectSaver):
         access_level_updates = saver.load(self._file_access_levels)
         if access_level_updates is not None:
-            for student in self._students_reg:
+            for student in self.students_reg:
                 if student.telegram_id in access_level_updates:
                     student.access_level = AccessLevel(access_level_updates[student.telegram_id])
             self.save_to_file(saver)
 
     def save_to_file(self, saver: ObjectSaver):
-        saver.save(self._students_reg, self._file_registered_users)
+        saver.save(self.students_reg, self._file_registered_users)
 
     def load_file(self, loader: ObjectSaver):
-        self._students_reg = loader.load(self._file_registered_users)
-        if self._students_reg is None:
-            self._students_reg = []
+        self.students_reg = loader.load(self._file_registered_users)
+        if self.students_reg is None:
+            self.students_reg = []
 
     def get_save_files(self):
         return [self._file_registered_users, self._file_access_levels]
 
     # by default this function requires private chat to allow commands
     def check_access(self, update, level_requriment=AccessLevel.ADMIN, check_chat_private=True):
-        student = self.get_user_by_id(update.effective_user.id)
+        student = self.get_user_by_update(update)
 
         if check_chat_private:
             if update.effective_chat.type != Chat.PRIVATE:
                 return False
 
-        if student is not None:
-            if student.access_level.value <= level_requriment.value:
-                return True
-        return False
+        return student.access_level.value <= level_requriment.value

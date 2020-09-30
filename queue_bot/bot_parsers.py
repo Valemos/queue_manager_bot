@@ -86,9 +86,12 @@ def parse_student(argument):
     return Student(name, tg_id)
 
 
-def parse_queue_message(message):
-    result = parse(StudentsQueue.copy_queue_format, message)
+def parse_queue_message(message_text):
+    result = parse(StudentsQueue.copy_queue_format, message_text)
     if result is not None:
         return result['name'], parse_names(result['students'])
     else:
-        return None, None
+        # trim command if present
+        if message_text.startswith('/new_queue'):
+            message_text = message_text[len('/new_queue') + 1:]
+        return '', parse_names(message_text)

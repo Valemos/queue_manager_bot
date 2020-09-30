@@ -38,4 +38,5 @@ class Student:
     def str_name_id(self):
         return self.student_format.format(self.name, str(self.telegram_id))
 
-EmptyStudent = Student('empty', None)
+
+EmptyStudent = Student('Пусто', None)
