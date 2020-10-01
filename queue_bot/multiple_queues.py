@@ -36,8 +36,11 @@ class QueuesManager(Savable):
         return False
 
     def set_default_queue(self):
-        self.selected_queue = StudentsQueue(self.main_bot)  # default queue
-        self.queues[self.selected_queue.name] = self.selected_queue
+        if '' in self.queues:
+            self.selected_queue = self.get_queue_by_name('')
+        else:
+            self.selected_queue = StudentsQueue(self.main_bot)
+            self.queues[self.selected_queue.name] = self.selected_queue
 
     def rename_queue(self, prev_name, new_name):
         if prev_name in self.queues:
