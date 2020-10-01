@@ -1,5 +1,4 @@
-from te
-legram import InputFile
+from telegram import InputFile
 
 from queue_bot.student import Student
 from queue_bot.bot_access_levels import AccessLevel
