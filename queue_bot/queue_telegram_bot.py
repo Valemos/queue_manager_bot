@@ -210,7 +210,7 @@ class QueueBot:
         commands.ModifyCurrentQueue.AddMe.handle_command(update, self)
 
     def h_error(self, update, context):
-        string = '{0}: {1}'.format(context.error.__qualname__, context.error)
+        string = '{0}: {1} '.format(context.error.__qualname__, str(context.error))
         print(string)
         self.logger.log(string)
         self.logger.save_to_cloud()

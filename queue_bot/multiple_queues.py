@@ -86,7 +86,7 @@ class QueuesManager(Savable):
         return self.selected_queue
 
     def get_queue_str(self):
-        if self.selected_queue is None and '' not in self.queues:
+        if self.selected_queue is None:
             self.set_default_queue()
         return self.selected_queue.str()
 
