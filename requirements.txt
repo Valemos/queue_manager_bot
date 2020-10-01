@@ -8,3 +8,4 @@ google-auth-oauthlib~=0.4.1
 pandas~=1.1.1
 pyjarowinkler~=1.8
 mock~=4.0.2
+parse~=1.18.0
