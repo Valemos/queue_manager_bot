@@ -22,12 +22,13 @@ def log_bot_user(update, bot, message, *args):
 # ids and commands of type str
 _command_id_dict = {}
 _id_command_dict = {}
+_name_command = {}
 
 
 class CommandGroup:
     class Command:
-        access_requirement = AccessLevel.USER
         command_name = None
+        access_requirement = AccessLevel.USER
 
         @classmethod
         def __str__(cls):
@@ -44,14 +45,21 @@ class CommandGroup:
         def get_command_class(cls, class_id: str):
             return _id_command_dict[class_id]
 
+        @classmethod
+        def get_command_by_name(cls, command_string):
+            if command_string in _name_command:
+                return _name_command[command_string]
+            else:
+                return None
+
         @staticmethod
         def parse_command(command_str):
             try:
                 index = command_str
                 argument = None
                 if '#' in command_str:
-                    argument = command_str[:command_str.index('#')]
-                    index = command_str[:command_str.index('#')-1]
+                    argument = command_str[command_str.index('#')+1:]
+                    index = command_str[:command_str.index('#')]
                 return index, argument
             except ValueError:
                 return None, None
@@ -102,7 +110,15 @@ class CommandGroup:
 
 class Help(CommandGroup):
 
+    class ForUser(CommandGroup.Command):
+        command_name = 'help'
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            update.effective_chat.send_message(bot.language_pack.user_help)
+
     class ForAdmin(CommandGroup.Command):
+        command_name = 'admin_help'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -125,6 +141,8 @@ class General(CommandGroup):
             bot.request_del()
 
     class Start(CommandGroup.Command):
+        command_name = 'start'
+
         @classmethod
         def handle_request(cls, update, bot):
             # if god user not exists, set current user as AccessLevel.GOD and set admins as AccessLevel.ADMIN
@@ -144,6 +162,7 @@ class General(CommandGroup):
 
 
     class Stop(CommandGroup.Command):
+        command_name = 'stop'
         access_requirement = AccessLevel.GOD
 
         @classmethod
@@ -154,6 +173,7 @@ class General(CommandGroup):
 
 
     class ShowLogs(CommandGroup.Command):
+        command_name = 'logs'
         access_requirement = AccessLevel.GOD
 
         @classmethod
@@ -169,6 +189,7 @@ class General(CommandGroup):
 class ModifyCurrentQueue(CommandGroup):
 
     class ShowMenu(CommandGroup.Command):
+        command_name = 'edit_queue'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -276,7 +297,7 @@ class ModifyCurrentQueue(CommandGroup):
             bot.get_queue().move_to_end(cls.move_student)
 
             bot.refresh_last_queue_msg(update)
-            update.effective_chat.send_message(bot.language_pack.student_added_to_end.format(cls.move_student.query()))
+            update.effective_chat.send_message(bot.language_pack.student_added_to_end.format(cls.move_student.str()))
             bot.request_del()
             log_bot_queue(update, bot, 'moved {0} to end', str(cls.move_student))
 
@@ -330,7 +351,7 @@ class ModifyCurrentQueue(CommandGroup):
                 student_str = cls.get_arguments(update.callback_query.data)
                 student = parsers.parse_student(student_str)
                 cls.student = student
-                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.query()))
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
             elif cls.new_position == -1:
                 student = cls.get_arguments(update.callback_query.data)
                 position = bot.get_queue().get_student_position(student)
@@ -374,6 +395,7 @@ class ModifyCurrentQueue(CommandGroup):
             
 
     class AddMe(CommandGroup.Command):
+        command_name = 'add_me'
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -388,6 +410,8 @@ class ModifyCurrentQueue(CommandGroup):
 
 
     class RemoveMe(CommandGroup.Command):
+        command_name = 'remove_me'
+
         @classmethod
         def handle_request(cls, update, bot):
             student = bot.registered_manager.get_user_by_update(update)
@@ -404,13 +428,15 @@ class ModifyCurrentQueue(CommandGroup):
 
 
     class StudentFinished(CommandGroup.Command):
+        command_name = 'i_finished'
+
         @classmethod
         def handle_request(cls, update, bot):
             student_finished = bot.registered_manager.get_user_by_update(update)
 
-            if student_finished == bot.queues_manager.get_queue().get_current():  # finished user currently first
+            if student_finished == bot.get_queue().get_current():  # finished user currently first
                 bot.queues_manager.get_queue().move_next()
-                bot.send_cur_and_next(update)
+                UpdateQueue.ShowCurrentAndNextStudent.handle_request(update, bot)
             else:
                 update.message.reply_text(bot.language_pack.your_turn_not_now
                                           .format(bot.registered_manager.get_user_by_update(update).str()))
@@ -440,10 +466,10 @@ class ModifyCurrentQueue(CommandGroup):
             student = parsers.parse_student(student_str)
             if cls.first_student is None:
                 cls.first_student = student
-                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.query()))
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
             elif cls.second_student is None:
                 cls.second_student = student
-                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.query()))
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
                 cls.handle_request(update, bot)
 
         @classmethod
@@ -485,6 +511,7 @@ class ManageQueues(CommandGroup):
 
 
     class CreateSimple(CommandGroup.Command):
+        command_name = 'new_queue'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -501,6 +528,7 @@ class ManageQueues(CommandGroup):
 
 
     class CreateRandom(CommandGroup.Command):
+        command_name = 'new_random_queue'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -543,7 +571,7 @@ class ManageQueues(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            bot.queues_manager.rename_queue(ManageQueues.edited_queue.name, '')
+            bot.queues_manager.rename_queue(ManageQueues.edited_queue.name, bot.language_pack.default_queue_name)
             log_bot_user(update, bot, 'queue set default name')
             ManageQueues.FinishQueueCreation.handle_reply(update, bot)
 
@@ -597,6 +625,7 @@ class ManageQueues(CommandGroup):
 
 
     class DeleteQueue(CommandGroup.Command):
+        command_name = 'delete_queue'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -620,6 +649,7 @@ class ManageQueues(CommandGroup):
 
 
     class SelectOtherQueue(CommandGroup.Command):
+        command_name = 'select_queue'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -644,6 +674,7 @@ class ManageQueues(CommandGroup):
 class ModifyRegistered(CommandGroup):
 
     class ShowMenu(CommandGroup.Command):
+        command_name = 'edit_registered'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -791,16 +822,24 @@ class ModifyRegistered(CommandGroup):
 class UpdateQueue(CommandGroup):
 
     class ShowCurrent(CommandGroup.Command):
+        command_name = 'get_queue'
 
         @classmethod
         def handle_reply(cls, update, bot):
-            bot.last_queue_message.resend(bot.queues_manager.get_queue_str(),
-                                          update.effective_chat,
-                                          bot.keyboards.move_queue)
+            # if queue not selected, but it exists
+            if bot.queues_manager.selected_queue is None and len(bot.queues_manager) > 0:
+                update.effective_chat.send_message(bot.language_pack.select_queue_or_create_new)
+            else:
+                bot.last_queue_message.resend(
+                    bot.queues_manager.get_queue_str(),
+                    update.effective_chat,
+                    bot.keyboards.move_queue)
+
             log_bot_user(update, bot, ' in {0} chat requested queue', update.effective_chat.type)
 
 
-    class ShowCurrentAndNext(CommandGroup.Command):
+    class ShowCurrentAndNextStudent(CommandGroup.Command):
+        command_name = 'current_and_next'
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -837,6 +876,7 @@ class UpdateQueue(CommandGroup):
 class ManageAccessRights(CommandGroup):
 
     class AddAdmin(CommandGroup.Command):
+        command_name = 'admin'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -863,6 +903,7 @@ class ManageAccessRights(CommandGroup):
 
 
     class RemoveAdmin(CommandGroup.Command):
+        command_name = 'del_admin'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -907,6 +948,7 @@ class CollectSubjectChoices(CommandGroup):
     # These commands (except the last) are executed in a row
     # they collect parameters of subject choices handling
     class CreateNewCollectFile(CommandGroup.Command):
+        command_name = 'setup_subject'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -985,6 +1027,8 @@ class CollectSubjectChoices(CommandGroup):
 
 
     class Choose(CommandGroup.Command):
+        command_name = 'ch'
+
         @classmethod
         def handle_request(cls, update, bot):
             if not bot.choice_manager.can_choose:
@@ -1016,6 +1060,8 @@ class CollectSubjectChoices(CommandGroup):
 
 
     class RemoveChoice(CommandGroup.Command):
+        command_name = 'remove_choice'
+
         @classmethod
         def handle_request(cls, update, bot):
             if not bot.choice_manager.can_choose:
@@ -1030,6 +1076,7 @@ class CollectSubjectChoices(CommandGroup):
 
 
     class StartChoose(CommandGroup.Command):
+        command_name = 'allow_choose'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -1045,6 +1092,7 @@ class CollectSubjectChoices(CommandGroup):
 
 
     class StopChoose(CommandGroup.Command):
+        command_name = 'stop_choose'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -1061,6 +1109,7 @@ class CollectSubjectChoices(CommandGroup):
 
 
     class ShowCurrentChoices(CommandGroup.Command):
+        command_name = 'get_subjects'
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -1073,6 +1122,7 @@ class CollectSubjectChoices(CommandGroup):
 
 
     class GetExcelFile(CommandGroup.Command):
+        command_name = 'get_choice_table'
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -1094,4 +1144,5 @@ command_index = 0
 for command_class in CommandGroup.Command.__subclasses__():
     _command_id_dict[command_class] = str(command_index)
     _id_command_dict[str(command_index)] = command_class
+    _name_command[command_class.command_name] = command_class
     command_index += 1

@@ -1,4 +1,18 @@
 
+user_help = '''
+/i_finished - сдвинуть очередь если ты сдал
+/remove_me - удалить себя из очереди
+/add_me - добавить себя в конец очереди
+/get_queue - проверить статус очереди
+/current_and_next - показать сдающих
+/ch - после команды через пробел укажите темы
+/remove_choice - отменить мой выбор тем
+/select_queue - выбор очереди из списка
+/delete_queue - удаление очереди из списка
+/get_subjects - показать все выбранные (и доступные) темы
+/admin_help - помощь админу'''
+
+
 admin_help = '''
 /new_queue          - создать новую очередь без перемешивания
 /new_random_queue   - создать новую случайную очередь
@@ -11,11 +25,9 @@ admin_help = '''
 /del_admin          - удалить админа
 
 /setup_subject      - установить параметры выбора тем
-/allow_choose       - начать выбор тем в общем чате
-/stop_choose        - закончить выбор тем в общем чате 
-                        (получить таблицу можно 
-                        через команду /get_choice_table)
-/get_choice_table   - получить ексель таблицу с данными'''
+/allow_choose       - начать выбор тем (писать в общем чате)
+/stop_choose        - закончить выбор тем
+/get_choice_table   - получить ексель таблицу с данными о выборе'''
 
 
 # name must be specified with \n
@@ -36,9 +48,10 @@ queue_format = '''{name}Сдает:
 /add_me'''
 
 
+unknown_command = 'Неизвестная комманда'
+
 queue_simple_format = '{name}:\n{students}'
-
-
+default_queue_name = 'Без_имени'
 permission_denied = 'Нет разрешения'
 code_not_valid = 'Внутренняя ошибка: Уровень доступа имеет неверный формат'
 not_owner = 'Не владелец'
@@ -55,7 +68,7 @@ all_known_users = 'Все известные пользователи:\n{0}'
 error_in_values = 'Ошибка в значениях'
 user_register_successfull = 'Пользователь зарегистрирован'
 queue_not_exists_create_new = 'Очереди нет.\nХотите создать новую?'
-select_queue_or_create_new = 'Выберите очередь коммандой /select_queue\nИли хотите создать новую?'
+select_queue_or_create_new = 'Выберите очередь коммандой /select_queue'
 create_new_queue = 'Cоздать новую очередь?'
 title_edit_queue = 'Редактирование очереди'
 title_edit_registered = 'Редактирование пользователей'

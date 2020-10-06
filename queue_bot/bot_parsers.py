@@ -76,14 +76,19 @@ def check_queue_name(text):
 
 
 def parse_student(argument):
-    name, tg_id = parse(Student.student_show_format, argument)
+    parse_results = parse(Student.student_format, argument)
 
-    if tg_id == 'None':
-        tg_id = None
+    if parse_results is not None:
+        name, tg_id = parse_results[0], parse_results[1]
+
+        if tg_id == 'None':
+            tg_id = None
+        else:
+            tg_id = int(tg_id)
+
+        return Student(name, tg_id)
     else:
-        tg_id = int(tg_id)
-
-    return Student(name, tg_id)
+        return None
 
 
 def parse_queue_message(message_text):
@@ -94,7 +99,7 @@ def parse_queue_message(message_text):
         # trim command if present
         if message_text.startswith('/new_queue'):
             message_text = message_text[len('/new_queue') + 1:]
-        return '', parse_names(message_text)
+        return None, parse_names(message_text)
 
 
 def parse_valid_queue_names(all_names):
@@ -112,13 +117,15 @@ def parse_valid_queue_names(all_names):
     for name in all_names:
         parse_result = parse(StudentsQueue.file_format_queue, name)
         if parse_result is not None:
-            handle_name(parse_result, StudentsQueue.file_format_queue)
+            handle_name(parse_result[0], StudentsQueue.file_format_queue)
         else:
-            parse_result = parse(StudentsQueue.file_format_queue_state)
-            handle_name(parse_result, StudentsQueue.file_format_queue_state)
+            parse_result = parse(StudentsQueue.file_format_queue_state, name)
+            if parse_result is not None:
+                handle_name(parse_result[0], StudentsQueue.file_format_queue_state)
 
     for name, parsed in parsed_names.items():
-        if parsed[StudentsQueue.file_format_queue] and parsed[StudentsQueue.file_format_queue_state]:
+        if parsed[StudentsQueue.file_format_queue] and \
+           parsed[StudentsQueue.file_format_queue_state]:
             result_names.append(name)
 
     return result_names

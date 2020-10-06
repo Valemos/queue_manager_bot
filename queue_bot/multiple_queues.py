@@ -1,10 +1,6 @@
 #  class relies on unique names, and is not suitable for multiple chats
-from pathlib import Path
-
 from queue_bot.savable_interface import Savable
-from queue_bot.object_file_saver import FolderType
 from queue_bot import bot_keyboards, bot_parsers as parsers
-
 
 from queue_bot.students_queue import StudentsQueue
 
@@ -13,8 +9,6 @@ class QueuesManager(Savable):
 
     queues = {}
     selected_queue = None
-
-    file_names_list = FolderType.Data.value / Path('multiple_queues_paths.data')
 
     def __init__(self, main_bot, queues: list = None):
         if queues is None:
@@ -36,10 +30,10 @@ class QueuesManager(Savable):
         return False
 
     def set_default_queue(self):
-        if '' in self.queues:
-            self.selected_queue = self.get_queue_by_name('')
+        if self.main_bot.language_pack.default_queue_name in self.queues:
+            self.selected_queue = self.get_queue_by_name(self.main_bot.language_pack.default_queue_name)
         else:
-            self.selected_queue = StudentsQueue(self.main_bot)
+            self.selected_queue = StudentsQueue(self.main_bot, self.main_bot.language_pack.default_queue_name)
             self.queues[self.selected_queue.name] = self.selected_queue
 
     def rename_queue(self, prev_name, new_name):
@@ -59,7 +53,6 @@ class QueuesManager(Savable):
             self.queues[queue.name] = queue
             self.selected_queue = queue
             self.save_current_to_file()
-            self.save_queue_paths()
             return True
         return False
 
@@ -71,8 +64,8 @@ class QueuesManager(Savable):
         if name in self.queues:
             del self.queues[name]
             self.delete_queue_file(name)
-            self.save_queue_paths()
-            if self.selected_queue.name == name and len(self.queues) > 0:
+
+            if len(self.queues) > 0:
                 self.selected_queue = list(self.queues.values())[0]
             else:
                 self.selected_queue = None
@@ -112,23 +105,13 @@ class QueuesManager(Savable):
         if to_delete is not None:
             del self.queues[to_delete]
             self.delete_queue_file(to_delete)
-            self.save_queue_paths()
-
-    def get_queues_files(self, names=None):
-        queues_files = []
-        if names is None:
-            for queue in self.queues.values():
-                queues_files.extend(queue.get_save_files())
-        else:
-            temp_queue = StudentsQueue(self.main_bot)
-            for name in names:
-                temp_queue.name = name
-                queues_files.extend(temp_queue.get_save_files())
-        return queues_files
 
     # method used to save all queue files to drive
     def get_save_files(self):
-        return [self.file_names_list] + self.get_queues_files()
+        queues_files = []
+        for queue in self.queues.values():
+            queues_files.extend(queue.get_save_files())
+        return queues_files
 
     def save_current_to_file(self):
         self.selected_queue.save_to_file(self.main_bot.object_saver)
@@ -137,12 +120,7 @@ class QueuesManager(Savable):
         for file in self.selected_queue.get_save_files():
             self.main_bot.object_saver.delete(file)
 
-    def save_queue_paths(self):
-        queues_names = list(self.queues.keys())
-        self.main_bot.object_saver.save(queues_names, self.file_names_list)
-
     def save_to_file(self, saver):
-        self.save_queue_paths()
         for queue in self.queues.values():
             queue.save_to_file(saver)
 
@@ -160,10 +138,3 @@ class QueuesManager(Savable):
             queue.name = name
             queue.load_file(saver)
             self.queues[queue.name] = queue
-
-    def load_queues_from_drive(self, drive_saver, object_saver):
-        from queue_bot.gdrive_saver import DriveFolder
-        drive_saver.get_files_from_drive([self.file_names_list], DriveFolder.Queues)
-        queues_names = object_saver.load(self.file_names_list)
-        drive_saver.get_files_from_drive(self.get_queues_files(queues_names), DriveFolder.Queues)
-        self.load_file(object_saver)

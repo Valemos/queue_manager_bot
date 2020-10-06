@@ -3,20 +3,21 @@ from queue_bot.object_file_saver import ObjectSaver
 from queue_bot.gdrive_saver import DriveSaver, DriveFolder
 
 import queue_bot.languages.bot_messages_rus as messages_rus
-import queue_bot.bot_commands as commands
 import queue_bot.bot_keyboards
 import queue_bot.bot_command_handler as command_handler
 
-from queue_bot.registered_manager import StudentsRegisteredManager, AccessLevel
+from queue_bot.registered_manager import StudentsRegisteredManager
 from queue_bot.multiple_queues import QueuesManager
 from queue_bot.students_queue import StudentsQueue
 from queue_bot.updatable_message import UpdatableMessage
 from queue_bot.subject_choice_manager import SubjectChoiceManager
+from queue_bot.bot_available_commands import available_commands
 
 import atexit
 import os
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
+from telegram import MessageEntity
 
 
 class QueueBot:
@@ -49,33 +50,12 @@ class QueueBot:
         atexit.register(self.save_before_stop)
 
     def init_updater_commands(self):
-        self.updater.dispatcher.add_handler(CommandHandler('i_finished', self.h_i_finished))
-        self.updater.dispatcher.add_handler(CommandHandler('remove_me', self.h_remove_me))
-        self.updater.dispatcher.add_handler(CommandHandler('add_me', self.h_add_me))
-        self.updater.dispatcher.add_handler(CommandHandler('get_queue', self.h_get_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('start', self.h_start))
-        self.updater.dispatcher.add_handler(CommandHandler('stop', self.h_stop))
-        self.updater.dispatcher.add_handler(CommandHandler('logs', self.h_show_logs))
-        self.updater.dispatcher.add_handler(CommandHandler('current_and_next', self.send_cur_and_next))
-        self.updater.dispatcher.add_handler(CommandHandler('new_queue', self.h_create_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('new_random_queue', self.h_create_random_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('edit_queue', self.h_edit_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('edit_registered', self.h_edit_registered))
-        self.updater.dispatcher.add_handler(CommandHandler('admin', self.h_add_new_admin))
-        self.updater.dispatcher.add_handler(CommandHandler('del_admin', self.h_del_admin))
-        self.updater.dispatcher.add_handler(CommandHandler('setup_subject', self.h_setup_choices))
-        self.updater.dispatcher.add_handler(CommandHandler('allow_choose', self.h_allow_pick_subjects))
-        self.updater.dispatcher.add_handler(CommandHandler('stop_choose', self.h_stop_pick_subjects))
-        self.updater.dispatcher.add_handler(CommandHandler('remove_choice', self.h_remove_choice))
-        self.updater.dispatcher.add_handler(CommandHandler('ch', self.h_choice))
-        self.updater.dispatcher.add_handler(CommandHandler('get_choice_table', self.h_get_choices_excel_file))
-        self.updater.dispatcher.add_handler(CommandHandler('get_subjects', self.h_show_choices))
-        self.updater.dispatcher.add_handler(CommandHandler('select_queue', self.h_select_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('delete_queue', self.h_delete_queue))
-        self.updater.dispatcher.add_handler(CommandHandler('admin_help', self.h_show_admin_help))
-        self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.h_message_text))
-        self.updater.dispatcher.add_handler(CallbackQueryHandler(self.h_keyboard_chosen))
-        self.updater.dispatcher.add_error_handler(self.h_error)
+        for command in available_commands:
+            self.updater.dispatcher.add_handler(CommandHandler(command.command_name, self.handle_command_selected))
+
+        self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message_text))
+        self.updater.dispatcher.add_handler(CallbackQueryHandler(self.handle_keyboard_chosen))
+        # self.updater.dispatcher.add_error_handler(self.handle_error)
 
     def refresh_last_queue_msg(self, update):
         if not self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat):
@@ -113,18 +93,14 @@ class QueueBot:
     def load_from_cloud(self):
         self.gdrive_saver.get_files_from_drive(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.get_files_from_drive(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
-
-        self.queues_manager.load_queues_from_drive(self.gdrive_saver, self.object_saver)
+        self.gdrive_saver.get_files_from_drive(self.queues_manager.get_save_files(), DriveFolder.Queues)
 
     def load_defaults(self):
         self.load_from_cloud()
-
         self.registered_manager.load_file(self.object_saver)
         self.registered_manager.update_access_levels(self.object_saver)
         self.choice_manager.load_file(self.object_saver)
         self.queues_manager.load_file(self.object_saver)
-
-        self.logger.log('loaded data')
 
     # loads default values from external file
     def save_registered_to_file(self):
@@ -143,10 +119,6 @@ class QueueBot:
 
         return token
 
-    def h_keyboard_chosen(self, update, context):
-        command_handler.handle(update, self)
-        update.callback_query.answer()
-
     def request_set(self, cls):
         self.command_requested_answer = cls
 
@@ -156,86 +128,23 @@ class QueueBot:
     def get_queue(self) -> StudentsQueue:
         return self.queues_manager.get_queue()
 
-    def h_message_text(self, update, context):
+    def handle_command_selected(self, update, context):
+        for entity in update.message.entities:
+            if entity.type == MessageEntity.BOT_COMMAND:
+                command_handler.handle_text_command(update, entity, self)
+
+    def handle_keyboard_chosen(self, update, context):
+        command_handler.handle_keyboard(update, self)
+        update.callback_query.answer()
+
+    def handle_message_text(self, update, context):
         if self.command_requested_answer is None:
             return
 
         self.logger.log('handled ' + self.command_requested_answer.query())
         self.command_requested_answer.handle_request(update, self)
 
-    def h_add_new_admin(self, update, context):
-        commands.ManageAccessRights.AddAdmin.handle_command(update, self)
-
-    def h_del_admin(self, update, context):
-        commands.ManageAccessRights.RemoveAdmin.handle_command(update, self)
-
-    def h_start(self, update, context):
-        commands.General.Start.handle_command(update, self)
-
-    def h_stop(self, update, context):
-        commands.General.Stop.handle_command(update, self)
-
-    def h_show_logs(self, update, context):
-        commands.General.ShowLogs.handle_command(update, self)
-
-    def h_create_random_queue(self, update, context):
-        commands.ManageQueues.CreateRandom.handle_command(update, self)
-
-    def h_create_queue(self, update, context):
-        commands.ManageQueues.CreateSimple.handle_command(update, self)
-
-    def h_edit_queue(self, update, context):
-        commands.ModifyCurrentQueue.ShowMenu.handle_command(update, self)
-
-    def h_delete_queue(self, update, context):
-        commands.ManageQueues.DeleteQueue.handle_command(update, self)
-
-    def h_select_queue(self, update, context):
-        commands.ManageQueues.SelectOtherQueue.handle_command(update, self)
-
-    def h_edit_registered(self, update, context):
-        commands.ModifyRegistered.ShowMenu.handle_command(update, self)
-
-    def h_get_queue(self, update, context):
-        commands.UpdateQueue.ShowCurrent.handle_command(update, self)
-
-    def send_cur_and_next(self, update, context=None):
-        commands.UpdateQueue.ShowCurrentAndNext.handle_command(update, self)
-
-    def h_i_finished(self, update, context):
-        commands.ModifyCurrentQueue.StudentFinished.handle_command(update, self)
-
-    def h_remove_me(self, update, context):
-        commands.ModifyCurrentQueue.RemoveMe.handle_command(update, self)
-
-    def h_add_me(self, update, context):
-        commands.ModifyCurrentQueue.AddMe.handle_command(update, self)
-
-    def h_error(self, update, context):
+    def handle_error(self, update, context):
         print(context.error.message)
         self.logger.log(context.error.message)
         self.logger.save_to_cloud()
-
-    def h_setup_choices(self, update, context):
-        commands.CollectSubjectChoices.CreateNewCollectFile.handle_command(update, self)
-
-    def h_allow_pick_subjects(self, update, context):
-        commands.CollectSubjectChoices.StartChoose.handle_command(update, self)
-
-    def h_stop_pick_subjects(self, update, context):
-        commands.CollectSubjectChoices.StopChoose.handle_command(update, self)
-
-    def h_show_choices(self, update, context):
-        commands.CollectSubjectChoices.ShowCurrentChoices.handle_command(update, self)
-
-    def h_choice(self, update, context):
-        commands.CollectSubjectChoices.Choose.handle_command(update, self)
-
-    def h_remove_choice(self, update, context):
-        commands.CollectSubjectChoices.RemoveChoice.handle_command(update, self)
-
-    def h_show_admin_help(self, update, context):
-        commands.Help.ForAdmin.handle_command(update, self)
-
-    def h_get_choices_excel_file(self, update, context):
-        commands.CollectSubjectChoices.GetExcelFile.handle_command(update, self)
