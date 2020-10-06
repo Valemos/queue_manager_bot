@@ -19,34 +19,40 @@ def log_bot_user(update, bot, message, *args):
                    message.format(*args))
 
 
+# ids and commands of type str
+_command_id_dict = {}
+_id_command_dict = {}
+
+
 class CommandGroup:
     class Command:
-
         access_requirement = AccessLevel.USER
+        command_name = None
 
         @classmethod
         def __str__(cls):
             return cls.__qualname__
 
         @classmethod
-        def str(cls, args=None):
+        def query(cls, args=None):
             if args is None:
-                return cls.__qualname__
+                return _command_id_dict[cls]
             else:
-                return cls.__qualname__ + '#' + str(args)
+                return _command_id_dict[cls] + '#' + str(args)
+
+        @classmethod
+        def get_command_class(cls, class_id: str):
+            return _id_command_dict[class_id]
 
         @staticmethod
         def parse_command(command_str):
             try:
-                parts = command_str.split('.')
-
-                cmd_group = parts[0]
-                cmd = ''.join(parts[1:])
-
-                if '#' in cmd:
-                    cmd = cmd[:cmd.index('#')]
-
-                return cmd_group, cmd
+                index = command_str
+                argument = None
+                if '#' in command_str:
+                    argument = command_str[:command_str.index('#')]
+                    index = command_str[:command_str.index('#')-1]
+                return index, argument
             except ValueError:
                 return None, None
 
@@ -91,7 +97,7 @@ class CommandGroup:
         # used for main request handling
         @classmethod
         def handle_request(cls, update, bot):
-            print('{0} called default method', cls.str())
+            print('{0} called default request method', cls.__qualname__)
 
 
 class Help(CommandGroup):
@@ -270,7 +276,7 @@ class ModifyCurrentQueue(CommandGroup):
             bot.get_queue().move_to_end(cls.move_student)
 
             bot.refresh_last_queue_msg(update)
-            update.effective_chat.send_message(bot.language_pack.student_added_to_end.format(cls.move_student.str()))
+            update.effective_chat.send_message(bot.language_pack.student_added_to_end.format(cls.move_student.query()))
             bot.request_del()
             log_bot_queue(update, bot, 'moved {0} to end', str(cls.move_student))
 
@@ -324,7 +330,7 @@ class ModifyCurrentQueue(CommandGroup):
                 student_str = cls.get_arguments(update.callback_query.data)
                 student = parsers.parse_student(student_str)
                 cls.student = student
-                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.query()))
             elif cls.new_position == -1:
                 student = cls.get_arguments(update.callback_query.data)
                 position = bot.get_queue().get_student_position(student)
@@ -434,10 +440,10 @@ class ModifyCurrentQueue(CommandGroup):
             student = parsers.parse_student(student_str)
             if cls.first_student is None:
                 cls.first_student = student
-                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.query()))
             elif cls.second_student is None:
                 cls.second_student = student
-                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.query()))
                 cls.handle_request(update, bot)
 
         @classmethod
@@ -483,8 +489,11 @@ class ManageQueues(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
-            update.effective_chat.send_message(bot.language_pack.enter_students_list)
-            bot.request_set(cls)
+            if update.message.text == '/new_queue':
+                update.effective_chat.send_message(bot.language_pack.enter_students_list)
+                bot.request_set(cls)
+            else:
+                cls.handle_request(update, bot)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -604,7 +613,7 @@ class ManageQueues(CommandGroup):
                     update.effective_message.delete()
                     bot.refresh_last_queue_msg(update)
                 else:
-                    log_bot_user(update, bot, 'queue not found, query: {2}', update.callback_query.data)
+                    log_bot_user(update, bot, 'queue not found, query: {0}', update.callback_query.data)
             else:
                 log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data, cls.__qualname__)
             update.callback_query.answer()
@@ -745,7 +754,7 @@ class ModifyRegistered(CommandGroup):
                 update.effective_chat.send_message(bot.language_pack.value_set)
                 log_bot_user(update, bot, 'student {0} renamed to {1}', cls.edited_user, update.message.text)
             else:
-                log_bot_user(update, bot, 'error, student was none in {0}', cls.str())
+                log_bot_user(update, bot, 'error, student was none in {0}', cls.query())
 
 
 
@@ -776,7 +785,7 @@ class ModifyRegistered(CommandGroup):
                 bot.request_del()
                 log_bot_queue(update, bot, 'removed user {0}', user)
             else:
-                log_bot_user(update, bot, 'error, user id is None in {0}', cls.str())
+                log_bot_user(update, bot, 'error, user id is None in {0}', cls.query())
 
 
 class UpdateQueue(CommandGroup):
@@ -849,7 +858,7 @@ class ManageAccessRights(CommandGroup):
                     bot.registered_manager.set_admin(update.message.forward_from.id)
             else:
                 update.message.reply_text(bot.language_pack.was_not_forwarded)
-                log_bot_user(update, bot, 'admin message not forwarded in {0}', cls.str())
+                log_bot_user(update, bot, 'admin message not forwarded in {0}', cls.query())
             bot.request_del()
 
 
@@ -878,7 +887,7 @@ class ManageAccessRights(CommandGroup):
                     update.message.reply_text(bot.language_pack.admin_deleted)
                     log_bot_user(update, bot, 'deleted admin {0}', update.message.forward_from.full_name)
             else:
-                log_bot_user(update, bot, 'error, admin id was None in {0}', cls.str())
+                log_bot_user(update, bot, 'error, admin id was None in {0}', cls.query())
             bot.request_del()
 
 
@@ -1078,3 +1087,11 @@ class CollectSubjectChoices(CommandGroup):
                 log_bot_user(update, bot, 'cannot send choice document to ')
                 log_bot_user(update, bot, str(err))
 
+
+# we must generate ids for each command to make queries shorter
+
+command_index = 0
+for command_class in CommandGroup.Command.__subclasses__():
+    _command_id_dict[command_class] = str(command_index)
+    _id_command_dict[str(command_index)] = command_class
+    command_index += 1

@@ -3,8 +3,8 @@ from pathlib import Path
 
 from queue_bot.savable_interface import Savable
 from queue_bot.object_file_saver import FolderType
-from queue_bot.bot_commands import ManageQueues, General
-from queue_bot import bot_keyboards
+from queue_bot import bot_keyboards, bot_parsers as parsers
+
 
 from queue_bot.students_queue import StudentsQueue
 
@@ -147,14 +147,19 @@ class QueuesManager(Savable):
             queue.save_to_file(saver)
 
     def load_file(self, saver):
-        queues_names = saver.load(self.file_names_list)
+        # we scan save folder to find all required files
+        file_names = []
+        for path in StudentsQueue.save_folder.glob('**/*'):
+            file_names.append(path.name)
+
+        queue_names = parsers.parse_valid_queue_names(file_names)
+
         self.queues = {}
-        if queues_names is not None:
-            for name in queues_names:
-                queue = StudentsQueue(self.main_bot)
-                queue.name = name
-                queue.load_file(saver)
-                self.queues[queue.name] = queue
+        for name in queue_names:
+            queue = StudentsQueue(self.main_bot)
+            queue.name = name
+            queue.load_file(saver)
+            self.queues[queue.name] = queue
 
     def load_queues_from_drive(self, drive_saver, object_saver):
         from queue_bot.gdrive_saver import DriveFolder

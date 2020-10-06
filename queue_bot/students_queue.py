@@ -13,12 +13,14 @@ class StudentsQueue(Savable):
     queue_pos = 0
     students = []
 
+    save_folder = FolderType.QueuesData.value
+
     file_format_queue = 'queue_{0}.data'
     file_format_queue_state = 'state_{0}.data'
 
     copy_queue_format = '/new_queue {name}\n\n{students}'
 
-    def __init__(self, bot, students=None):
+    def __init__(self, bot, name=None, students=None):
         if students is None:
             students = []
 
@@ -249,7 +251,7 @@ class StudentsQueue(Savable):
     def get_students_keyboard_with_position(self, command):
         return self.main_bot.keyboards.generate_keyboard(
             command,
-            [self.students[i].str(i+1) for i in range(len(self.students))],
+            [self.students[i].str(i + 1) for i in range(len(self.students))],
             [s.str_name_id() for s in self.students])
 
     def generate_simple(self, students=None):
@@ -268,13 +270,16 @@ class StudentsQueue(Savable):
             self.students = students
 
     def get_state_save_file(self):
-        return FolderType.QueuesData.value / Path(self.file_format_queue_state.format(self.name))
+        return self.save_folder / Path(self.file_format_queue_state.format(self.name))
 
     def get_queue_save_file(self):
-        return FolderType.QueuesData.value / Path(self.file_format_queue.format(self.name))
+        return self.save_folder / Path(self.file_format_queue.format(self.name))
 
     def get_save_files(self):
         return [self.get_state_save_file(), self.get_queue_save_file()]
+
+    def get_save_file_formats(self):
+        return [self.file_format_queue, self.file_format_queue_state]
 
     def save_to_file(self, saver):
         state = {'_queue_pos': self.queue_pos}

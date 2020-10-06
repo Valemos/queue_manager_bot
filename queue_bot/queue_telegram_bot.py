@@ -104,6 +104,8 @@ class QueueBot:
 
         self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.update_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
+
+        self.gdrive_saver.clear_drive_folder(DriveFolder.Queues)
         self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
 
         self.logger.log('saved to cloud')
@@ -158,7 +160,7 @@ class QueueBot:
         if self.command_requested_answer is None:
             return
 
-        self.logger.log('handled ' + self.command_requested_answer.str())
+        self.logger.log('handled ' + self.command_requested_answer.query())
         self.command_requested_answer.handle_request(update, self)
 
     def h_add_new_admin(self, update, context):
@@ -210,9 +212,8 @@ class QueueBot:
         commands.ModifyCurrentQueue.AddMe.handle_command(update, self)
 
     def h_error(self, update, context):
-        string = '{0}: {1} '.format(context.error.__qualname__, str(context.error))
-        print(string)
-        self.logger.log(string)
+        print(context.error.message)
+        self.logger.log(context.error.message)
         self.logger.save_to_cloud()
 
     def h_setup_choices(self, update, context):

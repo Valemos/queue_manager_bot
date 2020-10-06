@@ -4,7 +4,8 @@ from hashlib import md5
 
 class Student:
 
-    student_format = '{0} - {1}'
+    student_show_format = '{0} - {1}'
+    student_format = '{0}_{1}'
 
     def __init__(self, name, telegram_id):
         self.name = name
@@ -33,7 +34,7 @@ class Student:
         if position is None:
             return self.name
         else:
-            return self.student_format.format(position, self.name)
+            return self.student_show_format.format(position, self.name)
 
     def str_name_id(self):
         return self.student_format.format(self.name, str(self.telegram_id))

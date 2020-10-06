@@ -214,7 +214,8 @@ class DriveSaver:
                     continue
 
             if file['mimeType'] != 'application/vnd.google-apps.folder':
-                service.files().remove(fileId=file['id']).execute()
+                service.files().delete(fileId=file['id']).execute()
+                print('deleted ', file['name'])
 
         return True
 
@@ -263,6 +264,25 @@ class DriveSaver:
             if folder_id in file['parents']:
                 print('{0}. {1}'.format(c, file))
                 c += 1
+
+    def load_folder_files(self, folder: DriveFolder, output_folder: FolderType):
+        folder_id = self.init_drive_folder(folder)
+
+        service = self.init_service()
+        if service is None:
+            return False
+
+        existing_files = DriveSaver.get_existing_files(service, 'name,parents,id')
+
+        path_list = []
+        c = 1  # counter of files
+        for file in existing_files:
+            if folder_id in file['parents']:
+                print('{0}. {1}'.format(c, file))
+                path_list.append(output_folder.value / file['name'])
+                c += 1
+
+        return self.download_drive_files(folder_id, path_list)
 
     @staticmethod
     def save_folder_id(drive_folder, folder_id):
@@ -320,7 +340,7 @@ class DriveSaver:
 
 if __name__ == '__main__':
     os.chdir(r'D:\coding\Python_codes\Queue_Bot')
-    DriveSaver().show_folder_files(DriveFolder.HelperBotData)
+    DriveSaver().load_folder_files(DriveFolder.Log, FolderType.Test)
     if len(sys.argv) == 2:
         if sys.argv[1] == 'clear':
             DriveSaver().delete_everything_on_disk()
