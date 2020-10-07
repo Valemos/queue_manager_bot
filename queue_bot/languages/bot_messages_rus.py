@@ -1,35 +1,4 @@
 
-user_help = '''
-/i_finished - сдвинуть очередь если ты сдал
-/remove_me - удалить себя из очереди
-/add_me - добавить себя в конец очереди
-/get_queue - проверить статус очереди
-/current_and_next - показать сдающих
-/ch - после команды через пробел укажите темы
-/remove_choice - отменить мой выбор тем
-/select_queue - выбор очереди из списка
-/delete_queue - удаление очереди из списка
-/get_subjects - показать все выбранные (и доступные) темы
-/admin_help - помощь админу'''
-
-
-admin_help = '''
-/new_queue          - создать новую очередь без перемешивания
-/new_random_queue   - создать новую случайную очередь
-/edit_queue         - меню редактирования очереди
-/select_queue       - выбор очереди из списка
-/delete_queue       - удаление очереди из списка
-
-/edit_registered    - меню редактирования зарегистированных
-/admin              - добавить нового админа
-/del_admin          - удалить админа
-
-/setup_subject      - установить параметры выбора тем
-/allow_choose       - начать выбор тем (писать в общем чате)
-/stop_choose        - закончить выбор тем
-/get_choice_table   - получить ексель таблицу с данными о выборе'''
-
-
 # name must be specified with \n
 # to mimic telegram trimming first characters if they are \n
 queue_format = '''{name}Сдает:
@@ -139,6 +108,7 @@ enter_queue_name = 'Введите имя для очереди.\n' \
 name_incorrect = 'Имя в неверном формате.'
 name_set = 'Имя установлено'
 queue_set = 'Очередь установлена'
+queue_rename_send_new_name = 'Пришлите новое имя для очереди \"{0}\"'
 queue_limit_reached = 'Больше очередей установить нельзя, удалите некоторые из них'
 queue_removed = 'Очередь \'{0}\' удалена'
 queue_not_found = 'Очередь не найдена'

@@ -5,6 +5,8 @@ from queue_bot.bot_access_levels import AccessLevel
 from queue_bot.students_queue import StudentsQueue
 import queue_bot.bot_parsers as parsers
 
+import queue_bot.languages.command_descriptions_rus as commands_descriptions
+
 
 def log_bot_queue(update, bot, message, *args):
     bot.logger.log(' {0} by {1}: '.format(
@@ -28,6 +30,7 @@ _name_command = {}
 class CommandGroup:
     class Command:
         command_name = None
+        description = None
         access_requirement = AccessLevel.USER
 
         @classmethod
@@ -73,7 +76,8 @@ class CommandGroup:
                 return None
 
         @classmethod
-        def check_access(cls, update, bot, check_chat_private):
+        def check_access(cls, update, bot):
+            check_chat_private = cls.access_requirement is not AccessLevel.USER
             if bot.registered_manager.check_access(update, cls.access_requirement, check_chat_private):
                 return True
             else:
@@ -86,10 +90,19 @@ class CommandGroup:
 
         # used as starting point and it checks for user access rights
         @classmethod
-        def handle_command(cls, update, bot):
-            private_chat_needed = cls.access_requirement is not AccessLevel.USER
-            if cls.check_access(update, bot, private_chat_needed):
+        def handle_command_access(cls, update, bot):
+            if cls.check_access(update, bot):
                 cls.handle_reply(update, bot)
+
+        @classmethod
+        def handle_request_access(cls, update, bot):
+            if cls.check_access(update, bot):
+                cls.handle_request(update, bot)
+
+        @classmethod
+        def handle_keyboard_access(cls, update, bot):
+            if cls.check_access(update, bot):
+                cls.handle_keyboard(update, bot)
 
         # used to generate message, keyboard and handle_request properly
         @classmethod
@@ -110,20 +123,31 @@ class CommandGroup:
 
 class Help(CommandGroup):
 
-    class ForUser(CommandGroup.Command):
+    class TelegramPreviewCommands(CommandGroup.Command):
         command_name = 'help'
+        description = commands_descriptions.help_descr
 
         @classmethod
         def handle_reply(cls, update, bot):
-            update.effective_chat.send_message(bot.language_pack.user_help)
+            final_message = []
+            for command in bot.available_commands.user_commands:
+                final_message.append('{0} - {1}'.format(command.command_name, command.description))
+            update.effective_chat.send_message('\n'.join(final_message))
 
     class ForAdmin(CommandGroup.Command):
         command_name = 'admin_help'
+        description = commands_descriptions.admin_help_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
         def handle_reply(cls, update, bot):
-            update.effective_chat.send_message(bot.language_pack.admin_help)
+            final_message = []
+            for command in bot.available_commands.admin_commands:
+                if command is not None:
+                    final_message.append('/{0:<10} - {1}'.format(command.command_name, command.description))
+                else:
+                    final_message.append('')
+            update.effective_chat.send_message('\n'.join(final_message))
 
     class HowToSelectSubject(CommandGroup.Command):
         @classmethod
@@ -142,6 +166,7 @@ class General(CommandGroup):
 
     class Start(CommandGroup.Command):
         command_name = 'start'
+        description = commands_descriptions.start_descr
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -163,6 +188,7 @@ class General(CommandGroup):
 
     class Stop(CommandGroup.Command):
         command_name = 'stop'
+        description = commands_descriptions.stop_descr
         access_requirement = AccessLevel.GOD
 
         @classmethod
@@ -174,6 +200,7 @@ class General(CommandGroup):
 
     class ShowLogs(CommandGroup.Command):
         command_name = 'logs'
+        description = commands_descriptions.logs_descr
         access_requirement = AccessLevel.GOD
 
         @classmethod
@@ -190,6 +217,7 @@ class ModifyCurrentQueue(CommandGroup):
 
     class ShowMenu(CommandGroup.Command):
         command_name = 'edit_queue'
+        description = commands_descriptions.edit_queue_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -228,7 +256,7 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            ManageQueues.CreateSimple.handle_request(update, bot)
+            CreateQueue.CreateSimple.handle_request(update, bot)
             log_bot_queue(update, bot, 'set students for {0} by {1}'.format(str(bot.get_queue()),
                                                                             bot.registered_manager.get_user_by_update(update)))
 
@@ -396,6 +424,7 @@ class ModifyCurrentQueue(CommandGroup):
 
     class AddMe(CommandGroup.Command):
         command_name = 'add_me'
+        description = commands_descriptions.add_me_descr
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -411,6 +440,7 @@ class ModifyCurrentQueue(CommandGroup):
 
     class RemoveMe(CommandGroup.Command):
         command_name = 'remove_me'
+        description = commands_descriptions.remove_me_descr
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -429,6 +459,7 @@ class ModifyCurrentQueue(CommandGroup):
 
     class StudentFinished(CommandGroup.Command):
         command_name = 'i_finished'
+        description = commands_descriptions.i_finished_descr
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -486,146 +517,9 @@ class ModifyCurrentQueue(CommandGroup):
 
 class ManageQueues(CommandGroup):
 
-    edited_queue = None
-
-    @staticmethod
-    def handle_queue_create_request(update, bot, generate_function):
-        queue_name, names = parsers.parse_queue_message(update.message.text)
-        students = bot.registered_manager.get_registered_students(names)
-        queue = bot.queues_manager.create_queue(bot)
-        queue.name = queue_name
-        generate_function(queue, students)
-
-        if not bot.queues_manager.add_queue(queue):
-            update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
-            bot.request_del()
-            log_bot_queue(update, bot, 'queue limit reached')
-        else:
-            if queue.name == '':
-                # must save queue to add name to it in next command
-                ManageQueues.edited_queue = queue
-                log_bot_queue(update, bot, 'set students for queue')
-                ManageQueues.AddNameToQueue.handle_reply(update, bot)
-            else:
-                ManageQueues.FinishQueueCreation.handle_reply(update, bot)
-
-
-    class CreateSimple(CommandGroup.Command):
-        command_name = 'new_queue'
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            if update.message.text == '/new_queue':
-                update.effective_chat.send_message(bot.language_pack.enter_students_list)
-                bot.request_set(cls)
-            else:
-                cls.handle_request(update, bot)
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            ManageQueues.handle_queue_create_request(update, bot, StudentsQueue.generate_simple)
-
-
-    class CreateRandom(CommandGroup.Command):
-        command_name = 'new_random_queue'
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            update.effective_chat.send_message(bot.language_pack.enter_students_list)
-            bot.request_set(cls)
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            ManageQueues.handle_queue_create_request(update, bot, StudentsQueue.generate_random)
-
-
-    class AddNameToQueue(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            if ManageQueues.edited_queue is not None:
-                update.effective_chat.send_message(bot.language_pack.enter_queue_name,
-                                                   reply_markup=bot.keyboards.set_default_queue_name)
-                bot.request_set(cls)
-            else:
-                bot.request_del()
-                log_bot_queue(update, bot, 'in AddNameToQueue queue is None. Error')
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            if parsers.check_queue_name(update.message.text):
-                bot.queues_manager.rename_queue(ManageQueues.edited_queue.name, update.message.text)
-                ManageQueues.FinishQueueCreation.handle_reply(update, bot)
-            else:
-                update.effective_chat.send_message(bot.language_pack.name_incorrect)
-                ManageQueues.AddNameToQueue.handle_reply(update, bot)
-
-            log_bot_queue(update, bot, 'queue name set {0}', update.message.text)
-
-
-    class DefaultQueueName(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            bot.queues_manager.rename_queue(ManageQueues.edited_queue.name, bot.language_pack.default_queue_name)
-            log_bot_user(update, bot, 'queue set default name')
-            ManageQueues.FinishQueueCreation.handle_reply(update, bot)
-
-
-    class RenameQueue(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            keyboard = bot.queues_manager.generate_choice_keyboard(cls)
-            update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
-
-        @classmethod
-        def handle_keyboard(cls, update, bot):
-            queue_name = cls.get_arguments(update.callback_query.data)
-            if queue_name is not None:
-                ManageQueues.edited_queue = bot.queues_manager.get_queue_by_name(queue_name)
-                ManageQueues.AddNameToQueue.handle_reply(update, bot)
-            else:
-                log_bot_user(update, bot, 'queue not selected while renaming')
-
-
-    class FinishQueueCreation(CommandGroup.Command):
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            update.effective_chat.send_message(bot.language_pack.value_set)
-            bot.save_queue_to_file()
-            bot.request_del()
-            log_bot_queue(update, bot, 'queue set')
-
-
-    class CreateRandomFromRegistered(CommandGroup.Command):
-
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            queue = StudentsQueue(bot)
-            queue.generate_random(bot.registered_manager.get_users())  # we specify parameter in "self"
-
-            if not bot.queues_manager.add_queue(queue):
-                update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
-                bot.request_del()
-                log_bot_queue(update, bot, 'queue limit reached')
-            else:
-                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
-                update.effective_chat.send_message(bot.language_pack.queue_set)
-                log_bot_queue(update, bot, 'queue added')
-                ManageQueues.AddNameToQueue.handle_reply(update, bot)
-
-
     class DeleteQueue(CommandGroup.Command):
         command_name = 'delete_queue'
+        description = commands_descriptions.delete_queue_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -650,6 +544,7 @@ class ManageQueues(CommandGroup):
 
     class SelectOtherQueue(CommandGroup.Command):
         command_name = 'select_queue'
+        description = commands_descriptions.select_queue_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -671,10 +566,225 @@ class ManageQueues(CommandGroup):
             update.callback_query.answer()
 
 
+class CreateQueue(CommandGroup):
+
+    new_queue_name = None
+    new_queue_students = None
+    queue_generate_function = None
+
+    @staticmethod
+    def reset_variables():
+        CreateQueue.new_queue_name = None
+        CreateQueue.new_queue_students = None
+        CreateQueue.queue_generate_function = None
+
+
+    @staticmethod
+    def handle_add_queue(update, bot, queue):
+        if bot.queues_manager.can_add_queue():
+            bot.queues_manager.add_queue(queue)
+            CreateQueue.FinishQueueCreation.handle_reply(update, bot)
+        else:
+            update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
+            bot.request_del()
+            log_bot_queue(update, bot, 'queue limit reached')
+
+
+    @staticmethod
+    def handle_queue_create_message(cmd, update, bot, generate_function):
+        # simple command runs chain of callbacks
+        if bot.queues_manager.can_add_queue():
+            if update.message.text == ('/' + cmd.command_name):
+                CreateQueue.queue_generate_function = generate_function
+                CreateQueue.SelectStudentList.handle_reply(update, bot)
+            else:
+                CreateQueue.handle_queue_create_single_command(update, bot, generate_function)
+        else:
+            update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
+
+
+    @staticmethod
+    def handle_queue_create_single_command(update, bot, generate_function):
+        queue_name, names = parsers.parse_queue_message(update.message.text)
+        students = bot.registered_manager.get_registered_students(names)
+        queue = bot.queues_manager.create_queue(bot)
+
+        if queue_name is None:
+            queue_name = bot.language_pack.default_queue_name
+
+        queue.name = queue_name
+        generate_function(queue, students)
+
+        CreateQueue.handle_add_queue(update, bot, queue)
+
+
+    class CreateSimple(CommandGroup.Command):
+        command_name = 'new_queue'
+        description = commands_descriptions.new_queue_descr
+        access_requirement = AccessLevel.ADMIN
+
+        # this function handles single command without arguments and runs chain of prompts
+        @classmethod
+        def handle_reply(cls, update, bot):
+            CreateQueue.handle_queue_create_message(cls, update, bot, StudentsQueue.generate_simple)
+
+        # this function handles single command queue initialization
+        @classmethod
+        def handle_request(cls, update, bot):
+            CreateQueue.handle_queue_create_single_command(update, bot, StudentsQueue.generate_simple)
+
+
+    class CreateRandom(CommandGroup.Command):
+        command_name = 'new_random_queue'
+        description = commands_descriptions.new_random_queue_descr
+        access_requirement = AccessLevel.ADMIN
+
+        # the same as CreateSimple
+        @classmethod
+        def handle_reply(cls, update, bot):
+            CreateQueue.handle_queue_create_message(cls, update, bot, StudentsQueue.generate_random)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            CreateQueue.handle_queue_create_single_command(update, bot, StudentsQueue.generate_random)
+
+
+    class SelectStudentList(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            update.effective_chat.send_message(bot.language_pack.enter_students_list)
+            bot.request_set(cls)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            names = parsers.parse_names(update.message.text)
+            CreateQueue.new_queue_students = bot.registered_manager.get_registered_students(names)
+            CreateQueue.AddNameToQueue.handle_reply(update, bot)
+
+
+    class AddNameToQueue(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            if CreateQueue.new_queue_students is not None:
+                update.effective_chat.send_message(bot.language_pack.enter_queue_name,
+                                                   reply_markup=bot.keyboards.set_default_queue_name)
+                bot.request_set(cls)
+            else:
+                bot.request_del()
+                log_bot_queue(update, bot, 'in AddNameToQueue queue is None. Error')
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            if parsers.check_queue_name(update.message.text):
+                CreateQueue.new_queue_name = update.message.text
+                CreateQueue.FinishQueueCreation.handle_request(update, bot)
+            else:
+                update.effective_chat.send_message(bot.language_pack.name_incorrect)
+                CreateQueue.AddNameToQueue.handle_reply(update, bot)
+
+            log_bot_queue(update, bot, 'queue name set {0}', update.message.text)
+
+
+    class DefaultQueueName(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            CreateQueue.new_queue_name = bot.language_pack.default_queue_name
+            log_bot_user(update, bot, 'queue set default name')
+            CreateQueue.FinishQueueCreation.handle_request(update, bot)
+
+
+    class RenameQueue(CommandGroup.Command):
+        command_name = 'rename_queue'
+        description = commands_descriptions.rename_queue_descr
+        access_requirement = AccessLevel.ADMIN
+
+        old_queue_name = None
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            keyboard = bot.queues_manager.generate_choice_keyboard(cls)
+            update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            CreateQueue.RenameQueue.old_queue_name = cls.get_arguments(update.callback_query.data)
+            if CreateQueue.RenameQueue.old_queue_name is not None:
+                update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name)
+                bot.request_set(cls)
+            else:
+                log_bot_user(update, bot, 'queue not selected while renaming')
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            if CreateQueue.RenameQueue.old_queue_name is not None:
+                if parsers.check_queue_name(update.message.text):
+                    bot.queues_manager.rename_queue(CreateQueue.RenameQueue.old_queue_name, update.message.text)
+                    update.effective_chat.send_message(bot.language_pack.name_set)
+                    bot.request_del()
+                    log_bot_queue(update, bot, 'queue renamed', CreateQueue.RenameQueue.old_queue_name)
+                else:
+                    update.effective_chat.send_message(bot.language_pack.name_incorrect)
+                    update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name)
+            else:
+                bot.request_del()
+
+
+    class FinishQueueCreation(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        # this function only shows message about queue finished creation
+        @classmethod
+        def handle_reply(cls, update, bot):
+            update.effective_chat.send_message(bot.language_pack.queue_set)
+
+        # this function handles end of dialog chain
+        @classmethod
+        def handle_request(cls, update, bot):
+            if CreateQueue.new_queue_name is not None and \
+               CreateQueue.new_queue_students is not None and \
+               CreateQueue.queue_generate_function is not None:
+                queue = StudentsQueue(bot, CreateQueue.new_queue_name)
+                CreateQueue.queue_generate_function(queue, CreateQueue.new_queue_students)
+
+                # handle_add_queue at the end calls FinishQueueCreation.handle_reply
+                CreateQueue.handle_add_queue(update, bot, queue)
+                bot.save_queue_to_file()
+                log_bot_queue(update, bot, 'queue set')
+            else:
+                log_bot_user(update, bot, 'Fatal error: cannot finish queue creation')
+            bot.request_del()
+
+    class CreateRandomFromRegistered(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            queue = StudentsQueue(bot)
+            queue.generate_random(bot.registered_manager.get_users())  # we specify parameter in "self"
+
+            if not bot.queues_manager.add_queue(queue):
+                update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
+                bot.request_del()
+                log_bot_queue(update, bot, 'queue limit reached')
+            else:
+                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+                update.effective_chat.send_message(bot.language_pack.queue_set)
+                log_bot_queue(update, bot, 'queue added')
+                CreateQueue.AddNameToQueue.handle_reply(update, bot)
+
+
 class ModifyRegistered(CommandGroup):
 
     class ShowMenu(CommandGroup.Command):
         command_name = 'edit_registered'
+        description = commands_descriptions.edit_registered_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -821,8 +931,9 @@ class ModifyRegistered(CommandGroup):
 
 class UpdateQueue(CommandGroup):
 
-    class ShowCurrent(CommandGroup.Command):
+    class ShowCurrentQueue(CommandGroup.Command):
         command_name = 'get_queue'
+        description = commands_descriptions.get_queue_descr
 
         @classmethod
         def handle_reply(cls, update, bot):
@@ -840,6 +951,7 @@ class UpdateQueue(CommandGroup):
 
     class ShowCurrentAndNextStudent(CommandGroup.Command):
         command_name = 'current_and_next'
+        description = commands_descriptions.current_and_next_descr
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -877,6 +989,7 @@ class ManageAccessRights(CommandGroup):
 
     class AddAdmin(CommandGroup.Command):
         command_name = 'admin'
+        description = commands_descriptions.admin_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -904,6 +1017,7 @@ class ManageAccessRights(CommandGroup):
 
     class RemoveAdmin(CommandGroup.Command):
         command_name = 'del_admin'
+        description = commands_descriptions.del_admin_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -949,6 +1063,7 @@ class CollectSubjectChoices(CommandGroup):
     # they collect parameters of subject choices handling
     class CreateNewCollectFile(CommandGroup.Command):
         command_name = 'setup_subject'
+        description = commands_descriptions.setup_subject_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -1028,6 +1143,7 @@ class CollectSubjectChoices(CommandGroup):
 
     class Choose(CommandGroup.Command):
         command_name = 'ch'
+        description = commands_descriptions.ch_descr
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -1061,6 +1177,7 @@ class CollectSubjectChoices(CommandGroup):
 
     class RemoveChoice(CommandGroup.Command):
         command_name = 'remove_choice'
+        description = commands_descriptions.remove_choice_descr
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -1077,6 +1194,7 @@ class CollectSubjectChoices(CommandGroup):
 
     class StartChoose(CommandGroup.Command):
         command_name = 'allow_choose'
+        description = commands_descriptions.allow_choose_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -1093,6 +1211,7 @@ class CollectSubjectChoices(CommandGroup):
 
     class StopChoose(CommandGroup.Command):
         command_name = 'stop_choose'
+        description = commands_descriptions.stop_choose_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
@@ -1110,6 +1229,7 @@ class CollectSubjectChoices(CommandGroup):
 
     class ShowCurrentChoices(CommandGroup.Command):
         command_name = 'get_subjects'
+        description = commands_descriptions.get_subjects_descr
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -1123,6 +1243,7 @@ class CollectSubjectChoices(CommandGroup):
 
     class GetExcelFile(CommandGroup.Command):
         command_name = 'get_choice_table'
+        description = commands_descriptions.get_choice_table_descr
         access_requirement = AccessLevel.ADMIN
 
         @classmethod

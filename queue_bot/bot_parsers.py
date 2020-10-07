@@ -70,9 +70,7 @@ def parce_integer(text):
 
 
 def check_queue_name(text):
-    if ' ' in text or '\n' in text or len(text) > 100:
-        return False
-    return True
+    return not (' ' in text or '\n' in text or len(text) > 100)
 
 
 def parse_student(argument):
@@ -108,10 +106,10 @@ def parse_valid_queue_names(all_names):
     # for each file format we write in dict true
     parsed_names = {}
 
-    def handle_name(parced_value, format):
+    def handle_name(parced_value, format_of_name):
         if parced_value not in parsed_names:
             parsed_names[parced_value] = {}
-        parsed_names[parced_value][format] = True
+        parsed_names[parced_value][format_of_name] = True
 
     # for each file there are some complementary files with other format
     for name in all_names:

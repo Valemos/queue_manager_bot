@@ -11,7 +11,7 @@ from queue_bot.multiple_queues import QueuesManager
 from queue_bot.students_queue import StudentsQueue
 from queue_bot.updatable_message import UpdatableMessage
 from queue_bot.subject_choice_manager import SubjectChoiceManager
-from queue_bot.bot_available_commands import available_commands
+import queue_bot.bot_available_commands
 
 import atexit
 import os
@@ -23,6 +23,7 @@ from telegram import MessageEntity
 class QueueBot:
     language_pack = messages_rus
     keyboards = queue_bot.bot_keyboards
+    available_commands = queue_bot.bot_available_commands
 
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
@@ -50,7 +51,7 @@ class QueueBot:
         atexit.register(self.save_before_stop)
 
     def init_updater_commands(self):
-        for command in available_commands:
+        for command in self.available_commands.all_commands:
             self.updater.dispatcher.add_handler(CommandHandler(command.command_name, self.handle_command_selected))
 
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message_text))
@@ -138,11 +139,8 @@ class QueueBot:
         update.callback_query.answer()
 
     def handle_message_text(self, update, context):
-        if self.command_requested_answer is None:
-            return
-
-        self.logger.log('handled ' + self.command_requested_answer.query())
-        self.command_requested_answer.handle_request(update, self)
+        if self.command_requested_answer is not None:
+            self.command_requested_answer.handle_request_access(update, self)
 
     def handle_error(self, update, context):
         print(context.error.message)

@@ -8,8 +8,6 @@ from queue_bot.savable_interface import Savable
 
 class StudentsQueue(Savable):
 
-    name = ''
-
     queue_pos = 0
     students = []
 
@@ -23,6 +21,11 @@ class StudentsQueue(Savable):
     def __init__(self, bot, name=None, students=None):
         if students is None:
             students = []
+
+        if name is None:
+            self.name = bot.language_pack.default_queue_name
+        else:
+            self.name = name
 
         self.main_bot = bot
         self.students = students

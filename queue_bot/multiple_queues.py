@@ -7,6 +7,7 @@ from queue_bot.students_queue import StudentsQueue
 
 class QueuesManager(Savable):
 
+    queues_count_limit = 10
     queues = {}
     selected_queue = None
 
@@ -37,19 +38,29 @@ class QueuesManager(Savable):
             self.queues[self.selected_queue.name] = self.selected_queue
 
     def rename_queue(self, prev_name, new_name):
-        if prev_name in self.queues:
-            queue = self.queues[prev_name]
-            queue.name = new_name
-            del self.queues[prev_name]
-            self.add_queue(queue)
+        if new_name is None:
+            new_name = self.main_bot.language_pack.default_queue_name
+
+        if prev_name is None:
+            prev_name = self.main_bot.language_pack.default_queue_name
+
+        if prev_name != new_name:
+            if prev_name in self.queues:
+                queue = self.queues[prev_name]
+                queue.name = new_name
+                del self.queues[prev_name]
+                self.add_queue(queue)
 
     @staticmethod
     def create_queue(*args):
         return StudentsQueue(*args)
 
     # handle queue limit
+    def can_add_queue(self):
+        return len(self.queues) < self.queues_count_limit
+
     def add_queue(self, queue):
-        if len(self.queues) < 10:
+        if self.can_add_queue():
             self.queues[queue.name] = queue
             self.selected_queue = queue
             self.save_current_to_file()
@@ -138,3 +149,4 @@ class QueuesManager(Savable):
             queue.name = name
             queue.load_file(saver)
             self.queues[queue.name] = queue
+

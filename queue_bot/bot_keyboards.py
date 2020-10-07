@@ -4,12 +4,12 @@ import queue_bot.languages.keyboard_names_rus as kb_names
 
 
 create_simple_queue = InlineKeyboardMarkup([
-    [InlineKeyboardButton(kb_names.create_queue, callback_data=commands.ManageQueues.CreateSimple.query())],
+    [InlineKeyboardButton(kb_names.create_queue, callback_data=commands.CreateQueue.CreateSimple.query())],
     [InlineKeyboardButton(kb_names.cancel, callback_data=commands.General.Cancel.query())]])
 
 create_random_queue = InlineKeyboardMarkup([
-    [InlineKeyboardButton(kb_names.create_queue, callback_data=commands.ManageQueues.CreateRandom.query())],
-    [InlineKeyboardButton(kb_names.create_queue_from_reg, callback_data=commands.ManageQueues.CreateRandomFromRegistered.query())],
+    [InlineKeyboardButton(kb_names.create_queue, callback_data=commands.CreateQueue.CreateRandom.query())],
+    [InlineKeyboardButton(kb_names.create_queue_from_reg, callback_data=commands.CreateQueue.CreateRandomFromRegistered.query())],
     [InlineKeyboardButton(kb_names.cancel, callback_data=commands.General.Cancel.query())]])
 
 modify_queue = InlineKeyboardMarkup([
@@ -42,7 +42,7 @@ help_subject_choice = InlineKeyboardMarkup([
     [InlineKeyboardButton(kb_names.how_to_select_subject, callback_data=commands.Help.HowToSelectSubject.query())]])
 
 set_default_queue_name = InlineKeyboardMarkup([
-    [InlineKeyboardButton(kb_names.set_default_name, callback_data=commands.ManageQueues.DefaultQueueName.query())]])
+    [InlineKeyboardButton(kb_names.set_default_name, callback_data=commands.CreateQueue.DefaultQueueName.query())]])
 
 
 def generate_keyboard(command, names, arguments=None):
