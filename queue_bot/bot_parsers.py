@@ -70,7 +70,7 @@ def parce_integer(text):
 
 
 def check_queue_name(text):
-    return not (' ' in text or '\n' in text or len(text) > 100)
+    return not (' ' in text or '\n' in text or len(text) > 60)
 
 
 def parse_student(argument):

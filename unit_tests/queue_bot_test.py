@@ -265,7 +265,7 @@ class TestQueue(unittest.TestCase):
         self.assertListEqual(bot.get_queue().students, queue_students)
 
         # 'test' rename
-        tg_select_command(update, commands.CreateQueue.RenameQueue, 'test')
+        tg_select_command(update, commands.ManageQueues.RenameQueue, 'test')
         bot.handle_keyboard_chosen(update, context)
 
         tg_write_message(update, 'new_name')

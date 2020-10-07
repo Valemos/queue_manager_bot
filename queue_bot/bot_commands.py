@@ -126,6 +126,7 @@ class Help(CommandGroup):
     class TelegramPreviewCommands(CommandGroup.Command):
         command_name = 'help'
         description = commands_descriptions.help_descr
+        access_requirement = AccessLevel.GOD
 
         @classmethod
         def handle_reply(cls, update, bot):
@@ -480,6 +481,8 @@ class ModifyCurrentQueue(CommandGroup):
     class SwapStudents(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
+        keyboard_message = None
+
         first_student = None
         second_student = None
 
@@ -488,7 +491,8 @@ class ModifyCurrentQueue(CommandGroup):
             cls.first_student = None
             cls.second_student = None
             keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
-            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+            ModifyCurrentQueue.SwapStudents.keyboard_message = \
+                update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
             bot.request_set(cls)
 
         @classmethod
@@ -510,6 +514,10 @@ class ModifyCurrentQueue(CommandGroup):
                 bot.language_pack.students_swapped.format(
                     cls.first_student.str(),
                     cls.second_student.str()))
+
+            if ModifyCurrentQueue.SwapStudents.keyboard_message is not None:
+                ModifyCurrentQueue.SwapStudents.keyboard_message.delete()
+
             bot.refresh_last_queue_msg(update)
             bot.request_del()
             log_bot_queue(update, bot, 'swapped {0} and {1}', cls.first_student, cls.second_student)
@@ -522,19 +530,28 @@ class ManageQueues(CommandGroup):
         description = commands_descriptions.delete_queue_descr
         access_requirement = AccessLevel.ADMIN
 
+        keyboard_message = None
+
         @classmethod
         def handle_reply(cls, update, bot):
             keyboard = bot.queues_manager.generate_choice_keyboard(cls)
-            update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
+            ManageQueues.DeleteQueue.keyboard_message = \
+                update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
 
         @classmethod
-        def handle_request(cls, update, bot):
+        def handle_keyboard(cls, update, bot):
             queue_name = CommandGroup.Command.get_arguments(update.callback_query.data)
             if queue_name is not None:
                 if bot.queues_manager.remove_queue(queue_name):
                     update.effective_chat.send_message(bot.language_pack.queue_removed.format(queue_name))
-                    update.effective_message.delete()
                     bot.refresh_last_queue_msg(update)
+
+                    # update keyboard
+                    if ManageQueues.DeleteQueue.keyboard_message is not None:
+                        keyboard = bot.queues_manager.generate_choice_keyboard(cls)
+                        ManageQueues.DeleteQueue.keyboard_message.edit_text(
+                            bot.language_pack.title_select_queue,
+                            reply_markup=keyboard)
                 else:
                     log_bot_user(update, bot, 'queue not found, query: {0}', update.callback_query.data)
             else:
@@ -557,13 +574,50 @@ class ManageQueues(CommandGroup):
             queue_name = CommandGroup.Command.get_arguments(update.callback_query.data)
             if queue_name is not None:
                 if bot.queues_manager.set_current_queue(queue_name):
-                    update.effective_chat.send_message(bot.language_pack.queue_set)
+                    update.effective_chat.send_message(bot.language_pack.queue_set_format.format(bot.get_queue().name))
                     bot.refresh_last_queue_msg(update)
                 else:
                     log_bot_queue(update, bot, 'queue not found, query: {0}', update.callback_query.data)
             else:
                 log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data, cls.__qualname__)
             update.callback_query.answer()
+
+
+    class RenameQueue(CommandGroup.Command):
+        command_name = 'rename_queue'
+        description = commands_descriptions.rename_queue_descr
+        access_requirement = AccessLevel.ADMIN
+
+        old_queue_name = None
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            keyboard = bot.queues_manager.generate_choice_keyboard(cls)
+            update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            ManageQueues.RenameQueue.old_queue_name = cls.get_arguments(update.callback_query.data)
+            if ManageQueues.RenameQueue.old_queue_name is not None:
+                update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name
+                                                   .format(ManageQueues.RenameQueue.old_queue_name))
+                bot.request_set(cls)
+            else:
+                log_bot_user(update, bot, 'queue not selected while renaming')
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            if ManageQueues.RenameQueue.old_queue_name is None:
+                ManageQueues.RenameQueue.old_queue_name = bot.language_pack.default_queue_name
+
+            if parsers.check_queue_name(update.message.text):
+                bot.queues_manager.rename_queue(ManageQueues.RenameQueue.old_queue_name, update.message.text)
+                update.effective_chat.send_message(bot.language_pack.name_set)
+                bot.request_del()
+                log_bot_queue(update, bot, 'queue renamed', ManageQueues.RenameQueue.old_queue_name)
+            else:
+                update.effective_chat.send_message(bot.language_pack.name_incorrect)
+                update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name)
 
 
 class CreateQueue(CommandGroup):
@@ -697,42 +751,6 @@ class CreateQueue(CommandGroup):
             CreateQueue.new_queue_name = bot.language_pack.default_queue_name
             log_bot_user(update, bot, 'queue set default name')
             CreateQueue.FinishQueueCreation.handle_request(update, bot)
-
-
-    class RenameQueue(CommandGroup.Command):
-        command_name = 'rename_queue'
-        description = commands_descriptions.rename_queue_descr
-        access_requirement = AccessLevel.ADMIN
-
-        old_queue_name = None
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            keyboard = bot.queues_manager.generate_choice_keyboard(cls)
-            update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
-
-        @classmethod
-        def handle_keyboard(cls, update, bot):
-            CreateQueue.RenameQueue.old_queue_name = cls.get_arguments(update.callback_query.data)
-            if CreateQueue.RenameQueue.old_queue_name is not None:
-                update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name)
-                bot.request_set(cls)
-            else:
-                log_bot_user(update, bot, 'queue not selected while renaming')
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            if CreateQueue.RenameQueue.old_queue_name is not None:
-                if parsers.check_queue_name(update.message.text):
-                    bot.queues_manager.rename_queue(CreateQueue.RenameQueue.old_queue_name, update.message.text)
-                    update.effective_chat.send_message(bot.language_pack.name_set)
-                    bot.request_del()
-                    log_bot_queue(update, bot, 'queue renamed', CreateQueue.RenameQueue.old_queue_name)
-                else:
-                    update.effective_chat.send_message(bot.language_pack.name_incorrect)
-                    update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name)
-            else:
-                bot.request_del()
 
 
     class FinishQueueCreation(CommandGroup.Command):

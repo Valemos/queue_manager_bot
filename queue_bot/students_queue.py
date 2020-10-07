@@ -16,7 +16,7 @@ class StudentsQueue(Savable):
     file_format_queue = 'queue_{0}.data'
     file_format_queue_state = 'state_{0}.data'
 
-    copy_queue_format = '/new_queue {name}\n\n{students}'
+    copy_queue_format = '/new_queue {name}\n{students}'
 
     def __init__(self, bot, name=None, students=None):
         if students is None:

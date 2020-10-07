@@ -340,7 +340,9 @@ class DriveSaver:
 
 if __name__ == '__main__':
     os.chdir(r'D:\coding\Python_codes\Queue_Bot')
-    DriveSaver().load_folder_files(DriveFolder.Log, FolderType.Test)
+    DriveSaver().show_folder_files(DriveFolder.Queues)
+    # DriveSaver().load_folder_files(DriveFolder.Log, FolderType.Test)
+    # DriveSaver().clear_drive_folder(DriveFolder.Queues)
     if len(sys.argv) == 2:
         if sys.argv[1] == 'clear':
             DriveSaver().delete_everything_on_disk()

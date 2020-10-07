@@ -22,6 +22,7 @@ admin_commands = [
     None,
     commands.ManageQueues.SelectOtherQueue,
     commands.ManageQueues.DeleteQueue,
+    commands.ManageQueues.RenameQueue,
     commands.ModifyCurrentQueue.ShowMenu,
     None,
     commands.ModifyRegistered.ShowMenu,

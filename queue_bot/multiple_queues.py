@@ -80,6 +80,8 @@ class QueuesManager(Savable):
                 self.selected_queue = list(self.queues.values())[0]
             else:
                 self.selected_queue = None
+            return True
+        return False
 
     def get_queue_by_name(self, find_name):
         for name, queue in self.queues.items():
