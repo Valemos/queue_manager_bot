@@ -55,6 +55,8 @@ def generate_keyboard(command, names, arguments=None):
     for name, arg in zip(names, arguments):
         if name == '':
             name = kb_names.no_name
+        if len(name) > 30:
+            name = name[:30] + '...'
         buttons.append([InlineKeyboardButton(name, callback_data=command.query(arg))])
     buttons.append([InlineKeyboardButton(kb_names.cancel, callback_data=commands.General.Cancel.query())])
 

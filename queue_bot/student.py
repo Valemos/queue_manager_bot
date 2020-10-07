@@ -5,7 +5,6 @@ from hashlib import md5
 class Student:
 
     student_show_format = '{0} - {1}'
-    student_format = '{0}_{1}'
 
     def __init__(self, name, telegram_id):
         self.name = name
@@ -36,8 +35,12 @@ class Student:
         else:
             return self.student_show_format.format(position, self.name)
 
+    # to get student back used function in queue_bot.bot_parsers.parse_student
     def str_name_id(self):
-        return self.student_format.format(self.name, str(self.telegram_id))
+        if self.telegram_id is None:
+            return str(None) + self.name
+        else:
+            return '{:0>8}'.format(hex(self.telegram_id)[2:]) + self.name
 
 
 EmptyStudent = Student('Пусто', None)

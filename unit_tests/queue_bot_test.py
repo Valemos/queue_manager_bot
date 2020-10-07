@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import mock
 import unittest
 
+from queue_bot import bot_parsers
 from queue_bot.bot_access_levels import AccessLevel
 from queue_bot.students_queue import StudentsQueue, Student
 from queue_bot.queue_telegram_bot import QueueBot
@@ -495,6 +496,7 @@ class TestQueue(unittest.TestCase):
         update = MagicMock()
         context = MagicMock()
 
+        tg_set_user(update, 1)
         tg_select_command(update, commands.ModifyCurrentQueue.RemoveListStudents)
         bot.handle_keyboard_chosen(update, context)
 
@@ -896,8 +898,24 @@ class TestParsers(unittest.TestCase):
         queue_names = parse_valid_queue_names(file_names)
         self.assertListEqual(names, queue_names)
 
+    def test_students_formats(self):
+        self.addTypeEqualityFunc(Student, students_compare)
 
-# todo test all keyboard using functions
+        s1 = Student(''.join(['a' for i in range(50, 60)]), 2**31)
+        s2 = Student(''.join(['b' for i in range(50, 130)]), None)
+        s3 = Student(''.join(['c' for i in range(50, 60)]), None)
+        s5 = Student('', None)
+        str1 = s1.str_name_id()
+        str2 = s2.str_name_id()
+        str3 = s3.str_name_id()
+        str4 = 'No'
+        str5 = s5.str_name_id()
+
+        self.assertEqual(s1, bot_parsers.parse_student(str1))
+        self.assertIsNone(bot_parsers.parse_student(str2))
+        self.assertEqual(s3, bot_parsers.parse_student(str3))
+        self.assertIsNone(bot_parsers.parse_student(str4))
+        self.assertEqual(s5, bot_parsers.parse_student(str5))
 
 
 if __name__ == '__main__':

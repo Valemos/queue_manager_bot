@@ -412,16 +412,19 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            if bot.get_queue().append_by_name(update.message.text):
-                log_msg = 'found student in registered \'' + update.message.text + '\''
-            else:
-                log_msg = 'searched similar student \'' + update.message.text + '\''
+            if parsers.check_student_name(update.message.text):
+                if bot.get_queue().append_by_name(update.message.text):
+                    log_msg = 'found student in registered \'' + update.message.text + '\''
+                else:
+                    log_msg = 'searched similar student \'' + update.message.text + '\''
 
-            update.effective_chat.send_message(bot.language_pack.student_set)
-            bot.refresh_last_queue_msg(update)
-            bot.request_del()
-            log_bot_queue(update, bot, '{0}', log_msg)
-            
+                update.effective_chat.send_message(bot.language_pack.student_set)
+                bot.refresh_last_queue_msg(update)
+                bot.request_del()
+                log_bot_queue(update, bot, '{0}', log_msg)
+            else:
+                update.effective_chat.send_message(bot.language_pack.name_incorrect)
+
 
     class AddMe(CommandGroup.Command):
         command_name = 'add_me'
