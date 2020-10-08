@@ -324,7 +324,7 @@ class TestQueue(unittest.TestCase):
         bot = setup_test_bot(self)
 
         bot_handle_text_command(bot, update, context, '/new_queue')
-        self.assertListEqual(bot.get_queue().students, [])
+        self.assertIsNone(bot.get_queue())
 
         bot_handle_text_command(bot, update, context, text)
         self.assertListEqual(bot.get_queue().students, queue_students)

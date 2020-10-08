@@ -52,7 +52,7 @@ class StudentsQueue(Savable):
 
             cur_stud, next_stud = self.get_cur_and_next()
             if cur_stud is None:
-                return self.main_bot.language_pack.queue_finished
+                return self.main_bot.language_pack.queue_finished_select_other
             else:
                 cur_stud = cur_stud.str(self.queue_pos + 1)
 
@@ -75,7 +75,7 @@ class StudentsQueue(Savable):
                                                                    next=next_stud,
                                                                    other=other_studs)
         else:
-            return self.main_bot.language_pack.queue_finished
+            return self.main_bot.language_pack.queue_finished_select_other
 
     def str_simple(self):
         queue_name = (self.name + '\n\n') if self.name != '' else ''
@@ -243,7 +243,7 @@ class StudentsQueue(Savable):
         if next_stud is not None:
             msg += '\nГотовится - {0}'.format(next_stud.str())
 
-        return msg if msg != '' else self.main_bot.language_pack.queue_finished
+        return msg if msg != '' else self.main_bot.language_pack.queue_finished_select_other
 
     def get_students_keyboard(self, command):
         return self.main_bot.keyboards.generate_keyboard(

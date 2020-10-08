@@ -1,7 +1,9 @@
 #  class relies on unique names, and is not suitable for multiple chats
+from pathlib import Path
+
+from queue_bot.object_file_saver import FolderType
 from queue_bot.savable_interface import Savable
 from queue_bot import bot_keyboards, bot_parsers as parsers
-
 from queue_bot.students_queue import StudentsQueue
 
 
@@ -10,6 +12,7 @@ class QueuesManager(Savable):
     queues_count_limit = 10
     queues = {}
     selected_queue = None
+    file_selected_name = FolderType.QueuesData.value / Path('selected_name.data')
 
     def __init__(self, main_bot, queues: list = None):
         if queues is None:
@@ -29,13 +32,6 @@ class QueuesManager(Savable):
             self.selected_queue = self.queues[name]
             return True
         return False
-
-    def set_default_queue(self):
-        if self.main_bot.language_pack.default_queue_name in self.queues:
-            self.selected_queue = self.get_queue_by_name(self.main_bot.language_pack.default_queue_name)
-        else:
-            self.selected_queue = StudentsQueue(self.main_bot, self.main_bot.language_pack.default_queue_name)
-            self.queues[self.selected_queue.name] = self.selected_queue
 
     def rename_queue(self, prev_name, new_name):
         if new_name is None:
@@ -90,14 +86,13 @@ class QueuesManager(Savable):
         return None
 
     def get_queue(self) -> StudentsQueue:
-        if self.selected_queue is None:
-            self.set_default_queue()
         return self.selected_queue
 
     def get_queue_str(self):
-        if self.selected_queue is None:
-            self.set_default_queue()
-        return self.selected_queue.str()
+        if self.selected_queue is not None:
+            return self.selected_queue.str()
+        else:
+            return self.main_bot.language_pack.queue_finished_select_other
 
     def queue_empty(self):
         if self.selected_queue is None:
@@ -124,10 +119,12 @@ class QueuesManager(Savable):
         queues_files = []
         for queue in self.queues.values():
             queues_files.extend(queue.get_save_files())
-        return queues_files
+        return queues_files + [self.file_selected_name]
 
     def save_current_to_file(self):
         self.selected_queue.save_to_file(self.main_bot.object_saver)
+        if self.selected_queue is not None:
+            self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
 
     def delete_queue_file(self, name):
         for file in self.selected_queue.get_save_files():
@@ -136,6 +133,8 @@ class QueuesManager(Savable):
     def save_to_file(self, saver):
         for queue in self.queues.values():
             queue.save_to_file(saver)
+        if self.selected_queue is not None:
+            self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
 
     def load_file(self, saver):
         # we scan save folder to find all required files
@@ -152,3 +151,7 @@ class QueuesManager(Savable):
             queue.load_file(saver)
             self.queues[queue.name] = queue
 
+        selected_name = saver.load(self.file_selected_name)
+        if selected_name is not None:
+            if selected_name in self.queues:
+                self.selected_queue = self.queues[selected_name]

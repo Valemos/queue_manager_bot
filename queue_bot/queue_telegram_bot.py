@@ -127,8 +127,14 @@ class QueueBot:
     def request_del(self):
         self.command_requested_answer = None
 
+    def check_queue_selected(self):
+        return self.queues_manager.get_queue() is not None
+
     def get_queue(self) -> StudentsQueue:
         return self.queues_manager.get_queue()
+
+    def get_queue_log(self):
+        return '\"not selected\"'
 
     def handle_command_selected(self, update, context):
         for entity in update.message.entities:

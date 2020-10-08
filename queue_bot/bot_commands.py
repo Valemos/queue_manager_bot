@@ -9,10 +9,13 @@ import queue_bot.languages.command_descriptions_rus as commands_descriptions
 
 
 def log_bot_queue(update, bot, message, *args):
-    bot.logger.log(' {0} by {1}: '.format(
-                       str(bot.get_queue()),
-                       bot.registered_manager.get_user_by_update(update)) +
-                   message.format(*args))
+    if bot.check_queue_selected():
+        bot.logger.log(' {0} by {1}: '.format(
+                           str(bot.get_queue()),
+                           bot.registered_manager.get_user_by_update(update)) +
+                       message.format(*args))
+    else:
+        log_bot_user(update, bot, message, *args)
 
 
 def log_bot_user(update, bot, message, *args):
@@ -234,34 +237,24 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
-            update.effective_chat.send_message(bot.get_queue().str_simple())
-            log_bot_queue(update, bot, 'showed list')
-
+            if bot.check_queue_selected():
+                update.effective_chat.send_message(bot.get_queue().str_simple())
+                log_bot_queue(update, bot, 'showed list')
+            else:
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                log_bot_queue(update, bot, 'queue not exists')
 
     class ShowQueueForCopy(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         @classmethod
         def handle_request(cls, update, bot):
-            update.effective_chat.send_message(bot.get_queue().get_str_for_copy())
-            update.effective_chat.send_message(bot.language_pack.copy_queue)
-            log_bot_queue(update, bot, 'showed list for copy')
-
-
-    class SetStudents(CommandGroup.Command):
-
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            update.effective_chat.send_message(bot.language_pack.enter_students_list)
-            bot.request_set(cls)
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            CreateQueue.CreateSimple.handle_request(update, bot)
-            log_bot_queue(update, bot, 'set students for {0} by {1}'.format(str(bot.get_queue()),
-                                                                            bot.registered_manager.get_user_by_update(update)))
+            if bot.check_queue_selected():
+                update.effective_chat.send_message(bot.get_queue().get_str_for_copy())
+                update.effective_chat.send_message(bot.language_pack.copy_queue)
+                log_bot_queue(update, bot, 'showed list for copy')
+            else:
+                update.effective_chat.send_messager(bot.language_pack.queue_finished_select_other)
 
 
     class SetQueuePosition(CommandGroup.Command):
@@ -276,6 +269,11 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                bot.request_del()
+                return
+
             try:
                 new_index = int(update.message.text)
                 assert 0 < new_index <= len(bot.get_queue())
@@ -308,6 +306,10 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             cls.move_student = None
             keyboard = bot.get_queue().get_students_keyboard(cls)
             update.effective_chat.send_message(bot.language_pack.select_student, reply_markup=keyboard)
@@ -325,8 +327,12 @@ class ModifyCurrentQueue(CommandGroup):
             if cls.move_student is None:
                 update.callback_query.reply()
                 return
-            bot.get_queue().move_to_end(cls.move_student)
 
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
+            bot.get_queue().move_to_end(cls.move_student)
             bot.refresh_last_queue_msg(update)
             update.effective_chat.send_message(bot.language_pack.student_added_to_end.format(cls.move_student.str()))
             bot.request_del()
@@ -339,11 +345,19 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             keyboard = bot.get_queue().get_students_keyboard(cls)
             update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
 
         @classmethod
         def handle_keyboard(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             cls.handle_request(update, bot)
 
             # after student deleted, message updates
@@ -371,6 +385,10 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             cls.student = None
             cls.new_position = -1
             keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
@@ -384,6 +402,10 @@ class ModifyCurrentQueue(CommandGroup):
                 cls.student = student
                 update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
             elif cls.new_position == -1:
+                if not bot.check_queue_selected():
+                    update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                    return
+
                 student = cls.get_arguments(update.callback_query.data)
                 position = bot.get_queue().get_student_position(student)
                 if position is not None:
@@ -408,6 +430,10 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             update.effective_chat.send_message(bot.queues_manager.get_queue_str())
             update.effective_chat.send_message(bot.language_pack.send_student_name_to_end)
             bot.request_set(cls)
@@ -434,6 +460,10 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             student = bot.registered_manager.get_user_by_update(update)
             bot.get_queue().append_to_queue(student)
 
@@ -450,6 +480,10 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             student = bot.registered_manager.get_user_by_update(update)
             if student in bot.get_queue():
                 bot.get_queue().remove_student(student)
@@ -469,6 +503,10 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             student_finished = bot.registered_manager.get_user_by_update(update)
 
             if student_finished == bot.get_queue().get_current():  # finished user currently first
@@ -493,6 +531,10 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             cls.first_student = None
             cls.second_student = None
             keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
@@ -502,6 +544,10 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_keyboard(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             student_str = cls.get_arguments(update.callback_query.data)
             student = parsers.parse_student(student_str)
             if cls.first_student is None:
@@ -579,6 +625,11 @@ class ManageQueues(CommandGroup):
             queue_name = CommandGroup.Command.get_arguments(update.callback_query.data)
             if queue_name is not None:
                 if bot.queues_manager.set_current_queue(queue_name):
+                    if not bot.check_queue_selected():
+                        update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                        log_bot_user(update, bot, 'queue was selected by name, but it is not found')
+                        return
+
                     update.effective_chat.send_message(bot.language_pack.queue_set_format.format(bot.get_queue().name))
                     bot.refresh_last_queue_msg(update)
                 else:
@@ -898,6 +949,10 @@ class ModifyRegistered(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             cls.edited_user = None
             keyboard = bot.get_queue().get_students_keyboard(cls)
             update.effective_chat.send_message(bot.language_pack.select_student, reply_markup=keyboard)
@@ -978,12 +1033,20 @@ class UpdateQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             bot.cur_students_message.resend(bot.get_queue().get_cur_and_next_str(), update.effective_chat)
 
 
     class MovePrevious(CommandGroup.Command):
         @classmethod
         def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             if bot.get_queue().move_prev():
                 bot.send_cur_and_next(update)
                 bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
@@ -993,6 +1056,10 @@ class UpdateQueue(CommandGroup):
     class MoveNext(CommandGroup.Command):
         @classmethod
         def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
             if bot.get_queue().move_next():
                 bot.send_cur_and_next(update)
                 bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)

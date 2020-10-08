@@ -20,7 +20,6 @@ modify_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton(kb_names.add_student, callback_data=commands.ModifyCurrentQueue.AddStudent.query())],
     [InlineKeyboardButton(kb_names.set_queue_position, callback_data=commands.ModifyCurrentQueue.SetQueuePosition.query())],
     [InlineKeyboardButton(kb_names.show_queue_for_copy, callback_data=commands.ModifyCurrentQueue.ShowQueueForCopy.query())],
-    [InlineKeyboardButton(kb_names.set_new_queue, callback_data=commands.ModifyCurrentQueue.SetStudents.query())],
     [InlineKeyboardButton(kb_names.clear_queue, callback_data=commands.ModifyCurrentQueue.ClearList.query())]
 ])
 
