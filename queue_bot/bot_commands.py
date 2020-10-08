@@ -56,6 +56,11 @@ class CommandGroup:
 
         @classmethod
         def get_command_by_name(cls, command_string):
+            for i in range(len(command_string)):
+                if command_string[i] == '@':
+                    command_string = command_string[:i]
+                    break
+
             if command_string in _name_command:
                 return _name_command[command_string]
             else:

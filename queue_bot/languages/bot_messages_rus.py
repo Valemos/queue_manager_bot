@@ -15,7 +15,7 @@ queue_format = '''{name}Сдает:
 чтобы попасть в конец очереди
 /add_me'''
 
-unknown_command = 'Неизвестная комманда'
+unknown_command = 'Неизвестная команда'
 
 queue_simple_format = '{name}:\n{students}'
 default_queue_name = 'Без_имени'

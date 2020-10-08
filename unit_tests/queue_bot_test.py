@@ -330,7 +330,6 @@ class TestQueue(unittest.TestCase):
         self.assertListEqual(bot.get_queue().students, queue_students)
 
 
-
     @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
     @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
     @mock.patch('queue_bot.queue_telegram_bot.Logger')
@@ -682,6 +681,17 @@ class TestRegisteredManager(unittest.TestCase):
 
 
 class TestBotCommands(unittest.TestCase):
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    def test_command_parse(self, *mocks):
+        bot = setup_test_bot(self)
+        update, context = MagicMock(), MagicMock()
+        tg_set_user(update, 1)
+        bot_handle_text_command(bot, update, context, '/new_queue@QueueBot')
+
 
     @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
     @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
