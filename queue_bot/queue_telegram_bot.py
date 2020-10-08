@@ -1,5 +1,5 @@
 from queue_bot.logger import Logger
-from queue_bot.object_file_saver import ObjectSaver
+from queue_bot.object_file_saver import ObjectSaver, FolderType
 from queue_bot.gdrive_saver import DriveSaver, DriveFolder
 
 import queue_bot.languages.bot_messages_rus as messages_rus
@@ -95,7 +95,7 @@ class QueueBot:
     def load_from_cloud(self):
         self.gdrive_saver.get_files_from_drive(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.get_files_from_drive(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
-        self.gdrive_saver.get_files_from_drive(self.queues_manager.get_save_files(), DriveFolder.Queues)
+        self.gdrive_saver.load_folder_files(DriveFolder.Queues, FolderType.QueuesData)
 
     def load_defaults(self):
         self.load_from_cloud()
