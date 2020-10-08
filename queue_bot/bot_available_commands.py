@@ -11,7 +11,9 @@ user_commands = [
     commands.CollectSubjectChoices.Choose,
     commands.CollectSubjectChoices.RemoveChoice,
     commands.CollectSubjectChoices.ShowCurrentChoices,
-    commands.Help.ForAdmin,
+    commands.CollectSubjectChoices.StartChoose,
+    commands.CollectSubjectChoices.StopChoose,
+    commands.Help.ForAdmin
 ]
 
 

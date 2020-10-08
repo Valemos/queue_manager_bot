@@ -44,6 +44,12 @@ def setup_test_queue(bot, name, students):
     return bot
 
 
+def setup_test_subject_choices(bot: QueueBot):
+    bot.choice_manager.set_choice_group('Name', (1, 15), 2)
+    bot.choice_manager.can_choose = True
+    return bot
+
+
 def setup_bot_and_queue(unit_test):
     bot = setup_test_bot(unit_test)
     queue_students = list(bot.registered_manager.get_users())
@@ -99,6 +105,11 @@ def get_command_entity(start, length):
     entity.offset = start
     entity.length = length
     return entity
+
+
+def bot_handle_message(bot, contents, update, context):
+    tg_write_message(update, contents)
+    bot.handle_message_text(update, context)
 
 
 def bot_request_command_send_msg(bot, command, update, context):
@@ -196,12 +207,8 @@ class TestQueue(unittest.TestCase):
 
         tg_set_user(update, 1)
         bot_request_command_send_msg(bot, commands.CreateQueue.CreateSimple, update, context)
-
-        tg_write_message(update, '0\n1\ntest\n2')
-        bot.handle_message_text(update, context)
-
-        tg_write_message(update, 'Name')
-        bot.handle_message_text(update, context)
+        bot_handle_message(bot, '0\n1\ntest\n2', update, context)
+        bot_handle_message(bot, 'Name', update, context)
 
         self.assertListEqual(bot.queues_manager.get_queue().students,
                              [Student('0', 0), Student('1', 1), Student('test', None), Student('2', 2)])
@@ -273,6 +280,34 @@ class TestQueue(unittest.TestCase):
         bot.handle_message_text(update, context)
         self.assertIn('new_name', bot.queues_manager.queues)
         self.assertNotIn('test', bot.queues_manager.queues)
+
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    def test_swap_users_in_queue(self, *mocks):
+        bot = setup_test_bot(self)
+        bot = setup_test_queue(bot, 'test1', list(bot.registered_manager.get_users()))
+
+        update = MagicMock()
+        c = MagicMock()
+
+        first_user = bot.registered_manager.get_users()[2]
+        second_user = bot.registered_manager.get_users()[4]
+
+        tg_set_user(update, 1)
+        tg_select_command(update, commands.ModifyCurrentQueue.SwapStudents)
+        bot.handle_keyboard_chosen(update, c)  # must only create keyboard
+
+        tg_select_command(update, commands.ModifyCurrentQueue.SwapStudents, str(first_user))
+        bot.handle_keyboard_chosen(update, c)
+        tg_select_command(update, commands.ModifyCurrentQueue.SwapStudents, str(second_user))
+        bot.handle_keyboard_chosen(update, c)
+
+        self.assertCountEqual(bot.get_queue().students, bot.registered_manager.get_users())
+        self.assertEqual(second_user, bot.get_queue().students[2])
+        self.assertEqual(first_user, bot.get_queue().students[4])
 
 
     @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
@@ -794,33 +829,6 @@ class TestBotCommands(unittest.TestCase):
     @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
     @mock.patch('queue_bot.queue_telegram_bot.Logger')
     @mock.patch('queue_bot.queue_telegram_bot.Updater')
-    def test_swap_users_in_queue(self, *mocks):
-        bot = setup_test_bot(self)
-        bot = setup_test_queue(bot, 'test1', list(bot.registered_manager.get_users()))
-
-        update = MagicMock()
-        c = MagicMock()
-
-        first_user = bot.registered_manager.get_users()[2]
-        second_user = bot.registered_manager.get_users()[4]
-
-        tg_set_user(update, 1)
-        tg_select_command(update, commands.ModifyCurrentQueue.SwapStudents)
-        bot.handle_keyboard_chosen(update, c)  # must only create keyboard
-
-        tg_select_command(update, commands.ModifyCurrentQueue.SwapStudents, str(first_user))
-        bot.handle_keyboard_chosen(update, c)
-        tg_select_command(update, commands.ModifyCurrentQueue.SwapStudents, str(second_user))
-        bot.handle_keyboard_chosen(update, c)
-
-        self.assertCountEqual(bot.get_queue().students, bot.registered_manager.get_users())
-        self.assertEqual(second_user, bot.get_queue().students[2])
-        self.assertEqual(first_user, bot.get_queue().students[4])
-
-    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
-    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
-    @mock.patch('queue_bot.queue_telegram_bot.Logger')
-    @mock.patch('queue_bot.queue_telegram_bot.Updater')
     def test_start_bot(self, *mocks):
         bot = setup_test_bot(self)
 
@@ -835,39 +843,6 @@ class TestBotCommands(unittest.TestCase):
         tg_set_user(update, 0, '0')
         bot_request_command_send_msg(bot, commands.General.Start, update, context)
         update.message.reply_text.assert_called_with(bot.language_pack.first_user_added.format('0'))
-
-    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
-    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
-    @mock.patch('queue_bot.queue_telegram_bot.Logger')
-    @mock.patch('queue_bot.queue_telegram_bot.Updater')
-    def test_setup_subjects(self, *mocks):
-        bot = setup_test_bot(self)
-
-        update = MagicMock()
-        context = MagicMock()
-
-        tg_set_user(update, 1)
-        bot_request_command_send_msg(bot, commands.CollectSubjectChoices.CreateNewCollectFile, update, context)
-
-        tg_write_message(update, 'Test')
-        bot.handle_message_text(update, context)
-
-        tg_write_message(update, '1-15')
-        bot.handle_message_text(update, context)
-
-        tg_write_message(update, '3')
-        bot.handle_message_text(update, context)
-
-        self.assertEqual('Test', bot.choice_manager.current_subjects.name)
-        self.assertEqual((1, 15), bot.choice_manager.current_subjects.available_range)
-        self.assertEqual(3, bot.choice_manager.current_subjects.repeat_limit)
-
-    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
-    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
-    @mock.patch('queue_bot.queue_telegram_bot.Logger')
-    @mock.patch('queue_bot.queue_telegram_bot.Updater')
-    def test_get_subjects(self, *mocks):
-        pass
 
 
 class TestDriveSaving(unittest.TestCase):
@@ -916,6 +891,139 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(s3, bot_parsers.parse_student(str3))
         self.assertIsNone(bot_parsers.parse_student(str4))
         self.assertEqual(s5, bot_parsers.parse_student(str5))
+
+
+class TestSubjectChoices(unittest.TestCase):
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
+    def test_setup_subjects(self, *mocks):
+        bot = setup_test_bot(self)
+        update, context = MagicMock(), MagicMock()
+
+        tg_set_user(update, 1)
+        bot_request_command_send_msg(bot, commands.CollectSubjectChoices.CreateNewCollectFile, update, context)
+        bot_handle_message(bot, 'Test', update, context)
+        bot_handle_message(bot, '1-15', update, context)
+        bot_handle_message(bot, '3', update, context)
+
+        self.assertEqual('Test', bot.choice_manager.current_subject.name)
+        self.assertEqual((1, 15), bot.choice_manager.current_subject.available_range)
+        self.assertEqual(3, bot.choice_manager.current_subject.repeat_limit)
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
+    def test_show_empty(self, *mocks):
+        bot = setup_test_bot(self)
+        update, context = MagicMock(), MagicMock()
+
+        bot_request_command_send_msg(bot, commands.CollectSubjectChoices.ShowCurrentChoices, update, context)
+        update.effective_chat.send_message.assert_called_with(bot.language_pack.choices_collection_not_started)
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
+    def test_choose_subjects(self, *mocks):
+        bot = setup_test_bot(self)
+        update, context = MagicMock(), MagicMock()
+        bot = setup_test_subject_choices(bot)
+        bot.choice_manager.can_choose = False
+
+        tg_set_user(update, 1)
+        bot_request_command(bot, commands.CollectSubjectChoices.StartChoose, update, context)
+        self.assertTrue(bot.choice_manager.can_choose)
+
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '1 5 8 7')
+        self.assertListEqual([1, 5, 8, 7], bot.choice_manager.current_subject.student_choices[-1].priority_choices)
+
+        # can add first subjects because limit is 2 students per subject
+        tg_set_user(update, 2)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '1 5 8 7')
+        self.assertEqual(1, bot.choice_manager.current_subject.student_choices[-1].finally_chosen)
+
+        # cannot add first subject, so adds second
+        tg_set_user(update, 3)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '1 5 8 7')
+        self.assertEqual(5, bot.choice_manager.current_subject.student_choices[-1].finally_chosen)
+
+        # choose topic 5 second time
+        tg_set_user(update, 4)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '5')
+
+        # report, that cannot choose any
+        tg_set_user(update, 5)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '1 5')
+        update.message.reply_text.assert_called_with(bot.language_pack.cannot_choose_any_subject)
+        self.assertEqual(4, len(bot.choice_manager.current_subject.student_choices))
+
+        # must choose 6
+        tg_set_user(update, 5)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '1 5 6 10 9')
+        self.assertEqual(6, bot.choice_manager.current_subject.student_choices[-1].finally_chosen)
+
+        tg_set_user(update, 1)
+        bot_request_command(bot, commands.CollectSubjectChoices.StopChoose, update, context)
+        self.assertFalse(bot.choice_manager.can_choose)
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
+    def test_unknown_choose_subjects(self, *mocks):
+        bot = setup_test_bot(self)
+        update, context = MagicMock(), MagicMock()
+        bot = setup_test_subject_choices(bot)
+
+        bot.choice_manager.current_subject.repeat_limit = 1
+
+        tg_set_user(update, 1)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '1 5 8 7')
+        self.assertEqual(1, len(bot.choice_manager.current_subject.student_choices))
+
+        # must not add chosen subjects and current choices is none
+        tg_set_user(update, None, 'Unknown')
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '1 8 6 10')
+        self.assertEqual(Student('Unknown', None), bot.choice_manager.current_subject.student_choices[1].student)
+        self.assertEqual(8, bot.choice_manager.current_subject.student_choices[1].finally_chosen)
+
+
+    @mock.patch('queue_bot.queue_telegram_bot.DriveSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.ObjectSaver')
+    @mock.patch('queue_bot.queue_telegram_bot.Logger')
+    @mock.patch('queue_bot.queue_telegram_bot.Updater')
+    @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
+    def test_remove_subjects(self, *mocks):
+        bot = setup_test_bot(self)
+        update, context = MagicMock(), MagicMock()
+        bot = setup_test_subject_choices(bot)
+
+        tg_set_user(update, 1)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '1 5 8 7')
+
+        tg_set_user(update, 2)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '6 5 11 3')
+
+        tg_set_user(update, 3)
+        bot_request_command(bot, commands.CollectSubjectChoices.Choose, update, context, '6 5 11 3')
+
+        # must not change chosen subjects
+        tg_set_user(update, 2)
+        bot_request_command(bot, commands.CollectSubjectChoices.RemoveChoice, update, context)
+        self.assertEqual(2, len(bot.choice_manager.current_subject.student_choices))
+        self.assertEqual(bot.registered_manager.get_user_by_id(1),
+                         bot.choice_manager.current_subject.student_choices[0].student)
+        self.assertEqual(bot.registered_manager.get_user_by_id(3),
+                         bot.choice_manager.current_subject.student_choices[1].student)
+
 
 
 if __name__ == '__main__':

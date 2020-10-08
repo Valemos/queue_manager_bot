@@ -47,7 +47,6 @@ class ObjectSaver:
             save_path.parent.mkdir(parents=True, exist_ok=True)
             save_path.touch()
             return None
-
         try:
             with save_path.open('rb') as fr:
                 return pickle.load(fr)

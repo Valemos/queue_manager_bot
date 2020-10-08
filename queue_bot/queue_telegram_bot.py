@@ -86,6 +86,7 @@ class QueueBot:
         self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.update_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
 
+
         self.gdrive_saver.clear_drive_folder(DriveFolder.Queues)
         self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
 

@@ -107,8 +107,9 @@ class SubjectChoiceGroup:
         writer.save()
         return self.excel_file
 
+
     def get_save_files(self):
-        return [FolderType.SubjectChoices.value / self.excel_file]
+        return list(FolderType.SubjectChoices.value.glob('**/*'))
 
 
 class SubjectChoiceManager(Savable):
@@ -116,11 +117,11 @@ class SubjectChoiceManager(Savable):
     file_current_subject = FolderType.SubjectChoices.value / Path('current_choice_subject.data')
 
     def __init__(self):
-        self.current_subjects = None
+        self.current_subject = None
         self.can_choose = False
 
     def start_choosing(self):
-        self.can_choose = self.current_subjects is not None
+        self.can_choose = self.current_subject is not None
         return self.can_choose
 
     def stop_choosing(self):
@@ -128,51 +129,49 @@ class SubjectChoiceManager(Savable):
 
     def get_choices_str(self):
         choice_str = []
-        for choice in self.current_subjects.get_students_choices().values():
+        for choice in self.current_subject.get_students_choices().values():
             choice_str.append('{0} - {1}'.format(choice.student.name, choice.finally_chosen))
         return '\n'.join(choice_str), self.get_available_str()
 
     def get_available_str(self):
         available_str = []
-        for subject, count in self.current_subjects.available_subjects.items():
-            if count < self.current_subjects.repeat_limit:
+        for subject, count in self.current_subject.available_subjects.items():
+            if count < self.current_subject.repeat_limit:
                 available_str.append(str(subject))
 
         return ', '.join(available_str)
 
     def get_subject_range(self):
-        return self.current_subjects.available_range
+        return self.current_subject.available_range
 
     def get_priority_limit(self):
-        if self.current_subjects is not None:
-            return self.current_subjects.priority_limit
+        if self.current_subject is not None:
+            return self.current_subject.priority_limit
         return 5
 
     def add_choice(self, student, priority_choices):
-        if self.current_subjects is not None:
+        if self.current_subject is not None:
             if len(priority_choices) > 0:
-                return self.current_subjects.add(Choice(student, priority_choices[: self.get_priority_limit()]))
+                return self.current_subject.add(Choice(student, priority_choices[: self.get_priority_limit()]))
         return None
 
     def remove_choice(self, student_requested):
-        self.current_subjects.remove(Choice(student_requested, []))
+        self.current_subject.remove(Choice(student_requested, []))
 
     def set_choice_group(self, name, value_range, repeat_limit, priority_limit=5):
-        if self.current_subjects is not None:
-            self.current_subjects.save_to_excel()
-        self.current_subjects = SubjectChoiceGroup(name, value_range, priority_limit, repeat_limit)
+        if self.current_subject is not None:
+            self.current_subject.save_to_excel()
+        self.current_subject = SubjectChoiceGroup(name, value_range, priority_limit, repeat_limit)
 
     def save_to_excel(self):
-        return self.current_subjects.save_to_excel()
+        return self.current_subject.save_to_excel()
 
     def save_to_file(self, saver):
-        self.current_subjects.save_to_excel()
-        saver.save(self.current_subjects, self.file_current_subject)
+        self.current_subject.save_to_excel()
+        saver.save(self.current_subject, self.file_current_subject)
 
     def load_file(self, saver):
-        self.current_subjects = saver.load(self.file_current_subject)
-        if self.current_subjects is None:
-            self.current_subjects = []
+        self.current_subject = saver.load(self.file_current_subject)
 
     def get_save_files(self):
         return [self.file_current_subject]

@@ -54,12 +54,14 @@ def parse_names(string):
 
 
 def parce_number_range(text):
-    if '-' in text:
+    result = parse('{0}-{1}', text)
+    if result is not None:
         try:
-            parts = text.split('-')
-            return int(parts[0]), int(parts[1])
+            return int(result[0]), int(result[1])
         except ValueError:
             return None, None
+    else:
+        return None, None
 
 
 def parce_integer(text):

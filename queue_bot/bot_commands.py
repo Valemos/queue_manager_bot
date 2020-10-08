@@ -33,6 +33,9 @@ class CommandGroup:
         description = None
         access_requirement = AccessLevel.USER
 
+        # this field is initialized on import if it was not set already
+        check_chat_private = None
+
         @classmethod
         def __str__(cls):
             return cls.__qualname__
@@ -77,12 +80,11 @@ class CommandGroup:
 
         @classmethod
         def check_access(cls, update, bot):
-            check_chat_private = cls.access_requirement is not AccessLevel.USER
-            if bot.registered_manager.check_access(update, cls.access_requirement, check_chat_private):
+            if bot.registered_manager.check_access(update, cls.access_requirement, cls.check_chat_private):
                 return True
             else:
                 log_bot_user(update, bot, 'tried to get access to {0} command', cls.access_requirement.name)
-                if check_chat_private:
+                if cls.check_chat_private:
                     update.message.reply_text(bot.language_pack.command_for_private_chat)
                 else:
                     update.message.reply_text(bot.language_pack.permission_denied)
@@ -1116,7 +1118,7 @@ class CollectSubjectChoices(CommandGroup):
         @classmethod
         def handle_request(cls, update, bot):
             min_range, max_range = parsers.parce_number_range(update.message.text)
-            if min_range is None:
+            if min_range is None or max_range is None:
                 update.effective_chat.send_message(bot.language_pack.number_range_incorrect)
             else:
                 CollectSubjectChoices.command_parameters['interval'] = (min_range, max_range)
@@ -1190,7 +1192,7 @@ class CollectSubjectChoices(CommandGroup):
                 update.message.reply_text(bot.language_pack.your_choice.format(subject_chosen))
                 log_bot_user(update, bot, 'user chosed subject {0}', subject_chosen)
             else:
-                update.effective_chat.send_message(bot.language_pack.cannot_choose_any_subject)
+                update.message.reply_text(bot.language_pack.cannot_choose_any_subject)
                 log_bot_user(update, bot, 'cannot choose subject')
 
             bot.request_del()
@@ -1214,26 +1216,26 @@ class CollectSubjectChoices(CommandGroup):
 
 
     class StartChoose(CommandGroup.Command):
-        command_name = 'allow_choose'
+        command_name = 'start_choose'
         description = commands_descriptions.allow_choose_descr
         access_requirement = AccessLevel.ADMIN
+        check_chat_private = False
 
         @classmethod
         def handle_request(cls, update, bot):
-            update.effective_chat.send_message(bot.language_pack.send_choice_numbers)
             if not bot.choice_manager.start_choosing():
                 update.effective_chat.send_message(bot.language_pack.set_new_choice_file)
                 log_bot_user(update, bot, 'cannot start choice, must perform setup')
             else:
+                update.effective_chat.send_message(bot.language_pack.send_choice_numbers)
                 log_bot_user(update, bot, 'subject choice started')
-
-            bot.request_set(cls)
 
 
     class StopChoose(CommandGroup.Command):
         command_name = 'stop_choose'
         description = commands_descriptions.stop_choose_descr
         access_requirement = AccessLevel.ADMIN
+        check_chat_private = False
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -1242,7 +1244,7 @@ class CollectSubjectChoices(CommandGroup):
                 log_bot_user(update, bot, 'requested stop while choice not started')
                 return
 
-            bot.choice_manager.current_subjects.save_to_excel()
+            bot.choice_manager.current_subject.save_to_excel()
             bot.choice_manager.stop_choosing()
             update.effective_chat.send_message(bot.language_pack.choices_collection_stopped)
             log_bot_user(update, bot, 'subject choice stopped')
@@ -1254,7 +1256,7 @@ class CollectSubjectChoices(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
-            if bot.choice_manager.current_subjects is not None:
+            if bot.choice_manager.current_subject is not None:
                 choices_str = CollectSubjectChoices.get_choices_available_str(bot)
                 bot.subject_choices_message.resend(choices_str, update.effective_chat)
                 log_bot_user(update, bot, 'requested show choices')
@@ -1288,3 +1290,8 @@ for command_class in CommandGroup.Command.__subclasses__():
     _id_command_dict[str(command_index)] = command_class
     _name_command[command_class.command_name] = command_class
     command_index += 1
+
+    # also for every command we must set if we need to check for private chat
+    if command_class.check_chat_private is None:
+        command_class.check_chat_private = command_class.access_requirement.value < AccessLevel.USER.value
+
