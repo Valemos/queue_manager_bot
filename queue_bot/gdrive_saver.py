@@ -179,6 +179,11 @@ class DriveSaver:
 
             # form path for file
             result_path = names_list[file['name']]
+            # create if not exists
+            if not result_path.parent.exists():
+                result_path.parent.mkdir(parents=True)
+            if not result_path.exists():
+                result_path.touch(exist_ok=True)
 
             # request file from google drive and write to local storage
             request = service.files().get_media(fileId=file['id'])
@@ -188,7 +193,7 @@ class DriveSaver:
                     done = False
                     while done is False:
                         status, done = downloader.next_chunk()
-            except HttpError as err:
+            except HttpError:
                 print('cannot download file \'{0}\' from drive'.format(str(result_path)))
                 continue
 
@@ -340,8 +345,8 @@ class DriveSaver:
 
 if __name__ == '__main__':
     os.chdir(r'D:\coding\Python_codes\Queue_Bot')
-    DriveSaver().show_folder_files(DriveFolder.Queues)
-    # DriveSaver().load_folder_files(DriveFolder.Log, FolderType.Test)
+    # DriveSaver().show_folder_files(DriveFolder.Queues)
+    DriveSaver().load_folder_files(DriveFolder.Log, FolderType.Test)
     # DriveSaver().clear_drive_folder(DriveFolder.Queues)
     if len(sys.argv) == 2:
         if sys.argv[1] == 'clear':

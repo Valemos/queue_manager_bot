@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import datetime
+from datetime import timezone
 import sys
 from queue_bot.object_file_saver import FolderType
 from queue_bot.gdrive_saver import DriveSaver, DriveFolder
@@ -21,7 +22,7 @@ class Logger:
         
     def log(self, text):
         with self.log_file_path.open('a+', encoding='utf-8') as fw:
-            fw.write('{0}: {1}\n'.format(datetime.datetime.now(), text))
+            fw.write('{0}: {1}\n'.format(datetime.datetime.now().isoformat(), text))
             
     def get_logs(self):
         with self.log_file_path.open(encoding='utf-8') as fr:
@@ -32,7 +33,8 @@ class Logger:
         
     def dump_to_file(self, file_name=None):
         if file_name is None:
-            path = self.log_file_path.with_name('log_{0}.txt'.format(datetime.datetime.now().strftime('%d-%m-%y_%H-%M')))    
+            iso_time = datetime.datetime.now().isoformat()
+            path = self.log_file_path.with_name('log_{0}.txt'.format(iso_time.split('.')[0].replace(':', '-')))
         else:
             path = self.log_file_path.with_name(file_name)
 
@@ -44,7 +46,7 @@ class Logger:
 
         os.remove(self.log_file_path)
         return path
-        
+
     def save_to_cloud(self):
         
         new_name = Path('log_{0}.txt'.format(datetime.date.today()))
@@ -54,11 +56,12 @@ class Logger:
 
 
 if __name__ == '__main__':
+    os.chdir(r'D:\coding\Python_codes\Queue_Bot')
+    Logger().dump_to_file()
     if len(sys.argv) == 2:
         if sys.argv[1] == 'cloud':
             Logger().save_to_cloud()
         elif sys.argv[1] == 'dump':
-            lg = Logger()
-            lg.dump_to_file()
+            Logger().dump_to_file()
         else:
             Logger().log(sys.argv[1])
