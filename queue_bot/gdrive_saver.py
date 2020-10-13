@@ -283,7 +283,6 @@ class DriveSaver:
         c = 1  # counter of files
         for file in existing_files:
             if folder_id in file['parents']:
-                print('{0}. {1}'.format(c, file))
                 path_list.append(output_folder.value / file['name'])
                 c += 1
 

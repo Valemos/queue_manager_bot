@@ -1030,6 +1030,15 @@ class UpdateQueue(CommandGroup):
             log_bot_user(update, bot, ' in {0} chat requested queue', update.effective_chat.type)
 
 
+    class Refresh(CommandGroup.Command):
+        @classmethod
+        def handle_request(cls, update, bot):
+            if not bot.last_queue_message.message_exists(update.effective_chat):
+                update.effective_message.delete()
+            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            log_bot_user(update, bot, 'refreshed queue')
+
+
     class ShowCurrentAndNextStudent(CommandGroup.Command):
         command_name = 'current_and_next'
         description = commands_descriptions.current_and_next_descr
@@ -1045,37 +1054,32 @@ class UpdateQueue(CommandGroup):
 
     class MovePrevious(CommandGroup.Command):
         @classmethod
-        def handle_reply(cls, update, bot):
+        def handle_request(cls, update, bot):
             if not bot.check_queue_selected():
                 update.effective_chat.send_message(bot.language_pack.queue_not_selected)
                 return
 
             if bot.get_queue().move_prev():
-                bot.send_cur_and_next(update)
-                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+                UpdateQueue.ShowCurrentAndNextStudent.handle_request(update, bot)
                 log_bot_user(update, bot, 'moved previous')
+                UpdateQueue.Refresh.handle_request(update, bot)
+
+            update.callback_query.reply()
 
 
     class MoveNext(CommandGroup.Command):
         @classmethod
-        def handle_reply(cls, update, bot):
+        def handle_request(cls, update, bot):
             if not bot.check_queue_selected():
                 update.effective_chat.send_message(bot.language_pack.queue_not_selected)
                 return
 
             if bot.get_queue().move_next():
-                bot.send_cur_and_next(update)
-                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+                UpdateQueue.ShowCurrentAndNextStudent.handle_request(update, bot)
                 log_bot_user(update, bot, 'moved queue')
+                UpdateQueue.Refresh.handle_request(update, bot)
+            update.callback_query.reply()
 
-
-    class Refresh(CommandGroup.Command):
-        @classmethod
-        def handle_reply(cls, update, bot):
-            if not bot.last_queue_message.message_exists(update.effective_chat):
-                update.effective_message.delete()
-            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
-            log_bot_user(update, bot, 'refreshed queue')
 
 
 class ManageAccessRights(CommandGroup):

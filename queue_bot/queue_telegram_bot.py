@@ -56,7 +56,7 @@ class QueueBot:
 
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message_text))
         self.updater.dispatcher.add_handler(CallbackQueryHandler(self.handle_keyboard_chosen))
-        # self.updater.dispatcher.add_error_handler(self.handle_error)
+        self.updater.dispatcher.add_error_handler(self.handle_error)
 
     def refresh_last_queue_msg(self, update):
         if not self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat):

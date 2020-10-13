@@ -48,9 +48,7 @@ class Logger:
         return path
 
     def save_to_cloud(self):
-        
         new_name = Path('log_{0}.txt'.format(datetime.date.today()))
-        
         path = self.dump_to_file(new_name)
         self.drive_saver.save(path, DriveFolder.Log)
 
