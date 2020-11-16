@@ -44,13 +44,10 @@ class Logger:
         with self.log_file_path.open(encoding='utf-8') as fr, path.open('w', encoding='utf-8') as fw:
             fw.write(fr.read())
 
-        os.remove(self.log_file_path)
         return path
 
     def save_to_cloud(self):
-        new_name = Path('log_{0}.txt'.format(datetime.date.today()))
-        path = self.dump_to_file(new_name)
-        self.drive_saver.save(path, DriveFolder.Log)
+        self.drive_saver.save(self.log_file_path, DriveFolder.Log)
 
 
 if __name__ == '__main__':

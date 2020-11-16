@@ -43,6 +43,10 @@ help_subject_choice = InlineKeyboardMarkup([
 set_default_queue_name = InlineKeyboardMarkup([
     [InlineKeyboardButton(kb_names.set_default_name, callback_data=commands.CreateQueue.DefaultQueueName.query())]])
 
+set_empty_queue = InlineKeyboardMarkup([
+    [InlineKeyboardButton(kb_names.set_no_students, callback_data=commands.CreateQueue.SetEmptyStudents.query())]
+])
+
 
 def generate_keyboard(command, names, arguments=None):
     if arguments is None:

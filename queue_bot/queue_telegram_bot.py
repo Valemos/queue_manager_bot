@@ -15,6 +15,7 @@ import queue_bot.bot_available_commands
 
 import atexit
 import os
+import threading
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import MessageEntity
@@ -33,7 +34,7 @@ class QueueBot:
     def __init__(self, bot_token=None):
         self.logger = Logger()
         self.object_saver = ObjectSaver(logger=self.logger)
-        self.gdrive_saver = DriveSaver()
+        self.gdrive_saver = DriveSaver(logger=self.logger)
 
         # this bot object passed for access to both classes inside one another
         self.registered_manager = StudentsRegisteredManager(self)
@@ -48,7 +49,7 @@ class QueueBot:
         self.updater = Updater(bot_token, use_context=True)
         self.init_updater_commands()
 
-        atexit.register(self.save_before_stop)
+        atexit.register(self.stop_function)
 
     def init_updater_commands(self):
         for command in self.available_commands.all_commands:
@@ -68,11 +69,17 @@ class QueueBot:
         self.updater.start_polling()
         self.updater.idle()
 
-    def save_before_stop(self):
-        # clear queue, if it was fully completed
-        self.queues_manager.clear_finished_queues()
-        self.queues_manager.save_to_file(self.object_saver)
-        self.save_to_cloud()
+    def stop(self):
+        threading.Thread(target=self.stop_function).start()
+
+    def stop_function(self):
+        if self.updater.is_idle:
+            self.queues_manager.clear_finished_queues()
+            self.queues_manager.save_to_file(self.object_saver)
+            self.save_to_cloud()
+
+            self.updater.stop()
+            self.updater.is_idle = False
 
     def save_queue_to_file(self):
         self.queues_manager.save_current_to_file()
@@ -86,7 +93,7 @@ class QueueBot:
         self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.update_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
 
-        self.gdrive_saver.clear_drive_folder(DriveFolder.Queues)
+        # self.gdrive_saver.clear_drive_folder(DriveFolder.Queues)
         self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
 
         self.logger.log('saved to cloud')

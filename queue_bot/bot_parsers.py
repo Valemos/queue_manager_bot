@@ -1,5 +1,5 @@
 from queue_bot.student import Student
-from parse import parse
+from parse import parse, search
 
 from queue_bot.students_queue import StudentsQueue
 
@@ -98,7 +98,13 @@ def parse_queue_message(message_text):
         # trim command if present
         if message_text.startswith('/new_queue'):
             message_text = message_text[len('/new_queue') + 1:]
-        return None, parse_names(message_text)
+            return None, parse_names(message_text)
+        else:
+            return None, None
+
+
+def check_queue_single_command(message_text):
+    return parse(StudentsQueue.copy_queue_format, message_text) is not None
 
 
 def parse_valid_queue_names(all_names):

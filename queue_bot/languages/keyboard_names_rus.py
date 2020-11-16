@@ -21,3 +21,4 @@ rename_all_users = 'Переименовать всех пользователе
 how_to_select_subject = 'Как выбрать тему?'
 set_default_name = 'Оставить пустое имя'
 no_name = '*нет имени*'
+set_no_students = 'Оставить без студентов'

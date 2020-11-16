@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from queue_bot.object_file_saver import FolderType
+from queue_bot.gdrive_saver import DriveFolder
 from queue_bot.savable_interface import Savable
 from queue_bot import bot_keyboards, bot_parsers as parsers
 from queue_bot.students_queue import StudentsQueue
@@ -127,7 +128,9 @@ class QueuesManager(Savable):
             self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
 
     def delete_queue_file(self, name):
-        for file in self.selected_queue.get_save_files():
+        files = self.selected_queue.get_save_files()
+        self.main_bot.gdrive_saver.delete_from_folder(files, DriveFolder.Queues)
+        for file in files:
             self.main_bot.object_saver.delete(file)
 
     def save_to_file(self, saver):

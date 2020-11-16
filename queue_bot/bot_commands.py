@@ -173,6 +173,7 @@ class General(CommandGroup):
             update.effective_message.delete()
             bot.request_del()
 
+
     class Start(CommandGroup.Command):
         command_name = 'start'
         description = commands_descriptions.start_descr
@@ -203,8 +204,7 @@ class General(CommandGroup):
         @classmethod
         def handle_reply(cls, update, bot):
             update.message.reply_text(bot.language_pack.bot_stopped)
-            bot.save_before_stop()
-            exit(0)
+            bot.stop()
 
 
     class ShowLogs(CommandGroup.Command):
@@ -247,6 +247,7 @@ class ModifyCurrentQueue(CommandGroup):
                 update.effective_chat.send_message(bot.language_pack.queue_not_selected)
                 log_bot_queue(update, bot, 'queue not exists')
 
+
     class ShowQueueForCopy(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
@@ -257,7 +258,7 @@ class ModifyCurrentQueue(CommandGroup):
                 update.effective_chat.send_message(bot.language_pack.copy_queue)
                 log_bot_queue(update, bot, 'showed list for copy')
             else:
-                update.effective_chat.send_messager(bot.language_pack.queue_finished_select_other)
+                update.effective_chat.send_message(bot.language_pack.queue_finished_select_other)
 
 
     class SetQueuePosition(CommandGroup.Command):
@@ -616,7 +617,8 @@ class ManageQueues(CommandGroup):
     class SelectOtherQueue(CommandGroup.Command):
         command_name = 'select_queue'
         description = commands_descriptions.select_queue_descr
-        access_requirement = AccessLevel.ADMIN
+        access_requirement = AccessLevel.USER
+        check_chat_private = False
 
         @classmethod
         def handle_reply(cls, update, bot):
@@ -640,6 +642,7 @@ class ManageQueues(CommandGroup):
             else:
                 log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data, cls.__qualname__)
             update.callback_query.answer()
+            update.effective_message.delete()
 
 
     class RenameQueue(CommandGroup.Command):
@@ -707,11 +710,11 @@ class CreateQueue(CommandGroup):
     def handle_queue_create_message(cmd, update, bot, generate_function):
         # simple command runs chain of callbacks
         if bot.queues_manager.can_add_queue():
-            if update.message.text == ('/' + cmd.command_name):
+            if parsers.check_queue_single_command(update.message.text):
+                CreateQueue.handle_queue_create_single_command(update, bot, generate_function)
+            else:
                 CreateQueue.queue_generate_function = generate_function
                 CreateQueue.SelectStudentList.handle_reply(update, bot)
-            else:
-                CreateQueue.handle_queue_create_single_command(update, bot, generate_function)
         else:
             update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
 
@@ -767,13 +770,23 @@ class CreateQueue(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
-            update.effective_chat.send_message(bot.language_pack.enter_students_list)
+            update.effective_chat.send_message(bot.language_pack.enter_students_list,
+                                               reply_markup=bot.keyboards.set_empty_queue)
             bot.request_set(cls)
 
         @classmethod
         def handle_request(cls, update, bot):
             names = parsers.parse_names(update.message.text)
             CreateQueue.new_queue_students = bot.registered_manager.get_registered_students(names)
+            CreateQueue.AddNameToQueue.handle_reply(update, bot)
+
+
+    class SetEmptyStudents(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            CreateQueue.new_queue_students = []
             CreateQueue.AddNameToQueue.handle_reply(update, bot)
 
 
@@ -836,6 +849,7 @@ class CreateQueue(CommandGroup):
             else:
                 log_bot_user(update, bot, 'Fatal error: cannot finish queue creation')
             bot.request_del()
+
 
     class CreateRandomFromRegistered(CommandGroup.Command):
 
@@ -1079,7 +1093,6 @@ class UpdateQueue(CommandGroup):
                 log_bot_user(update, bot, 'moved queue')
                 UpdateQueue.Refresh.handle_request(update, bot)
             update.callback_query.reply()
-
 
 
 class ManageAccessRights(CommandGroup):

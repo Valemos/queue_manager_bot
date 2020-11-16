@@ -21,7 +21,9 @@ class DriveFolder(enum.Enum):
 
 class DriveSaver:
 
-    def __init__(self):
+    def __init__(self, logger=None):
+        self.logger = logger
+
         self._SCOPES = ['https://www.googleapis.com/auth/drive']
         self._SERVICE_ACCOUNT_FILE = Path(r'D:\coding\Python_codes\Queue_Bot\drive_data\queue-bot-key.json')
         self.work_email = 'programworkerbox@gmail.com'
@@ -48,6 +50,7 @@ class DriveSaver:
     def init_service(self):
         if self._credentials is None:
             print('credentials empty')
+            self.logger.log('credentials empty')
             return None
 
         try:
@@ -55,6 +58,7 @@ class DriveSaver:
         except Exception as err:
             print(err)
             print('service not initialized')
+            self.logger.log(err)
             return None
 
     def init_drive_folder(self, drive_folder):
@@ -83,6 +87,7 @@ class DriveSaver:
                                                'emailAddress': self.work_email}).execute()
         except Exception as err:
             print(err)
+            self.logger.log(err)
             return None
 
         return cloud_folder['id']
@@ -94,15 +99,15 @@ class DriveSaver:
             return False
         folder_id = self.init_drive_folder(folder)
         file_metadata = DriveSaver.get_file_metadata(file_path.name, folder_id)
-        return DriveSaver.upload_to_drive(file_path, file_metadata, service)
+        return self.upload_to_drive(file_path, file_metadata, service)
 
-    @staticmethod
-    def upload_to_drive(file_path, file_metadata, service):
+    def upload_to_drive(self, file_path, file_metadata, service):
         try:
             upload_file = MediaFileUpload(file_path, mimetype='application/octet-stream')
             service.files().create(body=file_metadata, media_body=upload_file, fields='id').execute()
         except Exception as err:
             print(err)
+            self.logger.log(err)
             return False
         return True
 
@@ -133,7 +138,7 @@ class DriveSaver:
         parent_folder = self.init_drive_folder(parent_folder)
         for path in paths_dict.values():
             file_metadata = DriveSaver.get_file_metadata(path.name, parent_folder)
-            DriveSaver.upload_to_drive(path, file_metadata, service)
+            self.upload_to_drive(path, file_metadata, service)
         return True
 
     @staticmethod
@@ -194,14 +199,18 @@ class DriveSaver:
                     while done is False:
                         status, done = downloader.next_chunk()
             except HttpError:
-                print('cannot download file \'{0}\' from drive'.format(str(result_path)))
+                string = 'cannot download file \'{0}\' from drive'.format(str(result_path))
+                print(string)
+                self.logger.log(string)
                 continue
 
         return True
 
-    def clear_drive_folder(self, folder: DriveFolder, exceptions=None):
+    def delete_all_in_folder(self, folder: DriveFolder, exceptions=None):
         if exceptions is None:
             exceptions = []
+        else:
+            exceptions = [exc.name for exc in exceptions]
 
         service = self.init_service()
         if service is None:
@@ -220,7 +229,32 @@ class DriveSaver:
 
             if file['mimeType'] != 'application/vnd.google-apps.folder':
                 service.files().delete(fileId=file['id']).execute()
-                print('deleted ', file['name'])
+                string = 'deleted ' + file['name']
+                print(string)
+                self.logger.log(string)
+
+        return True
+
+    def delete_from_folder(self, files: list, folder: DriveFolder):
+        service = self.init_service()
+        if service is None:
+            return False
+
+        existing_files = DriveSaver.get_existing_files(service, 'id,name,parents,mimeType')
+        file_names = [file.name for file in files]
+
+        folder_id = self.init_drive_folder(folder)
+        for file in existing_files:
+            if file['name'] in file_names:
+                if 'parents' in file:
+                    if folder_id not in file['parents']:
+                        continue
+
+                if file['mimeType'] != 'application/vnd.google-apps.folder':
+                    service.files().delete(fileId=file['id']).execute()
+                    string = 'deleted ' + file['name']
+                    print(string)
+                    self.logger.log(string)
 
         return True
 
@@ -235,9 +269,13 @@ class DriveSaver:
         for file in existing_files:
             try:
                 result = service.files().delete(fileId=file['id']).execute()
-                print('deleted {0}'.format(file['name']))
+                string = 'deleted {0}'.format(file['name'])
+                print(string)
+                self.logger.log(string)
             except HttpError as err:
-                print(err.content)
+                string = err.content
+                print(string)
+                self.logger.log(string)
 
     def update_all_permissions(self):
 
@@ -254,6 +292,7 @@ class DriveSaver:
                                                    'emailAddress': self.work_email}).execute()
             except HttpError as err:
                 print(err.content)
+                self.logger.log(err.content)
 
     def show_folder_files(self, folder: DriveFolder):
         folder_id = self.init_drive_folder(folder)
@@ -288,8 +327,7 @@ class DriveSaver:
 
         return self.download_drive_files(folder_id, path_list)
 
-    @staticmethod
-    def save_folder_id(drive_folder, folder_id):
+    def save_folder_id(self, drive_folder, folder_id):
         file = FolderType.DataDriveFolders.value / drive_folder.value
         if not file.exists():
             file.parent.mkdir(parents=True, exist_ok=True)
@@ -299,10 +337,11 @@ class DriveSaver:
             with file.open('w', encoding='utf-8') as fout:
                 fout.write(folder_id)
         except Exception:
-            print('failed to load id from \"{}\"'.format(file))
+            string = 'failed to load id from \"{}\"'.format(file)
+            print(string)
+            self.logger.log(string)
 
-    @staticmethod
-    def load_folder_id(drive_folder: DriveFolder):
+    def load_folder_id(self, drive_folder: DriveFolder):
         if drive_folder is None:
             return None
 
@@ -313,7 +352,9 @@ class DriveSaver:
                 with file.open('r', encoding='utf-8') as fr:
                     cloud_id = fr.read()
             except Exception:
-                print('failed to load id from \"{0}\"'.format(file))
+                string = 'failed to load id from \"{}\"'.format(file)
+                print(string)
+                self.logger.log(string)
 
         return cloud_id
 
