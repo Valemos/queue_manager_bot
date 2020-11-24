@@ -868,7 +868,7 @@ class TestParsers(unittest.TestCase):
     @mock.patch('queue_bot.queue_telegram_bot.Updater')
     def test_queue_file_names_parse(self, *mocks):
         from queue_bot.bot_parsers import parse_valid_queue_names
-        from queue_bot.multiple_queues import QueuesManager
+        from queue_bot.queues_manager import QueuesManager
 
         bot = MagicMock()
 

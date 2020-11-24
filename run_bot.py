@@ -1,5 +1,6 @@
-from queue_bot.queue_telegram_bot import QueueBot
 import sys
+
+from queue_bot.queue_telegram_bot import QueueBot
 
 if len(sys.argv) > 1:
     my_bot = QueueBot(sys.argv[1])

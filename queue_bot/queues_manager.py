@@ -119,6 +119,7 @@ class QueuesManager(Savable):
     def get_save_files(self):
         queues_files = []
         for queue in self.queues.values():
+            queue.save_to_file(self.main_bot.object_saver)
             queues_files.extend(queue.get_save_files())
         return queues_files + [self.file_selected_name]
 

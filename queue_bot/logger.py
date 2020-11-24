@@ -30,11 +30,11 @@ class Logger:
             
     def delete_logs(self):
         self.log_file_path.open('w').close()
-        
+
     def dump_to_file(self, file_name=None):
         if file_name is None:
-            iso_time = datetime.datetime.now().isoformat()
-            path = self.log_file_path.with_name('log_{0}.txt'.format(iso_time.split('.')[0].replace(':', '-')))
+            iso_time = datetime.datetime.now().strftime("%d-%b-%Y__%H-%M-%S")
+            path = self.log_file_path.with_name(f"log_{iso_time}.txt")
         else:
             path = self.log_file_path.with_name(file_name)
 

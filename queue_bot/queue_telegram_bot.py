@@ -1,3 +1,8 @@
+import signal
+import sys
+import os
+import threading
+
 from queue_bot.logger import Logger
 from queue_bot.object_file_saver import ObjectSaver, FolderType
 from queue_bot.gdrive_saver import DriveSaver, DriveFolder
@@ -7,15 +12,11 @@ import queue_bot.bot_keyboards
 import queue_bot.bot_command_handler as command_handler
 
 from queue_bot.registered_manager import StudentsRegisteredManager
-from queue_bot.multiple_queues import QueuesManager
+from queue_bot.queues_manager import QueuesManager
 from queue_bot.students_queue import StudentsQueue
 from queue_bot.updatable_message import UpdatableMessage
 from queue_bot.subject_choice_manager import SubjectChoiceManager
 import queue_bot.bot_available_commands
-
-import atexit
-import os
-import threading
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import MessageEntity
@@ -46,10 +47,8 @@ class QueueBot:
         if bot_token is None:
             bot_token = self.get_token()
 
-        self.updater = Updater(bot_token, use_context=True)
+        self.updater = Updater(bot_token, use_context=True, user_sig_handler=self.handler_signal)
         self.init_updater_commands()
-
-        atexit.register(self.stop_function)
 
     def init_updater_commands(self):
         for command in self.available_commands.all_commands:
@@ -70,16 +69,20 @@ class QueueBot:
         self.updater.idle()
 
     def stop(self):
-        threading.Thread(target=self.stop_function).start()
+        exit_thread = threading.Thread(target=self.handler_stop)
+        exit_thread.start()
+        exit_thread.join()
 
-    def stop_function(self):
-        if self.updater.is_idle:
-            self.queues_manager.clear_finished_queues()
-            self.queues_manager.save_to_file(self.object_saver)
-            self.save_to_cloud()
+    def handler_stop(self):
+        self.queues_manager.clear_finished_queues()
+        self.queues_manager.save_to_file(self.object_saver)
+        self.save_to_cloud()
+        self.updater.stop()
 
-            self.updater.stop()
-            self.updater.is_idle = False
+    def handler_signal(self, signum, frame):
+        print('handling signal ', signum)
+        if signum in (signal.SIGTERM, signal.SIGINT):
+            self.handler_stop()
 
     def save_queue_to_file(self):
         self.queues_manager.save_current_to_file()
@@ -87,24 +90,29 @@ class QueueBot:
     # paths inside .get_save_files() must match
     # with paths in load_from_cloud by folders to load correctly
     def save_to_cloud(self):
-        dump_path = self.logger.dump_to_file()
-        self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)
 
         self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.update_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
 
-        # self.gdrive_saver.clear_drive_folder(DriveFolder.Queues)
         self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
 
-        self.logger.log('saved to cloud')
+        all_files = [
+            file.name for file in (self.registered_manager.get_save_files()
+                                   + self.choice_manager.get_save_files()
+                                   + self.queues_manager.get_save_files())
+        ]
 
-    def load_from_cloud(self):
+        self.logger.log("saved files to cloud:\n" + "\n".join(all_files))
+        print("saved files to cloud:\n" + "\n".join(all_files))
+
+        dump_path = self.logger.dump_to_file()
+        self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)
+
+    def load_defaults(self):
         self.gdrive_saver.get_files_from_drive(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
         self.gdrive_saver.get_files_from_drive(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
         self.gdrive_saver.load_folder_files(DriveFolder.Queues, FolderType.QueuesData)
 
-    def load_defaults(self):
-        self.load_from_cloud()
         self.registered_manager.load_file(self.object_saver)
         self.registered_manager.update_access_levels(self.object_saver)
         self.choice_manager.load_file(self.object_saver)
