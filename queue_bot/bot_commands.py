@@ -416,9 +416,9 @@ class ModifyCurrentQueue(CommandGroup):
 
                 student_str = cls.get_arguments(update.callback_query.data)
                 student = parsers.parse_student(student_str)
-                position = bot.get_queue().get_student_position(student)
-                if position is not None:
-                    update.effective_chat.send_message(bot.language_pack.selected_position.format(str(position)))
+                cls.new_position = bot.get_queue().get_student_position(student)
+                if cls.new_position is not None:
+                    update.effective_chat.send_message(bot.language_pack.selected_position.format(str(cls.new_position)))
                     cls.handle_request(update, bot)
                 else:
                     update.effective_chat.send_message(bot.language_pack.selected_position_not_exists)
@@ -427,7 +427,9 @@ class ModifyCurrentQueue(CommandGroup):
         def handle_request(cls, update, bot):
             log_bot_queue(update, bot, 'set student position {0}', cls.new_position)
             bot.get_queue().set_student_position(cls.student, cls.new_position)
-            update.effective_chat.send_message(bot.language_pack.student_moved_to_position.format(cls.student))
+            update.effective_chat.send_message(
+                bot.language_pack.student_moved_to_position.format(cls.student, cls.new_position)
+            )
 
             bot.refresh_last_queue_msg(update)
             bot.request_del()

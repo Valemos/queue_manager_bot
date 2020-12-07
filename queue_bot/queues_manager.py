@@ -43,10 +43,18 @@ class QueuesManager(Savable):
 
         if prev_name != new_name:
             if prev_name in self.queues:
+                cur_queue_name = self.selected_queue.name if self.selected_queue is not None else None
                 queue = self.queues[prev_name]
                 queue.name = new_name
                 del self.queues[prev_name]
-                self.add_queue(queue)
+
+                if cur_queue_name == prev_name:
+                    # add and update selected queue
+                    self.add_queue(queue)
+                else:
+                    # only add queue to dictionary
+                    self.queues[queue.name] = queue
+
 
     @staticmethod
     def create_queue(*args):
@@ -57,6 +65,12 @@ class QueuesManager(Savable):
         return len(self.queues) < self.queues_count_limit
 
     def add_queue(self, queue):
+        """
+        Adds new queue object to dictionary
+        and updates selected queue
+        :param queue: StudentsQueue object to add
+        :return: True if queue add was successful
+        """
         if self.can_add_queue():
             self.queues[queue.name] = queue
             self.selected_queue = queue

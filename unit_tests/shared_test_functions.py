@@ -133,7 +133,6 @@ def bot_handle_text_command(bot, update, context, text):
             break
 
     tg_write_message(update, text)
-    tg_set_user(update, -1, "mock user")
     update.message.entities = [get_command_entity(start, command_len)]
     bot.handle_text_command(update, context)
 

@@ -165,5 +165,5 @@ class QueueBot:
 
     def handle_error(self, update, context):
         self.logger.save_to_cloud()
-        self.logger.log(context.error.message)
-        print(context.error.message)
+        self.logger.log(context.error.args)
+        print(context.error.args)
