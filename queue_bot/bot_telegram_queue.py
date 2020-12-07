@@ -52,9 +52,9 @@ class QueueBot:
 
     def init_updater_commands(self):
         for command in self.available_commands.all_commands:
-            self.updater.dispatcher.add_handler(CommandHandler(command.command_name, self.handle_command_selected))
+            self.updater.dispatcher.add_handler(CommandHandler(command.command_name, self.handle_text_command))
 
-        self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message_text))
+        self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message_reply_command))
         self.updater.dispatcher.add_handler(CallbackQueryHandler(self.handle_keyboard_chosen))
         self.updater.dispatcher.add_error_handler(self.handle_error)
 
@@ -150,7 +150,7 @@ class QueueBot:
     def get_queue_log(self):
         return '\"not selected\"'
 
-    def handle_command_selected(self, update, context):
+    def handle_text_command(self, update, context):
         for entity in update.message.entities:
             if entity.type == MessageEntity.BOT_COMMAND:
                 command_handler.handle_text_command(update, entity, self)
@@ -159,11 +159,11 @@ class QueueBot:
         command_handler.handle_keyboard(update, self)
         update.callback_query.answer()
 
-    def handle_message_text(self, update, context):
+    def handle_message_reply_command(self, update, context):
         if self.command_requested_answer is not None:
             self.command_requested_answer.handle_request_access(update, self)
 
     def handle_error(self, update, context):
-        print(context.error.message)
-        self.logger.log(context.error.message)
         self.logger.save_to_cloud()
+        self.logger.log(context.error.message)
+        print(context.error.message)

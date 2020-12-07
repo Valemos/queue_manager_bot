@@ -101,6 +101,7 @@ class StudentsQueue(Savable):
 
     def move_to_index(self, position, desired_position):
         try:
+            # todo: fix insert to first position
             self.students.insert(desired_position, self.students.pop(position))
             return True
         except ValueError:

@@ -12,6 +12,10 @@ class Student:
         self.access_level = AccessLevel.USER
 
     def __eq__(self, other):
+        if not isinstance(other, Student):
+            print("Programmer error compairing students")
+            return False
+
         if self.telegram_id is not None and other.telegram_id is not None:
             return self.telegram_id == other.telegram_id
         elif self.telegram_id is None and other.telegram_id is None:
@@ -21,7 +25,7 @@ class Student:
             return False
 
     def __ne__(self, other):
-        return self.telegram_id != other.telegram_id
+        return not self.__eq__(other)
 
     def __str__(self):
         return self.str_name_id()

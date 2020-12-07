@@ -8,6 +8,8 @@ import queue_bot.bot_parsers as parsers
 import queue_bot.languages.command_descriptions_rus as commands_descriptions
 
 
+# todo: move to fstrings to improve readability
+
 def log_bot_queue(update, bot, message, *args):
     if bot.check_queue_selected():
         bot.logger.log(' {0} by {1}: '.format(
@@ -25,6 +27,7 @@ def log_bot_user(update, bot, message, *args):
 
 
 # ids and commands of type str
+# used to avoid passing long strings to limited telegram keyboard query
 _command_id_dict = {}
 _id_command_dict = {}
 _name_command = {}
@@ -98,19 +101,20 @@ class CommandGroup:
 
         # used as starting point and it checks for user access rights
         @classmethod
-        def handle_command_access(cls, update, bot):
+        def handle_reply_access(cls, update, bot):
             if cls.check_access(update, bot):
                 cls.handle_reply(update, bot)
+
+        @classmethod
+        def handle_keyboard_access(cls, update, bot):
+            if cls.check_access(update, bot):
+                cls.handle_keyboard(update, bot)
 
         @classmethod
         def handle_request_access(cls, update, bot):
             if cls.check_access(update, bot):
                 cls.handle_request(update, bot)
 
-        @classmethod
-        def handle_keyboard_access(cls, update, bot):
-            if cls.check_access(update, bot):
-                cls.handle_keyboard(update, bot)
 
         # used to generate message, keyboard and handle_request properly
         @classmethod
@@ -261,7 +265,7 @@ class ModifyCurrentQueue(CommandGroup):
                 update.effective_chat.send_message(bot.language_pack.queue_finished_select_other)
 
 
-    class SetQueuePosition(CommandGroup.Command):
+    class MoveQueuePosition(CommandGroup.Command):
 
         access_requirement = AccessLevel.ADMIN
 
@@ -301,6 +305,44 @@ class ModifyCurrentQueue(CommandGroup):
             bot.queues_manager.clear_current_queue()
             update.effective_chat.send_message(bot.language_pack.queue_deleted)
             log_bot_queue(update, bot, 'clear queue')
+
+
+    class RemoveListStudents(CommandGroup.Command):
+
+        access_requirement = AccessLevel.ADMIN
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
+            keyboard = bot.get_queue().get_students_keyboard(cls)
+            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
+            cls.handle_request(update, bot)
+
+            # after student deleted, message updates
+            keyboard = bot.get_queue().get_students_keyboard(cls)
+            # keyboards not equal
+            if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
+                update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            student_str = cls.get_arguments(update.callback_query.data)
+            student = parsers.parse_student(student_str)
+            bot.get_queue().remove_student(student)
+            bot.refresh_last_queue_msg(update)
+
+            bot.request_del()
+            log_bot_queue(update, bot, 'removed student {0}', student)
 
 
     class MoveStudentToEnd(CommandGroup.Command):
@@ -343,45 +385,7 @@ class ModifyCurrentQueue(CommandGroup):
             log_bot_queue(update, bot, 'moved {0} to end', str(cls.move_student))
 
 
-    class RemoveListStudents(CommandGroup.Command):
-
-        access_requirement = AccessLevel.ADMIN
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            if not bot.check_queue_selected():
-                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
-                return
-
-            keyboard = bot.get_queue().get_students_keyboard(cls)
-            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
-
-        @classmethod
-        def handle_keyboard(cls, update, bot):
-            if not bot.check_queue_selected():
-                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
-                return
-
-            cls.handle_request(update, bot)
-
-            # after student deleted, message updates
-            keyboard = bot.get_queue().get_students_keyboard(cls)
-            # keyboards not equal
-            if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
-                update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            student_str = cls.get_arguments(update.callback_query.data)
-            student = parsers.parse_student(student_str)
-            bot.get_queue().remove_student(student)
-            bot.refresh_last_queue_msg(update)
-
-            bot.request_del()
-            log_bot_queue(update, bot, 'removed student {0}', student)
-
-
-    class SetStudentPosition(CommandGroup.Command):
+    class MoveStudentPosition(CommandGroup.Command):
         access_requirement = AccessLevel.ADMIN
 
         student = None
@@ -410,7 +414,8 @@ class ModifyCurrentQueue(CommandGroup):
                     update.effective_chat.send_message(bot.language_pack.queue_not_selected)
                     return
 
-                student = cls.get_arguments(update.callback_query.data)
+                student_str = cls.get_arguments(update.callback_query.data)
+                student = parsers.parse_student(student_str)
                 position = bot.get_queue().get_student_position(student)
                 if position is not None:
                     update.effective_chat.send_message(bot.language_pack.selected_position.format(str(position)))
@@ -420,13 +425,66 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_request(cls, update, bot):
+            log_bot_queue(update, bot, 'set student position {0}', cls.new_position)
             bot.get_queue().set_student_position(cls.student, cls.new_position)
             update.effective_chat.send_message(bot.language_pack.student_moved_to_position.format(cls.student))
 
             bot.refresh_last_queue_msg(update)
             bot.request_del()
-            log_bot_queue(update, bot, 'set student position {0}', cls.new_position)
-            
+
+
+    class MoveSwapStudents(CommandGroup.Command):
+        access_requirement = AccessLevel.ADMIN
+
+        keyboard_message = None
+
+        first_student = None
+        second_student = None
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
+            cls.first_student = None
+            cls.second_student = None
+            keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+            ModifyCurrentQueue.MoveSwapStudents.keyboard_message = \
+                update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+            bot.request_set(cls)
+
+        @classmethod
+        def handle_keyboard(cls, update, bot):
+            if not bot.check_queue_selected():
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+                return
+
+            student_str = cls.get_arguments(update.callback_query.data)
+            student = parsers.parse_student(student_str)
+            if cls.first_student is None:
+                cls.first_student = student
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+            elif cls.second_student is None:
+                cls.second_student = student
+                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+                cls.handle_request(update, bot)
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            bot.get_queue().swap_students(cls.first_student, cls.second_student)
+            update.effective_chat.send_message(
+                bot.language_pack.students_swapped.format(
+                    cls.first_student.str(),
+                    cls.second_student.str()))
+
+            if ModifyCurrentQueue.MoveSwapStudents.keyboard_message is not None:
+                ModifyCurrentQueue.MoveSwapStudents.keyboard_message.delete()
+
+            bot.refresh_last_queue_msg(update)
+            bot.request_del()
+            log_bot_queue(update, bot, 'swapped {0} and {1}', cls.first_student, cls.second_student)
+
 
     class AddStudent(CommandGroup.Command):
 
@@ -523,59 +581,6 @@ class ModifyCurrentQueue(CommandGroup):
             bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
             bot.save_queue_to_file()
             log_bot_queue(update, bot, 'finished: {0}', bot.get_queue().get_current().str_name_id())
-
-
-    class SwapStudents(CommandGroup.Command):
-        access_requirement = AccessLevel.ADMIN
-
-        keyboard_message = None
-
-        first_student = None
-        second_student = None
-
-        @classmethod
-        def handle_reply(cls, update, bot):
-            if not bot.check_queue_selected():
-                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
-                return
-
-            cls.first_student = None
-            cls.second_student = None
-            keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
-            ModifyCurrentQueue.SwapStudents.keyboard_message = \
-                update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
-            bot.request_set(cls)
-
-        @classmethod
-        def handle_keyboard(cls, update, bot):
-            if not bot.check_queue_selected():
-                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
-                return
-
-            student_str = cls.get_arguments(update.callback_query.data)
-            student = parsers.parse_student(student_str)
-            if cls.first_student is None:
-                cls.first_student = student
-                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
-            elif cls.second_student is None:
-                cls.second_student = student
-                update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
-                cls.handle_request(update, bot)
-
-        @classmethod
-        def handle_request(cls, update, bot):
-            bot.get_queue().swap_students(cls.first_student, cls.second_student)
-            update.effective_chat.send_message(
-                bot.language_pack.students_swapped.format(
-                    cls.first_student.str(),
-                    cls.second_student.str()))
-
-            if ModifyCurrentQueue.SwapStudents.keyboard_message is not None:
-                ModifyCurrentQueue.SwapStudents.keyboard_message.delete()
-
-            bot.refresh_last_queue_msg(update)
-            bot.request_del()
-            log_bot_queue(update, bot, 'swapped {0} and {1}', cls.first_student, cls.second_student)
 
 
 class ManageQueues(CommandGroup):

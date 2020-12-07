@@ -14,11 +14,11 @@ create_random_queue = InlineKeyboardMarkup([
 
 modify_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton(kb_names.move_student_to_end, callback_data=commands.ModifyCurrentQueue.MoveStudentToEnd.query())],
-    [InlineKeyboardButton(kb_names.swap_places, callback_data=commands.ModifyCurrentQueue.SwapStudents.query())],
-    [InlineKeyboardButton(kb_names.move_student_to_pos, callback_data=commands.ModifyCurrentQueue.SetStudentPosition.query())],
+    [InlineKeyboardButton(kb_names.swap_places, callback_data=commands.ModifyCurrentQueue.MoveSwapStudents.query())],
+    [InlineKeyboardButton(kb_names.move_student_to_pos, callback_data=commands.ModifyCurrentQueue.MoveStudentPosition.query())],
     [InlineKeyboardButton(kb_names.remove_students, callback_data=commands.ModifyCurrentQueue.RemoveListStudents.query())],
     [InlineKeyboardButton(kb_names.add_student, callback_data=commands.ModifyCurrentQueue.AddStudent.query())],
-    [InlineKeyboardButton(kb_names.set_queue_position, callback_data=commands.ModifyCurrentQueue.SetQueuePosition.query())],
+    [InlineKeyboardButton(kb_names.set_queue_position, callback_data=commands.ModifyCurrentQueue.MoveQueuePosition.query())],
     [InlineKeyboardButton(kb_names.show_queue_for_copy, callback_data=commands.ModifyCurrentQueue.ShowQueueForCopy.query())],
     [InlineKeyboardButton(kb_names.clear_queue, callback_data=commands.ModifyCurrentQueue.ClearList.query())]
 ])
