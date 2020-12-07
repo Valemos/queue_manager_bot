@@ -40,10 +40,12 @@ admin_commands = [
 
 # god commands will not show in help
 god_commands = [
+    commands.Help.ForGod,
     commands.General.Start,
     commands.General.Stop,
     commands.General.ShowLogs,
-    commands.Help.TelegramPreviewCommands
+    commands.Help.TelegramPreviewCommands,
+    commands.ManageQueues.SaveQueuesToGoogleDrive
 ]
 
 # initialize all commands for telegram updater

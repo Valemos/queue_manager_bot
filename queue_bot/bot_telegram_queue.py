@@ -96,14 +96,14 @@ class QueueBot:
 
         self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
 
-        all_files = [
+        all_file_names = [
             file.name for file in (self.registered_manager.get_save_files()
                                    + self.choice_manager.get_save_files()
                                    + self.queues_manager.get_save_files())
         ]
 
-        self.logger.log("saved files to cloud:\n" + "\n".join(all_files))
-        print("saved files to cloud:\n" + "\n".join(all_files))
+        self.logger.log("saved files to cloud:\n" + "\n".join(all_file_names))
+        print("saved files to cloud:\n" + "\n".join(all_file_names))
 
         dump_path = self.logger.dump_to_file()
         self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)

@@ -135,6 +135,26 @@ class CommandGroup:
 
 class Help(CommandGroup):
 
+    @staticmethod
+    def get_command_list_help(cmd_list):
+        """
+        Collects data about commands in list and creates help message
+        :param cmd_list: list of CommandGroup.CommandGroup objects
+        :return: str help message
+        """
+
+        # get max cmd length
+        max_len = max((len(cmd.command_name) for cmd in cmd_list if cmd is not None)) + 3
+
+        final_message = []
+        for command in cmd_list:
+            if command is not None:
+                final_message.append(f"/{command.command_name:<{max_len}} - {command.description}")
+            else:
+                final_message.append('')
+
+        return '\n'.join(final_message)
+
     class TelegramPreviewCommands(CommandGroup.Command):
         command_name = 'help'
         description = commands_descriptions.help_descr
@@ -154,13 +174,20 @@ class Help(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
-            final_message = []
-            for command in bot.available_commands.admin_commands:
-                if command is not None:
-                    final_message.append('/{0:<10} - {1}'.format(command.command_name, command.description))
-                else:
-                    final_message.append('')
-            update.effective_chat.send_message('\n'.join(final_message))
+            update.effective_chat.send_message(
+                Help.get_command_list_help(bot.available_commands.admin_commands)
+            )
+
+    class ForGod(CommandGroup.Command):
+        command_name = 'ghelp'
+        description = commands_descriptions.god_help_descr
+        access_requirement = AccessLevel.GOD
+
+        @classmethod
+        def handle_reply(cls, update, bot):
+            update.effective_chat.send_message(
+                Help.get_command_list_help(bot.available_commands.god_commands)
+            )
 
     class HowToSelectSubject(CommandGroup.Command):
         @classmethod
@@ -687,6 +714,17 @@ class ManageQueues(CommandGroup):
             else:
                 update.effective_chat.send_message(bot.language_pack.name_incorrect)
                 update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name)
+
+
+    class SaveQueuesToGoogleDrive(CommandGroup.Command):
+        command_name = 'sq'
+        description = commands_descriptions.save_queues_to_drive
+        access_requirement = AccessLevel.GOD
+
+        @classmethod
+        def handle_request(cls, update, bot):
+            bot.save_to_cloud()
+            update.effective_chat.send_message(bot.language_pack.queues_saved_to_cloud)
 
 
 class CreateQueue(CommandGroup):
