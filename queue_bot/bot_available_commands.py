@@ -9,11 +9,6 @@ user_commands = [
     commands.UpdateQueue.ShowCurrentQueue,
     commands.UpdateQueue.ShowCurrentAndNextStudent,
     commands.ManageQueues.SelectOtherQueue,
-    commands.CollectSubjectChoices.Choose,
-    commands.CollectSubjectChoices.RemoveChoice,
-    commands.CollectSubjectChoices.ShowCurrentChoices,
-    commands.CollectSubjectChoices.StartChoose,
-    commands.CollectSubjectChoices.StopChoose,
     commands.Help.ForAdmin
 ]
 

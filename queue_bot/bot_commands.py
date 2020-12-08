@@ -8,22 +8,17 @@ import queue_bot.bot_parsers as parsers
 import queue_bot.languages.command_descriptions_rus as commands_descriptions
 
 
-# todo: move to fstrings to improve readability
-
 def log_bot_queue(update, bot, message, *args):
     if bot.check_queue_selected():
-        bot.logger.log(' {0} by {1}: '.format(
-                           str(bot.get_queue()),
-                           bot.registered_manager.get_user_by_update(update)) +
-                       message.format(*args))
+        bot.logger.log(f"{bot.get_queue()} by {bot.registered_manager.get_user_by_update(update)}: '"
+                       + message.format(*args))
     else:
         log_bot_user(update, bot, message, *args)
 
 
 def log_bot_user(update, bot, message, *args):
-    bot.logger.log(' {0}: '.format(
-                            bot.registered_manager.get_user_by_update(update)) +
-                   message.format(*args))
+    bot.logger.log(f"user {bot.registered_manager.get_user_by_update(update)} :"
+                   + message.format(*args))
 
 
 # ids and commands of type str
@@ -156,19 +151,16 @@ class Help(CommandGroup):
         return '\n'.join(final_message)
 
     class TelegramPreviewCommands(CommandGroup.Command):
-        command_name = 'help'
+        command_name = 'cmd_preview'
         description = commands_descriptions.help_descr
         access_requirement = AccessLevel.GOD
 
         @classmethod
         def handle_reply(cls, update, bot):
-            final_message = []
-            for command in bot.available_commands.user_commands:
-                final_message.append('{0} - {1}'.format(command.command_name, command.description))
-            update.effective_chat.send_message('\n'.join(final_message))
+            update.effective_chat.send_message(Help.get_command_list_help(bot.available_commands.user_commands))
 
     class ForAdmin(CommandGroup.Command):
-        command_name = 'admin_help'
+        command_name = 'help_admin'
         description = commands_descriptions.admin_help_descr
         access_requirement = AccessLevel.ADMIN
 
@@ -398,7 +390,6 @@ class ModifyCurrentQueue(CommandGroup):
         @classmethod
         def handle_request(cls, update, bot):
             if cls.move_student is None:
-                update.callback_query.reply()
                 return
 
             if not bot.check_queue_selected():
@@ -645,7 +636,6 @@ class ManageQueues(CommandGroup):
                     log_bot_user(update, bot, 'queue not found, query: {0}', update.callback_query.data)
             else:
                 log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data, cls.__qualname__)
-            update.callback_query.answer()
 
 
     class SelectOtherQueue(CommandGroup.Command):
@@ -675,7 +665,6 @@ class ManageQueues(CommandGroup):
                     log_bot_queue(update, bot, 'queue not found, query: {0}', update.callback_query.data)
             else:
                 log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data, cls.__qualname__)
-            update.callback_query.answer()
             update.effective_message.delete()
 
 
@@ -1123,8 +1112,6 @@ class UpdateQueue(CommandGroup):
                 log_bot_user(update, bot, 'moved previous')
                 UpdateQueue.Refresh.handle_request(update, bot)
 
-            update.callback_query.reply()
-
 
     class MoveNext(CommandGroup.Command):
         @classmethod
@@ -1137,7 +1124,6 @@ class UpdateQueue(CommandGroup):
                 UpdateQueue.ShowCurrentAndNextStudent.handle_request(update, bot)
                 log_bot_user(update, bot, 'moved queue')
                 UpdateQueue.Refresh.handle_request(update, bot)
-            update.callback_query.reply()
 
 
 class ManageAccessRights(CommandGroup):

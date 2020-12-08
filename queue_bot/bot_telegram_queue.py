@@ -29,7 +29,6 @@ class QueueBot:
 
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
-    subject_choices_message = UpdatableMessage(default_keyboard=keyboards.help_subject_choice)
     command_requested_answer = None
 
     def __init__(self, bot_token=None):
@@ -40,9 +39,6 @@ class QueueBot:
         # this bot object passed for access to both classes inside one another
         self.registered_manager = StudentsRegisteredManager(self)
         self.queues_manager = QueuesManager(self)
-
-        # subject choices
-        self.choice_manager = SubjectChoiceManager()
 
         if bot_token is None:
             bot_token = self.get_token()
@@ -92,13 +88,10 @@ class QueueBot:
     def save_to_cloud(self):
 
         self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
-        self.gdrive_saver.update_file_list(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
-
         self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
 
         all_file_names = [
             file.name for file in (self.registered_manager.get_save_files()
-                                   + self.choice_manager.get_save_files()
                                    + self.queues_manager.get_save_files())
         ]
 
@@ -107,15 +100,14 @@ class QueueBot:
 
         dump_path = self.logger.dump_to_file()
         self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)
+        self.logger.delete_logs()
 
     def load_defaults(self):
         self.gdrive_saver.get_files_from_drive(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
-        self.gdrive_saver.get_files_from_drive(self.choice_manager.get_save_files(), DriveFolder.SubjectChoices)
         self.gdrive_saver.load_folder_files(DriveFolder.Queues, FolderType.QueuesData)
 
         self.registered_manager.load_file(self.object_saver)
         self.registered_manager.update_access_levels(self.object_saver)
-        self.choice_manager.load_file(self.object_saver)
         self.queues_manager.load_file(self.object_saver)
 
     # loads default values from external file
@@ -164,6 +156,16 @@ class QueueBot:
             self.command_requested_answer.handle_request_access(update, self)
 
     def handle_error(self, update, context):
-        self.logger.save_to_cloud()
-        self.logger.log(context.error.args)
-        print(context.error.args)
+        err_msg = f"ERROR: {', '.join(context.error.args)}"
+        print(err_msg)
+        self.logger.log(err_msg)
+
+        # dump logs to another file
+        new_log_path = self.logger.dump_to_file()
+        # save file to cloud
+        self.gdrive_saver.update_file_list([new_log_path], DriveFolder.Log)
+
+        # repeat error message to empty log file
+        self.logger.delete_logs()
+        self.logger.log(err_msg)
+

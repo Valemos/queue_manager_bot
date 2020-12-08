@@ -1,20 +1,17 @@
-
-from unittest.mock import MagicMock
-import mock
 import unittest
 
 from unit_tests.shared_test_functions import *
 import queue_bot.bot_commands as commands
 
 
+
+@unittest.skip("functionality is not used")
 class TestSubjectChoices(unittest.TestCase):
 
 
     @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
     def test_setup_subjects(self):
         bot = setup_test_bot(self)
-
-
         tg_set_user(update, 1)
         bot_request_command_send_msg(bot, commands.CollectSubjectChoices.CreateNewCollectFile, update, context)
         bot_handle_message(bot, 'Test', update, context)

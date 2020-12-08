@@ -2,10 +2,9 @@
 # to mimic telegram trimming first characters if they are \n
 queue_format = '''{name}Сдает:
 {current}
-Следующий:
+Следующие:
 {next}
 
-Оставшиеся:
 {other}
 
 когда сдашь

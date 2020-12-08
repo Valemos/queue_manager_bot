@@ -1,7 +1,3 @@
-import os
-import pathlib
-from unittest.mock import MagicMock
-import mock
 import unittest
 
 import queue_bot.bot_commands as commands
@@ -14,6 +10,8 @@ class TestBotCommands(unittest.TestCase):
 
     def setUp(self) -> None:
         self.bot = setup_test_bot(self)
+
+        self.bot = setup_test_queue(self.bot, "reg", self.bot.registered_manager.get_users())
 
         self.uc = MagicMock(), MagicMock()
         self.u = self.uc[0]
@@ -30,43 +28,36 @@ class TestBotCommands(unittest.TestCase):
 
 
     def test_cur_and_next_in_queue(self):
+        students = self.bot.get_queue().students
 
-        bot = setup_test_queue(self.bot, 'test1', bot.registered_manager.get_users())
-
-        students = bot.queues_manager.get_queue().students
-
-        bot.queues_manager.get_queue().set_position(2)
-        cur_stud, next_stud = bot.queues_manager.get_queue().get_cur_and_next()
+        self.bot.queues_manager.get_queue().set_position(2)
+        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
 
         self.assertEqual(cur_stud, students[2])
         self.assertEqual(next_stud, students[3])
 
         # last element
-        bot.queues_manager.get_queue().set_position(5)
-        cur_stud, next_stud = bot.queues_manager.get_queue().get_cur_and_next()
+        self.bot.queues_manager.get_queue().set_position(5)
+        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
 
         self.assertEqual(cur_stud, students[4])
         self.assertIsNone(next_stud)
 
         # after last element
-        bot.queues_manager.get_queue().set_position(6)
-        cur_stud, next_stud = bot.queues_manager.get_queue().get_cur_and_next()
+        self.bot.queues_manager.get_queue().set_position(6)
+        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
 
         self.assertIsNone(cur_stud)
         self.assertIsNone(next_stud)
 
-        bot.queues_manager.get_queue().set_position(100)
-        cur_stud, next_stud = bot.queues_manager.get_queue().get_cur_and_next()
+        self.bot.queues_manager.get_queue().set_position(100)
+        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
 
         self.assertIsNone(cur_stud)
         self.assertIsNone(next_stud)
 
 
     def test_move_to_end(self):
-        students = self.bot.registered_manager.get_users() + [Student('Unknown', None)]
-        bot = setup_test_queue(self.bot, 'test1', students)
-
-        tg_set_user(self.u, 1)
         tg_select_command(self.u, commands.ModifyCurrentQueue.MoveStudentToEnd, Student.student_show_format.format('2', 2))
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertEqual(self.bot.get_queue().students[-1], self.bot.registered_manager.get_user_by_id(2))
@@ -116,9 +107,6 @@ class TestBotCommands(unittest.TestCase):
 
 
     def test_start_bot(self):
-
-
-
         tg_set_user(self.u, 0, '0')
         bot_request_command_send_msg(self.bot, commands.General.Start, *self.uc)
         self.u.message.reply_text.assert_called_with(self.bot.language_pack.bot_already_running)
