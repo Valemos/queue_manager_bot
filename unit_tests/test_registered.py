@@ -9,7 +9,7 @@ from unit_tests.shared_test_functions import *
 class TestRegisteredManager(unittest.TestCase):
 
 
-    def test_bot_check_access(self, *mocks):
+    def test_bot_check_access(self):
         bot = setup_test_bot(self)
 
         mock_update = MagicMock()
@@ -39,7 +39,7 @@ class TestRegisteredManager(unittest.TestCase):
         self.assertFalse(bot.registered_manager.check_access(mock_update))
 
 
-    def test_get_user(self, *mocks):
+    def test_get_user(self):
         bot = setup_test_bot(self)
 
         user = bot.registered_manager.get_user_by_name('0')
@@ -55,7 +55,7 @@ class TestRegisteredManager(unittest.TestCase):
         self.assertIsNone(user)
 
 
-    def test_name_similarity(self, *mocks):
+    def test_name_similarity(self):
         bot = setup_test_bot(self)
 
         self.assertTrue(bot.registered_manager.is_similar('Переяславський', 'Переяславский'))
@@ -72,7 +72,7 @@ class TestRegisteredManager(unittest.TestCase):
         self.assertEqual(user, Student('NoName', None))
 
 
-    def test_delete_list(self, *mocks):
+    def test_delete_list(self):
         bot = setup_test_bot(self)
         students = list(bot.registered_manager.get_users())
 
@@ -94,7 +94,7 @@ class TestRegisteredManager(unittest.TestCase):
         self.assertNotIn(students[2], bot.registered_manager.get_users())
 
 
-    def test_add_remove_admin(self, *mocks):
+    def test_add_remove_admin(self):
         bot = setup_test_bot(self)
 
         update = MagicMock()

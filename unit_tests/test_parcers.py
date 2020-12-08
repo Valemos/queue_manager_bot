@@ -11,7 +11,7 @@ from unit_tests.shared_test_functions import students_compare
 class TestParsers(unittest.TestCase):
 
 
-    def test_queue_file_names_parse(self, *mocks):
+    def test_queue_file_names_parse(self):
         from queue_bot.bot_parsers import parse_valid_queue_names
         from queue_bot.queues_manager import QueuesManager
 

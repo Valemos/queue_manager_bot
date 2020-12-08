@@ -11,9 +11,9 @@ class TestSubjectChoices(unittest.TestCase):
 
 
     @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
-    def test_setup_subjects(self, *mocks):
+    def test_setup_subjects(self):
         bot = setup_test_bot(self)
-        update, context = MagicMock(), MagicMock()
+
 
         tg_set_user(update, 1)
         bot_request_command_send_msg(bot, commands.CollectSubjectChoices.CreateNewCollectFile, update, context)
@@ -27,18 +27,18 @@ class TestSubjectChoices(unittest.TestCase):
 
 
     @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
-    def test_show_empty(self, *mocks):
+    def test_show_empty(self):
         bot = setup_test_bot(self)
-        update, context = MagicMock(), MagicMock()
+
 
         bot_request_command_send_msg(bot, commands.CollectSubjectChoices.ShowCurrentChoices, update, context)
         update.effective_chat.send_message.assert_called_with(bot.language_pack.choices_collection_not_started)
 
 
     @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
-    def test_choose_subjects(self, *mocks):
+    def test_choose_subjects(self):
         bot = setup_test_bot(self)
-        update, context = MagicMock(), MagicMock()
+
         bot = setup_test_subject_choices(bot)
         bot.choice_manager.can_choose = False
 
@@ -80,9 +80,9 @@ class TestSubjectChoices(unittest.TestCase):
 
 
     @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
-    def test_unknown_choose_subjects(self, *mocks):
+    def test_unknown_choose_subjects(self):
         bot = setup_test_bot(self)
-        update, context = MagicMock(), MagicMock()
+
         bot = setup_test_subject_choices(bot)
 
         bot.choice_manager.current_subject.repeat_limit = 1
@@ -100,9 +100,9 @@ class TestSubjectChoices(unittest.TestCase):
 
 
     @mock.patch('queue_bot.subject_choice_manager.SubjectChoiceGroup.save_to_excel')
-    def test_remove_subjects(self, *mocks):
+    def test_remove_subjects(self):
         bot = setup_test_bot(self)
-        update, context = MagicMock(), MagicMock()
+
         bot = setup_test_subject_choices(bot)
 
         tg_set_user(update, 1)

@@ -10,18 +10,19 @@ class TestQueue(unittest.TestCase):
     def setUp(self) -> None:
         self.bot = setup_test_bot(self)
         
-        self.queue_students = list(self.bot.registered_manager.get_users())
+        self.queue_students_with_none = list(self.bot.registered_manager.get_users())
 
         self.student_none = Student('t', None)
         self.student_none_index = 3
-        self.queue_students.insert(self.student_none_index, self.student_none)
+        self.queue_students_with_none.insert(self.student_none_index, self.student_none)
 
-        self.bot = setup_test_queue(self.bot, 'idNone', self.queue_students)
+        self.bot = setup_test_queue(self.bot, 'idNone', self.queue_students_with_none)
         self.bot = setup_test_queue(self.bot, 'reg', self.bot.registered_manager.get_users())
+        self.current_queue_students = self.bot.get_queue().students
 
         self.not_current_queue_name = None
         for queue_name in self.bot.queues_manager.queues:
-            if queue_name != self.bot.queues_manager.get_queue().name:
+            if queue_name != self.bot.get_queue().name:
                 self.not_current_queue_name = queue_name
         self.assertIsNotNone(self.not_current_queue_name)
 
@@ -41,7 +42,7 @@ class TestQueue(unittest.TestCase):
         bot_handle_message(self.bot, '0\n1\ntest\n2', *self.uc)
         bot_handle_message(self.bot, 'Name', *self.uc)
 
-        self.assertListEqual(self.bot.queues_manager.get_queue().students,
+        self.assertListEqual(self.bot.get_queue().students,
                              [Student('0', 0), Student('1', 1), Student('test', None), Student('2', 2)])
 
 
@@ -67,6 +68,7 @@ class TestQueue(unittest.TestCase):
         self.bot.handle_message_reply_command(*self.uc)
         self.assertIn('new_name', self.bot.queues_manager.queues)
         self.assertNotIn(prev_queue_name, self.bot.queues_manager.queues)
+
 
     def test_swap_users_in_queue(self):
 
@@ -134,7 +136,7 @@ class TestQueue(unittest.TestCase):
                               Student('Воловик + Комисар', None),
                               Student('Копылаш + Редька', None),
                               Student('Северян + Дорошенко', None)],
-                             self.bot.queues_manager.get_queue().students)
+                             self.bot.get_queue().students)
 
 
     def test_queue_add_user(self):
@@ -205,7 +207,7 @@ class TestQueue(unittest.TestCase):
         tg_select_command(self.u, bot_commands.ManageQueues.SelectOtherQueue, self.not_current_queue_name)
         self.bot.handle_keyboard_chosen(*self.uc)
 
-        self.assertEqual(self.bot.queues_manager.get_queue().name, self.not_current_queue_name)
+        self.assertEqual(self.bot.get_queue().name, self.not_current_queue_name)
 
 
     def test_delete_queue(self):
@@ -214,39 +216,63 @@ class TestQueue(unittest.TestCase):
         self.assertNotIn(self.not_current_queue_name, self.bot.queues_manager)
 
 
-    def test_correct_queue_indexes(self):
 
-        bot = setup_test_queue(self.bot, 'test', self.bot.registered_manager.get_users())
+    def test_move_queue(self):
+        # can move next
+        self.bot.get_queue().set_position(0)
+        self.assertTrue(self.bot.get_queue().move_next())
 
-        self.bot.queues_manager.get_queue().set_position(3)
-        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
+        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
+        self.assertEqual(cur_stud, self.current_queue_students[1])
+        self.assertEqual(next_stud, self.current_queue_students[2])
+
+        # move from last element forward
+        self.bot.get_queue().set_position(len(self.current_queue_students) - 1)
+        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
+        self.assertIsNotNone(cur_stud)
+        self.assertIsNone(next_stud)
+
+        self.bot.get_queue().move_next()
+        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
+        self.assertIsNone(cur_stud)
+        self.assertIsNone(next_stud)
+
+        self.bot.get_queue().move_next()
+        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
+        self.assertIsNone(cur_stud)
+        self.assertIsNone(next_stud)
+
+
+    def test_edit_queue_indexes(self):
+        self.bot.get_queue().set_position(3)
+        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
 
         # if we delete current user, next element must become current
-        self.bot.queues_manager.get_queue().remove_by_index(3)
-        self.assertNotIn(cur_stud, self.bot.queues_manager.get_queue())
-        self.assertEqual(next_stud, self.bot.queues_manager.get_queue().get_current())
+        self.bot.get_queue().remove_by_index(3)
+        self.assertNotIn(cur_stud, self.bot.get_queue())
+        self.assertEqual(next_stud, self.bot.get_queue().get_current())
 
         # if we delete user from larger position, current student must stay
-        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
-        self.bot.queues_manager.get_queue().set_position(2)
-        self.bot.queues_manager.get_queue().remove_by_index(3)
-        self.assertEqual(cur_stud, self.bot.queues_manager.get_queue().get_current())
+        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
+        self.bot.get_queue().set_position(2)
+        self.bot.get_queue().remove_by_index(3)
+        self.assertEqual(cur_stud, self.bot.get_queue().get_current())
 
         # if we delete user before current, it must remain on it`s place
-        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
-        self.bot.queues_manager.get_queue().set_position(2)
-        self.bot.queues_manager.get_queue().remove_by_index(1)
-        self.assertEqual(cur_stud, self.bot.queues_manager.get_queue().get_current())
+        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
+        self.bot.get_queue().set_position(2)
+        self.bot.get_queue().remove_by_index(1)
+        self.assertEqual(cur_stud, self.bot.get_queue().get_current())
 
 
     def test_remove_students_list(self):
         tg_select_command(self.u, bot_commands.ModifyCurrentQueue.RemoveListStudents)
         self.bot.handle_keyboard_chosen(*self.uc)
 
-        tg_select_command(self.u, bot_commands.ModifyCurrentQueue.RemoveListStudents, self.queue_students[1])
+        tg_select_command(self.u, bot_commands.ModifyCurrentQueue.RemoveListStudents, self.queue_students_with_none[1])
         self.bot.handle_keyboard_chosen(*self.uc)
-        self.assertNotIn(self.queue_students[1], self.bot.get_queue().students)
+        self.assertNotIn(self.queue_students_with_none[1], self.bot.get_queue().students)
 
-        tg_select_command(self.u, bot_commands.ModifyCurrentQueue.RemoveListStudents, self.queue_students[2])
+        tg_select_command(self.u, bot_commands.ModifyCurrentQueue.RemoveListStudents, self.queue_students_with_none[2])
         self.bot.handle_keyboard_chosen(*self.uc)
-        self.assertNotIn(self.queue_students[2], self.bot.get_queue().students)
+        self.assertNotIn(self.queue_students_with_none[2], self.bot.get_queue().students)
