@@ -17,12 +17,21 @@ class Logger:
             log_path.touch()
             
         self.log_file_path = log_path
-        self.drive_saver = DriveSaver()
+        self.drive_saver = DriveSaver(self)
         
     def log(self, text):
         with self.log_file_path.open('a+', encoding='utf-8') as fw:
             fw.write('{0}: {1}\n'.format(datetime.datetime.now().isoformat(), text))
-            
+
+    @staticmethod
+    def get_error_msg(error: Exception):
+        return f'ERROR TYPE "{type(error).__name__}" args: {", ".join(error.args)}'
+
+    def log_err(self, error: Exception):
+        msg = Logger.get_error_msg(error)
+        print(msg)
+        self.log(msg)
+
     def get_logs(self):
         with self.log_file_path.open(encoding='utf-8') as fr:
             return fr.read()

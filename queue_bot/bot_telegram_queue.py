@@ -4,7 +4,7 @@ import threading
 
 from queue_bot.misc.logger import Logger
 from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
-from queue_bot.misc.gdrive_saver import DriveSaver, DriveFolder
+from queue_bot.misc.gdrive_saver import DriveSaver, DriveFolderType
 
 import queue_bot.languages.bot_messages_rus as messages_rus
 import queue_bot.bot_keyboards
@@ -30,9 +30,11 @@ class QueueBot:
     command_requested_answer = None
 
     def __init__(self, bot_token=None):
+        # logger contains drive saver
+        # and drive saver uses logger
         self.logger = Logger()
         self.object_saver = ObjectSaver(logger=self.logger)
-        self.gdrive_saver = DriveSaver(logger=self.logger)
+        self.gdrive_saver = self.logger.drive_saver
 
         # this bot object passed for access to both classes inside one another
         self.registered_manager = StudentsRegisteredManager(self)
@@ -85,8 +87,8 @@ class QueueBot:
     # with paths in load_from_cloud by folders to load correctly
     def save_to_cloud(self):
 
-        self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
-        self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolder.Queues)
+        self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolderType.Root)
+        self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolderType.Queues)
 
         all_file_names = [
             file.name for file in (self.registered_manager.get_save_files()
@@ -97,12 +99,12 @@ class QueueBot:
         print("saved files to cloud:\n" + "\n".join(all_file_names))
 
         dump_path = self.logger.dump_to_file()
-        self.gdrive_saver.update_file_list([dump_path], DriveFolder.Log)
+        self.gdrive_saver.update_file_list([dump_path], DriveFolderType.Log)
         self.logger.delete_logs()
 
     def load_defaults(self):
-        self.gdrive_saver.get_files_from_drive(self.registered_manager.get_save_files(), DriveFolder.HelperBotData)
-        self.gdrive_saver.load_folder_files(DriveFolder.Queues, FolderType.QueuesData)
+        self.gdrive_saver.get_folder_files(self.registered_manager.get_save_files(), DriveFolderType.Root)
+        self.gdrive_saver.get_all_folder_files(DriveFolderType.Queues, FolderType.QueuesData)
 
         self.registered_manager.load_file(self.object_saver)
         self.registered_manager.update_access_levels(self.object_saver)
@@ -154,16 +156,14 @@ class QueueBot:
             self.command_requested_answer.handle_request_access(update, self)
 
     def handle_error(self, update, context):
-        err_msg = f"ERROR: {', '.join(context.error.args)}"
-        print(err_msg)
-        self.logger.log(err_msg)
+        self.logger.log_err(context.error)
 
         # dump logs to another file
         new_log_path = self.logger.dump_to_file()
         # save file to cloud
-        self.gdrive_saver.update_file_list([new_log_path], DriveFolder.Log)
+        self.gdrive_saver.update_file_list([new_log_path], DriveFolderType.Log)
 
         # repeat error message to empty log file
         self.logger.delete_logs()
-        self.logger.log(err_msg)
+        self.logger.log_err(context.error)
 

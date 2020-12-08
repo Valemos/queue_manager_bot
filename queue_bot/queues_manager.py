@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from queue_bot.misc.object_file_saver import FolderType
-from queue_bot.misc.gdrive_saver import DriveFolder
+from queue_bot.misc.gdrive_saver import DriveFolder, DriveFolderType
 from queue_bot.savable_interface import Savable
 from queue_bot import bot_keyboards, bot_parsers as parsers
 from queue_bot.students_queue import StudentsQueue
@@ -84,8 +84,8 @@ class QueuesManager(Savable):
 
     def remove_queue(self, name):
         if name in self.queues:
+            self.delete_queue_files(self.queues[name])
             del self.queues[name]
-            self.delete_queue_file(name)
 
             if len(self.queues) > 0:
                 self.selected_queue = list(self.queues.values())[0]
@@ -127,7 +127,7 @@ class QueuesManager(Savable):
 
         if to_delete is not None:
             del self.queues[to_delete]
-            self.delete_queue_file(to_delete)
+            self.delete_queue_files(to_delete)
 
     # method used to save all queue files to drive
     def get_save_files(self):
@@ -142,9 +142,9 @@ class QueuesManager(Savable):
         if self.selected_queue is not None:
             self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
 
-    def delete_queue_file(self, name):
-        files = self.selected_queue.get_save_files()
-        self.main_bot.gdrive_saver.delete_from_folder(files, DriveFolder.Queues)
+    def delete_queue_files(self, queue):
+        files = queue.get_save_files()
+        self.main_bot.gdrive_saver.delete_from_folder(files, DriveFolderType.Queues)
         for file in files:
             self.main_bot.object_saver.delete(file)
 
@@ -155,7 +155,7 @@ class QueuesManager(Savable):
             self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
 
     def load_file(self, saver):
-        # we scan save folder to find all required files
+        # we scan save folder_type to find all required files
         file_names = []
         for path in StudentsQueue.save_folder.glob('**/*'):
             file_names.append(path.name)
