@@ -1,36 +1,39 @@
-import enum
-import pickle
 import os
 import json
 import sys
 from pathlib import Path
+
 from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from googleapiclient.errors import HttpError
-from queue_bot.object_file_saver import FolderType
+from queue_bot.misc.object_file_saver import FolderType
 
 
 # holds file paths to folder id`s
-class DriveFolder(enum.Enum):
-    HelperBotData = Path('drive_folder_id.data')
-    Log = Path('logs_folder_id.data')
-    SubjectChoices = Path('choices_folder_id.data')
-    Queues = Path('queues_folder_id.data')
+from queue_bot.misc.drive_folder import DriveFolder
 
+HelperBotData = 0
+Log = 1
+SubjectChoices = 2
+Queues = 3
 
 class DriveSaver:
+
+    folders_config_file = FolderType.Data.value / Path("google_folders_config.json")
 
     def __init__(self, logger=None):
         self.logger = logger
 
         self._SCOPES = ['https://www.googleapis.com/auth/drive']
-        self._SERVICE_ACCOUNT_FILE = Path(r'D:\coding\Python_codes\Queue_Bot\drive_data\queue-bot-key.json')
+        self._SERVICE_ACCOUNT_FILE = Path(r'/drive_data/queue-bot-key.json')
         self.work_email = 'programworkerbox@gmail.com'
 
         # credentials must be created after SCOPE and account file was specified
         self._credentials = self.init_credentials()
 
+        # contains dictionary of folder type and fol
+        self.folders_id_dict = {}
         # must create main folder first
         self.init_drive_folder(DriveFolder.HelperBotData)
 
@@ -38,6 +41,10 @@ class DriveSaver:
         self.init_drive_folder(DriveFolder.Log)
         self.init_drive_folder(DriveFolder.SubjectChoices)
         self.init_drive_folder(DriveFolder.Queues)
+
+    def log(self, string):
+        if self.logger is not None:
+            self.logger.log(string)
 
     def init_credentials(self):
         # try read service account file
@@ -50,7 +57,7 @@ class DriveSaver:
     def init_service(self):
         if self._credentials is None:
             print('credentials empty')
-            self.logger.log('credentials empty')
+            self.log('credentials empty')
             return None
 
         try:
@@ -58,7 +65,7 @@ class DriveSaver:
         except Exception as err:
             print(err)
             print('service not initialized')
-            self.logger.log(err)
+            self.log(err)
             return None
 
     def init_drive_folder(self, drive_folder):
@@ -87,7 +94,7 @@ class DriveSaver:
                                                'emailAddress': self.work_email}).execute()
         except Exception as err:
             print(err)
-            self.logger.log(err)
+            self.log(err)
             return None
 
         return cloud_folder['id']
@@ -107,7 +114,7 @@ class DriveSaver:
             service.files().create(body=file_metadata, media_body=upload_file, fields='id').execute()
         except Exception as err:
             print(err)
-            self.logger.log(err)
+            self.log(err)
             return False
         return True
 
@@ -201,7 +208,7 @@ class DriveSaver:
             except HttpError:
                 string = 'cannot download file \'{0}\' from drive'.format(str(result_path))
                 print(string)
-                self.logger.log(string)
+                self.log(string)
                 continue
 
         return True
@@ -231,7 +238,7 @@ class DriveSaver:
                 service.files().delete(fileId=file['id']).execute()
                 string = 'deleted ' + file['name']
                 print(string)
-                self.logger.log(string)
+                self.log(string)
 
         return True
 
@@ -254,7 +261,7 @@ class DriveSaver:
                     service.files().delete(fileId=file['id']).execute()
                     string = 'deleted ' + file['name']
                     print(string)
-                    self.logger.log(string)
+                    self.log(string)
 
         return True
 
@@ -271,11 +278,11 @@ class DriveSaver:
                 result = service.files().delete(fileId=file['id']).execute()
                 string = 'deleted {0}'.format(file['name'])
                 print(string)
-                self.logger.log(string)
+                self.log(string)
             except HttpError as err:
                 string = err.content
                 print(string)
-                self.logger.log(string)
+                self.log(string)
 
     def update_all_permissions(self):
 
@@ -292,7 +299,7 @@ class DriveSaver:
                                                    'emailAddress': self.work_email}).execute()
             except HttpError as err:
                 print(err.content)
-                self.logger.log(err.content)
+                self.log(err.content)
 
     def show_folder_files(self, folder: DriveFolder):
         folder_id = self.init_drive_folder(folder)
@@ -327,34 +334,60 @@ class DriveSaver:
 
         return self.download_drive_files(folder_id, path_list)
 
+    def create_folders_config_file(self):
+        if not self.folders_config_file.exists():
+            self.folders_config_file.parent.mkdir(parents=True, exist_ok=True)
+            self.folders_config_file.touch()
+
+    def load_folders_config(self):
+        """
+        creates config file to store drive folders info
+        :return: True if operation succeeded
+        """
+        self.create_folders_config_file()
+        if self.folders_config_file.exists():
+            try:
+                # normal load of file
+                with self.folders_config_file.open(encoding='utf-8') as fin:
+                    self.folders_id_dict = json.load(fin)
+                return True
+            except json.JSONDecodeError:
+                # init incorrect file with correct current dictionary
+                with self.folders_config_file.open("w", encoding='utf-8') as fout:
+                    json.dump(self.folders_id_dict, fout)
+                return True
+            except Exception:
+                # handle any other error during reading
+                string = f'failed to read config \"{self.folders_config_file}\"'
+                print(string)
+                self.log(string)
+        else:
+            string = f"config file not exists {self.folders_config_file}"
+            print(string)
+            self.log(string)
+
+        return False
+
     def save_folder_id(self, drive_folder, folder_id):
-        file = FolderType.DataDriveFolders.value / drive_folder.value
-        if not file.exists():
-            file.parent.mkdir(parents=True, exist_ok=True)
-            file.touch()
+        self.folders_id_dict[drive_folder.name] = folder_id
+        self.create_folders_config_file()
 
         try:
-            with file.open('w', encoding='utf-8') as fout:
-                fout.write(folder_id)
+            with self.folders_config_file.open('w', encoding='utf-8') as fout:
+                json.dump(self.folders_id_dict, fout)
+
         except Exception:
-            string = 'failed to load id from \"{}\"'.format(file)
+            string = f'failed to load folder id from \"{self.folders_config_file}\"'
             print(string)
-            self.logger.log(string)
+            self.log(string)
 
     def load_folder_id(self, drive_folder: DriveFolder):
-        if drive_folder is None:
-            return None
-
         cloud_id = None
-        file = FolderType.DataDriveFolders.value / drive_folder.value
-        if file.exists():
-            try:
-                with file.open('r', encoding='utf-8') as fr:
-                    cloud_id = fr.read()
-            except Exception:
-                string = 'failed to load id from \"{}\"'.format(file)
-                print(string)
-                self.logger.log(string)
+        if drive_folder in self.folders_id_dict:
+            cloud_id = self.folders_id_dict[drive_folder.name]
+        elif self.load_folders_config():  # load config if folder not found
+            if drive_folder in self.folders_id_dict:
+                cloud_id = self.folders_id_dict[drive_folder.name]
 
         return cloud_id
 
@@ -384,10 +417,14 @@ class DriveSaver:
 
 
 if __name__ == '__main__':
-    os.chdir(r'D:\coding\Python_codes\Queue_Bot')
+
+    print()
+
+    os.chdir(r'../../')
     # DriveSaver().show_folder_files(DriveFolder.Queues)
-    DriveSaver().load_folder_files(DriveFolder.Log, FolderType.Test)
-    # DriveSaver().clear_drive_folder(DriveFolder.Queues)
+    # DriveSaver().load_folder_files(DriveFolder.Log, FolderType.Test)
+    # DriveSaver().delete_everything_on_disk()
+    # DriveSaver().delete_all_in_folder(DriveFolder.Log)
     if len(sys.argv) == 2:
         if sys.argv[1] == 'clear':
             DriveSaver().delete_everything_on_disk()

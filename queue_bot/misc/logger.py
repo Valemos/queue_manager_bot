@@ -1,10 +1,9 @@
 import os
 from pathlib import Path
 import datetime
-from datetime import timezone
 import sys
-from queue_bot.object_file_saver import FolderType
-from queue_bot.gdrive_saver import DriveSaver, DriveFolder
+from queue_bot.misc.object_file_saver import FolderType
+from queue_bot.misc.gdrive_saver import DriveSaver, DriveFolder
 
 
 class Logger:
@@ -51,7 +50,7 @@ class Logger:
 
 
 if __name__ == '__main__':
-    os.chdir(r'D:\coding\Python_codes\Queue_Bot')
+    os.chdir(r'/')
     Logger().dump_to_file()
     if len(sys.argv) == 2:
         if sys.argv[1] == 'cloud':

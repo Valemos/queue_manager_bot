@@ -8,7 +8,6 @@ import pickle
 class FolderType(enum.Enum):
     NoFolder = Path()
     Data = Path('data')
-    DataDriveFolders = Path('data/drive_folders')
     QueuesData = Path('queues_data')
     SubjectChoices = Path('subject_choices')
     DriveData = Path('drive_data')

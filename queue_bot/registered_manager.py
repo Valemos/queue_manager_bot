@@ -1,6 +1,6 @@
 from pathlib import Path
 from pyjarowinkler import distance  # string similarity
-from queue_bot.object_file_saver import ObjectSaver, FolderType
+from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
 from queue_bot.savable_interface import Savable
 from queue_bot.student import Student
 from queue_bot.bot_access_levels import AccessLevel

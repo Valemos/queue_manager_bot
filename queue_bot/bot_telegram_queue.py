@@ -1,11 +1,10 @@
 import signal
-import sys
 import os
 import threading
 
-from queue_bot.logger import Logger
-from queue_bot.object_file_saver import ObjectSaver, FolderType
-from queue_bot.gdrive_saver import DriveSaver, DriveFolder
+from queue_bot.misc.logger import Logger
+from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
+from queue_bot.misc.gdrive_saver import DriveSaver, DriveFolder
 
 import queue_bot.languages.bot_messages_rus as messages_rus
 import queue_bot.bot_keyboards
@@ -15,7 +14,6 @@ from queue_bot.registered_manager import StudentsRegisteredManager
 from queue_bot.queues_manager import QueuesManager
 from queue_bot.students_queue import StudentsQueue
 from queue_bot.updatable_message import UpdatableMessage
-from queue_bot.subject_choice_manager import SubjectChoiceManager
 import queue_bot.bot_available_commands
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler

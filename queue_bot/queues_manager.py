@@ -1,8 +1,8 @@
 #  class relies on unique names, and is not suitable for multiple chats
 from pathlib import Path
 
-from queue_bot.object_file_saver import FolderType
-from queue_bot.gdrive_saver import DriveFolder
+from queue_bot.misc.object_file_saver import FolderType
+from queue_bot.misc.gdrive_saver import DriveFolder
 from queue_bot.savable_interface import Savable
 from queue_bot import bot_keyboards, bot_parsers as parsers
 from queue_bot.students_queue import StudentsQueue
