@@ -410,6 +410,14 @@ class ModifyCurrentQueue(CommandGroup):
         new_position = -1
 
         @classmethod
+        def update_message_keyboard(cls, update, bot):
+            try:
+                keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+                update.effective_message.edit_text(bot.language_pack.select_students, reply_markup=keyboard)
+            except Exception:
+                log_bot_queue(update, bot, "cannot update list selection message")
+
+        @classmethod
         def handle_reply(cls, update, bot):
             if not bot.check_queue_selected():
                 update.effective_chat.send_message(bot.language_pack.queue_not_selected)
@@ -426,6 +434,7 @@ class ModifyCurrentQueue(CommandGroup):
                 student_str = cls.get_arguments(update.callback_query.data)
                 student = parsers.parse_student(student_str)
                 cls.student = student
+                cls.update_message_keyboard(update, bot)
                 update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
             elif cls.new_position == -1:
                 if not bot.check_queue_selected():
@@ -442,6 +451,10 @@ class ModifyCurrentQueue(CommandGroup):
                     cls.handle_request(update, bot)
                 else:
                     update.effective_chat.send_message(bot.language_pack.selected_position_not_exists)
+            else:
+                cls.student = None
+                cls.new_position = -1
+                cls.handle_keyboard(update, bot)
 
         @classmethod
         def handle_request(cls, update, bot):
@@ -452,11 +465,7 @@ class ModifyCurrentQueue(CommandGroup):
             )
 
             # update keyboard for this message
-            try:
-                keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
-                update.effective_message.edit_text(bot.language_pack.select_students, reply_markup=keyboard)
-            except Exception:
-                log_bot_queue(update, bot, "cannot update list selection message")
+            cls.update_message_keyboard(update, bot)
 
             bot.refresh_last_queue_msg(update)
             bot.request_del()
