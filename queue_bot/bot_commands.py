@@ -436,7 +436,9 @@ class ModifyCurrentQueue(CommandGroup):
                 student = parsers.parse_student(student_str)
                 cls.new_position = bot.get_queue().get_student_position(student)
                 if cls.new_position is not None:
-                    update.effective_chat.send_message(bot.language_pack.selected_position.format(str(cls.new_position)))
+                    update.effective_chat.send_message(
+                        bot.language_pack.selected_position.format(str(cls.new_position+1))
+                    )
                     cls.handle_request(update, bot)
                 else:
                     update.effective_chat.send_message(bot.language_pack.selected_position_not_exists)
@@ -446,8 +448,15 @@ class ModifyCurrentQueue(CommandGroup):
             log_bot_queue(update, bot, 'set student position {0}', cls.new_position)
             bot.get_queue().set_student_position(cls.student, cls.new_position)
             update.effective_chat.send_message(
-                bot.language_pack.student_moved_to_position.format(cls.student, cls.new_position)
+                bot.language_pack.student_moved_to_position.format(cls.student.name, cls.new_position + 1)
             )
+
+            # update keyboard for this message
+            try:
+                keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+                update.effective_message.edit_text(bot.language_pack.select_students, reply_markup=keyboard)
+            except Exception:
+                log_bot_queue(update, bot, "cannot update list selection message")
 
             bot.refresh_last_queue_msg(update)
             bot.request_del()

@@ -216,7 +216,6 @@ class TestQueue(unittest.TestCase):
         self.assertNotIn(self.not_current_queue_name, self.bot.queues_manager)
 
 
-
     def test_move_queue(self):
         # can move next
         self.bot.get_queue().set_position(0)
@@ -241,6 +240,21 @@ class TestQueue(unittest.TestCase):
         cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
         self.assertIsNone(cur_stud)
         self.assertIsNone(next_stud)
+
+
+    def test_move_students_command(self):
+        pos1 = 5
+        pos2 = 3
+        prev_students = list(self.bot.get_queue().students)
+        s1 = prev_students[pos1 - 1]
+        s2 = prev_students[pos2 - 1]
+
+        bot_handle_keyboard(self.bot, *self.uc, bot_commands.ModifyCurrentQueue.MoveStudentPosition, str(s1))
+        bot_handle_keyboard(self.bot, *self.uc, bot_commands.ModifyCurrentQueue.MoveStudentPosition, str(s2))
+
+        self.assertCountEqual(prev_students, self.bot.get_queue().students)
+        self.assertEqual(self.bot.get_queue().students[pos2 - 1], s1)
+        self.assertEqual(self.bot.get_queue().students[pos2 - 2], s2)
 
 
     def test_edit_queue_indexes(self):

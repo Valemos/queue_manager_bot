@@ -137,7 +137,8 @@ def bot_handle_text_command(bot, update, context, text):
     bot.handle_text_command(update, context)
 
 
-def bot_handle_keyboard(bot: QueueBot, update, context, command):
-    update.callback_query.data = command.query()
+def bot_handle_keyboard(bot: QueueBot, update, context, command, args=None):
+    update.callback_query = MagicMock()
+    update.callback_query.data = command.query(args)
 
     bot.handle_keyboard_chosen(update, context)
