@@ -107,7 +107,7 @@ class QueuesManager(Savable):
         if self.selected_queue is not None:
             return self.selected_queue.str()
         else:
-            return self.main_bot.language_pack.queue_finished_select_other
+            return self.main_bot.language_pack.queue_not_selected
 
     def queue_empty(self):
         if self.selected_queue is None:

@@ -281,7 +281,7 @@ class ModifyCurrentQueue(CommandGroup):
                 update.effective_chat.send_message(bot.language_pack.copy_queue)
                 log_bot_queue(update, bot, 'showed list for copy')
             else:
-                update.effective_chat.send_message(bot.language_pack.queue_finished_select_other)
+                update.effective_chat.send_message(bot.language_pack.queue_not_selected)
 
 
     class MoveQueuePosition(CommandGroup.Command):
@@ -321,9 +321,11 @@ class ModifyCurrentQueue(CommandGroup):
 
         @classmethod
         def handle_reply(cls, update, bot):
-            bot.queues_manager.clear_current_queue()
-            update.effective_chat.send_message(bot.language_pack.queue_deleted)
             log_bot_queue(update, bot, 'clear queue')
+            name = bot.get_queue().name if bot.get_queue() is not None else None
+            if name is not None:
+                bot.queues_manager.clear_current_queue()
+                update.effective_chat.send_message(bot.language_pack.queue_removed.format(name))
 
 
     class RemoveListStudents(CommandGroup.Command):

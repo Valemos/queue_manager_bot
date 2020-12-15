@@ -19,16 +19,9 @@ class StudentsQueue(Savable):
     copy_queue_format = '/new_queue {name}\n{students}'
 
     def __init__(self, bot, name=None, students=None):
-        if students is None:
-            students = []
-
-        if name is None:
-            self.name = bot.language_pack.default_queue_name
-        else:
-            self.name = name
-
+        self.name = name if name is not None else bot.language_pack.default_queue_name
         self.main_bot = bot
-        self.students = students
+        self.students = students if students is not None else []
 
     def __len__(self):
         if self.students is None:
@@ -52,7 +45,7 @@ class StudentsQueue(Savable):
 
             cur_stud, next_stud = self.get_cur_and_next()
             if cur_stud is None:
-                return self.main_bot.language_pack.queue_finished_select_other
+                return self.main_bot.language_pack.queue_finished_select_other.format(self.name)
             else:
                 cur_stud = cur_stud.str(self.queue_pos + 1)
 
@@ -75,7 +68,7 @@ class StudentsQueue(Savable):
                                                                    next=next_stud,
                                                                    other=other_studs)
         else:
-            return self.main_bot.language_pack.queue_finished_select_other
+            return self.main_bot.language_pack.queue_finished_select_other.format(self.name)
 
     def str_simple(self):
         queue_name = (self.name + '\n\n') if self.name != '' else ''
@@ -244,7 +237,7 @@ class StudentsQueue(Savable):
         if next_stud is not None:
             msg += '\nГотовится - {0}'.format(next_stud.str())
 
-        return msg if msg != '' else self.main_bot.language_pack.queue_finished_select_other
+        return msg if msg != '' else self.main_bot.language_pack.queue_finished
 
     def get_students_keyboard(self, command):
         return self.main_bot.keyboards.generate_keyboard(

@@ -184,23 +184,22 @@ class TestQueue(unittest.TestCase):
 
     def test_queue_add_me(self):
 
-        students = [self.bot.registered_manager.get_user_by_id(2),
-                    self.bot.registered_manager.get_user_by_id(1),
-                    Student('test', None)]
-        bot = setup_test_queue(self.bot, 'Queue', students)
-
-
-
-
-        # must not do anything
-        tg_set_user(self.u, 3)
+        # must place user to the end
+        tg_set_user(self.u, 15, "15")
         tg_select_command(self.u, bot_commands.ModifyCurrentQueue.AddMe)
         self.bot.handle_keyboard_chosen(*self.uc)
 
-        # must delete user
-        tg_set_user(self.u, 1)
+        self.assertEqual(self.bot.get_queue().students[-1], Student("15", 15))
+
+        # must delete user and place him to the end
+        existing = Student("3", 3)
+        tg_set_user(self.u, existing.telegram_id, existing.name)
+        prev_pos = self.bot.get_queue().get_student_position(existing)
         tg_select_command(self.u, bot_commands.ModifyCurrentQueue.AddMe)
         self.bot.handle_keyboard_chosen(*self.uc)
+
+        self.assertEqual(self.bot.get_queue().students[-1], existing)
+        self.assertNotEqual(self.bot.get_queue().students[prev_pos], existing)
 
 
     def test_select_queue(self):
