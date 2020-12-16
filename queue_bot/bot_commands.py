@@ -569,7 +569,10 @@ class ModifyCurrentQueue(CommandGroup):
             student = bot.registered_manager.get_user_by_update(update)
             bot.get_queue().append_to_queue(student)
 
-            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            if err_msg is not None:
+                log_bot_queue(update, bot, err_msg)
+
             update.message.reply_text(bot.language_pack.you_added_to_queue)
 
             bot.save_queue_to_file()
@@ -590,7 +593,9 @@ class ModifyCurrentQueue(CommandGroup):
             if student in bot.get_queue():
                 bot.get_queue().remove_student(student)
 
-                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+                err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+                if err_msg is not None:
+                    log_bot_queue(update, bot, err_msg)
                 update.message.reply_text(bot.language_pack.you_deleted)
 
                 bot.save_queue_to_file()
@@ -618,7 +623,10 @@ class ModifyCurrentQueue(CommandGroup):
                 update.message.reply_text(bot.language_pack.your_turn_not_now
                                           .format(bot.registered_manager.get_user_by_update(update).str()))
 
-            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            if err_msg is not None:
+                log_bot_queue(update, bot, err_msg)
+
             bot.save_queue_to_file()
             log_bot_queue(update, bot, 'finished: {0}', bot.get_queue().get_current().str_name_id())
 
@@ -681,6 +689,7 @@ class ManageQueues(CommandGroup):
 
                     update.effective_chat.send_message(bot.language_pack.queue_set_format.format(bot.get_queue().name))
                     bot.refresh_last_queue_msg(update)
+                    log_bot_queue(update, bot, 'selected queue')
                 else:
                     log_bot_queue(update, bot, 'queue not found, query: {0}', update.callback_query.data)
             else:
@@ -919,7 +928,10 @@ class CreateQueue(CommandGroup):
                 bot.request_del()
                 log_bot_queue(update, bot, 'queue limit reached')
             else:
-                bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+                err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+                if err_msg is not None:
+                    log_bot_queue(update, bot, err_msg)
+
                 update.effective_chat.send_message(bot.language_pack.queue_set)
                 log_bot_queue(update, bot, 'queue added')
                 CreateQueue.AddNameToQueue.handle_reply(update, bot)
@@ -1103,7 +1115,10 @@ class UpdateQueue(CommandGroup):
         def handle_request(cls, update, bot):
             if not bot.last_queue_message.message_exists(update.effective_chat):
                 update.effective_message.delete()
-            bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+            if err_msg is not None:
+                log_bot_queue(update, bot, err_msg)
+
             log_bot_user(update, bot, 'refreshed queue')
 
 
@@ -1324,7 +1339,9 @@ class CollectSubjectChoices(CommandGroup):
             if subject_chosen is not None:
                 # update choices message
                 choices_str = CollectSubjectChoices.get_choices_available_str(bot)
-                bot.subject_choices_message.update_contents(choices_str, update.effective_chat)
+                err_msg = bot.subject_choices_message.update_contents(choices_str, update.effective_chat)
+                if err_msg is not None:
+                    log_bot_queue(update, bot, err_msg)
 
                 # send message with reply
                 update.message.reply_text(bot.language_pack.your_choice.format(subject_chosen))

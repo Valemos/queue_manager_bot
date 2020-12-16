@@ -55,8 +55,9 @@ class QueueBot:
         self.updater.dispatcher.add_error_handler(self.handle_error)
 
     def refresh_last_queue_msg(self, update):
-        if not self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat):
-            self.logger.log('message failed to update')
+        err_msg = self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat)
+        if err_msg is not None:
+            self.logger.log('message failed to update | ' + err_msg)
 
     def start(self):
         self.logger.log('start')
@@ -139,9 +140,6 @@ class QueueBot:
     def get_queue(self) -> StudentsQueue:
         return self.queues_manager.get_queue()
 
-    def get_queue_log(self):
-        return '\"not selected\"'
-
     def handle_text_command(self, update, context):
         for entity in update.message.entities:
             if entity.type == MessageEntity.BOT_COMMAND:
@@ -157,13 +155,7 @@ class QueueBot:
 
     def handle_error(self, update, context):
         self.logger.log_err(context.error)
-
-        # dump logs to another file
-        new_log_path = self.logger.dump_to_file()
-        # save file to cloud
-        self.gdrive_saver.update_file_list([new_log_path], DriveFolderType.Log)
+        self.save_to_cloud()
 
         # repeat error message to empty log file
-        self.logger.delete_logs()
         self.logger.log_err(context.error)
-
