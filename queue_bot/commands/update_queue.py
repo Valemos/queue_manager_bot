@@ -10,11 +10,11 @@ class ShowCurrentQueue(AbstractCommand):
     @classmethod
     def handle_reply(cls, update, bot):
         # if queue not selected, but it exists
-        if bot.queues_manager.selected_queue is None and len(bot.queues_manager) > 0:
+        if bot.queues.selected_queue is None and len(bot.queues) > 0:
             update.effective_chat.send_message(bot.language_pack.select_queue_or_create_new)
         else:
             bot.last_queue_message.resend(
-                bot.queues_manager.get_queue_str(),
+                bot.queues.get_queue_str(),
                 update.effective_chat,
                 bot.keyboards.move_queue)
 
@@ -26,7 +26,7 @@ class Refresh(AbstractCommand):
     def handle_request(cls, update, bot):
         if not bot.last_queue_message.message_exists(update.effective_chat):
             update.effective_message.delete()
-        err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+        err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
         if err_msg is not None:
             log_bot_queue(update, bot, err_msg)
 

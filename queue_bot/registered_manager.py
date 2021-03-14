@@ -1,19 +1,13 @@
 from pathlib import Path
 from pyjarowinkler import distance  # string similarity
-from queue_bot.file_saving.object_file_saver import ObjectSaver, FolderType
-from queue_bot.savable_interface import Savable
 from queue_bot.objects.student import Student
 from queue_bot.bot.access_levels import AccessLevel
 
 from telegram import Chat
 
 
-class StudentsRegisteredManager(Savable):
+class StudentsRegisteredManager:
 
-    _file_registered_users = FolderType.Data.value / Path('registered.data')
-
-    # dictionary with id`s as keys and levels as values stored in file
-    _file_access_levels = FolderType.Data.value / Path('access_levels.data')
     students_reg = []
 
     def __init__(self, main_bot, students=None):
@@ -44,20 +38,6 @@ class StudentsRegisteredManager(Savable):
     def rename_user(self, student, new_name):
         if student in self.students_reg:
             self.students_reg[self.students_reg.index(student)].name = new_name
-
-    def remove_by_index(self, index):
-        if isinstance(index, int):
-            self.students_reg.pop(index)
-        else:
-            to_delete = []
-            for i in index:
-                to_delete.append(self.students_reg[i])
-
-            deleted = False
-            for elem in to_delete:
-                self.students_reg.remove(elem)
-                deleted = True
-            return deleted
 
     def remove_by_id(self, remove_id: int):
         for i in range(len(self.students_reg)):
@@ -161,24 +141,13 @@ class StudentsRegisteredManager(Savable):
         dist = distance.get_jaro_distance(first, second)
         return dist > 0.9
 
-    def update_access_levels(self, saver: ObjectSaver):
+    def update_access_levels(self, saver):
+        # todo change to file loading
         access_level_updates = saver.load(self._file_access_levels)
         if access_level_updates is not None:
             for student in self.students_reg:
                 if student.telegram_id in access_level_updates:
                     student.access_level = AccessLevel(access_level_updates[student.telegram_id])
-            self.save_to_file(saver)
-
-    def save_to_file(self, saver: ObjectSaver):
-        saver.save(self.students_reg, self._file_registered_users)
-
-    def load_file(self, loader: ObjectSaver):
-        self.students_reg = loader.load(self._file_registered_users)
-        if self.students_reg is None:
-            self.students_reg = []
-
-    def get_save_files(self):
-        return [self._file_registered_users, self._file_access_levels]
 
     # by default this function requires private chat to allow commands
     def check_access(self, update, level_requriment=AccessLevel.ADMIN, check_chat_private=True):

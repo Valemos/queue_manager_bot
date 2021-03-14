@@ -11,8 +11,8 @@ from inrerface_settings_builder import ISettingsBuilderCommand
 
 
 def handle_add_queue(update, bot, queue):
-    if bot.queues_manager.can_add_queue():
-        bot.queues_manager.add_queue(queue)
+    if bot.queues.can_add_queue():
+        bot.queues.add_queue(queue)
         FinishQueueCreation.handle_reply(update, bot)
     else:
         update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
@@ -22,7 +22,7 @@ def handle_add_queue(update, bot, queue):
 
 def handle_queue_create_message(cmd: Type[ISettingsBuilderCommand], update, bot):
     # simple command runs chain of callbacks
-    if bot.queues_manager.can_add_queue():
+    if bot.queues.can_add_queue():
         if parsers.is_single_queue_command(update.message.text):
             handle_queue_create(update, bot, cmd.settings)
         else:
@@ -34,7 +34,7 @@ def handle_queue_create_message(cmd: Type[ISettingsBuilderCommand], update, bot)
 def handle_queue_create(update, bot, generate_function):
     queue_name, names = parsers.parse_queue_message(update.message.text)
     students = bot.registered_manager.get_registered_students(names)
-    queue = bot.queues_manager.create_queue(bot)
+    queue = bot.queues.create_queue(bot)
 
     if queue_name is None:
         queue_name = bot.language_pack.default_queue_name
@@ -173,12 +173,12 @@ class CreateRandomFromRegistered(AbstractCommand, ISettingsBuilderCommand):
         queue = StudentsQueue(bot)
         queue.generate_random(bot.registered_manager.get_users())  # we specify parameter in "self"
 
-        if not bot.queues_manager.add_queue(queue):
+        if not bot.queues.add_queue(queue):
             update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
             bot.request_del()
             log_bot_queue(update, bot, 'queue limit reached')
         else:
-            err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(),
+            err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(),
                                                              update.effective_chat)
             if err_msg is not None:
                 log_bot_queue(update, bot, err_msg)

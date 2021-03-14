@@ -2,19 +2,12 @@ import random as rnd
 from pathlib import Path
 
 from queue_bot.objects.student import Student, EmptyStudent
-from queue_bot.file_saving.object_file_saver import FolderType
-from queue_bot.savable_interface import Savable
 
 
-class StudentsQueue(Savable):
+class StudentsQueue:
 
     queue_pos = 0
     students = []
-
-    save_folder = FolderType.QueuesData.value
-
-    file_format_queue = 'queue_{0}.data'
-    file_format_queue_state = 'state_{0}.data'
 
     copy_queue_format = '/new_queue {name}\n{students}'
 

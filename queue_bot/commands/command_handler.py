@@ -43,8 +43,8 @@ class CommandHandler:
         else:
             cmd.handle_keyboard(update, bot)
 
-    def handle_text_command(self, update, command_entity, bot):
-        command_string = update.message.text[command_entity.offset + 1: command_entity.length]
+    def handle_text_command(self, update, message_entity, bot):
+        command_string = update.message.text[message_entity.offset + 1: message_entity.length]
         cmd = self.get_command_by_name(command_string)
 
         if cmd is None:

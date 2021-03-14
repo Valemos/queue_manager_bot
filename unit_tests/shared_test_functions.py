@@ -40,13 +40,7 @@ def setup_test_queue(bot, name, students):
     queue = StudentsQueue(bot)
     queue.name = name
     queue.set_students(list(students))
-    bot.queues_manager.add_queue(queue)
-    return bot
-
-
-def setup_test_subject_choices(bot: QueueBot):
-    bot.choice_manager.set_choice_group('Name', (1, 15), 2)
-    bot.choice_manager.can_choose = True
+    bot.queues.add_queue(queue)
     return bot
 
 

@@ -8,13 +8,13 @@ from queue_bot.file_saving.gdrive_saver import DriveFolderType
 
 import queue_bot.languages.bot_messages_rus as messages_rus
 import queue_bot.bot.keyboards
-import queue_bot.commands.command_handler as command_handler
 
 from queue_bot.registered_manager import StudentsRegisteredManager
-from queue_bot.queues_manager import QueuesManager
+from queue_bot.queues_container import QueuesContainer
 from queue_bot.objects.students_queue import StudentsQueue
 from queue_bot.updatable_message import UpdatableMessage
-import queue_bot.bot.command_groups
+import queue_bot.commands
+from queue_bot.commands import command_handler
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import MessageEntity
@@ -23,7 +23,7 @@ from telegram import MessageEntity
 class QueueBot:
     language_pack = messages_rus
     keyboards = queue_bot.bot.keyboards
-    available_commands = queue_bot.bot.command_groups
+    available_commands = queue_bot.commands
 
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
@@ -38,7 +38,7 @@ class QueueBot:
 
         # this bot object passed for access to both classes inside one another
         self.registered_manager = StudentsRegisteredManager(self)
-        self.queues_manager = QueuesManager(self)
+        self.queues = QueuesContainer(self)
 
         if bot_token is None:
             bot_token = self.get_token()
@@ -55,7 +55,7 @@ class QueueBot:
         self.updater.dispatcher.add_error_handler(self.handle_error)
 
     def refresh_last_queue_msg(self, update):
-        err_msg = self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat)
+        err_msg = self.last_queue_message.update_contents(self.queues.get_queue_str(), update.effective_chat)
         if err_msg is not None:
             self.logger.log('message failed to update | ' + err_msg)
 
@@ -71,8 +71,8 @@ class QueueBot:
         exit_thread.join()
 
     def handler_stop(self):
-        self.queues_manager.clear_finished_queues()
-        self.queues_manager.save_to_file(self.object_saver)
+        self.queues.clear_finished_queues()
+        self.queues.save_to_file(self.object_saver)
         self.save_to_cloud()
         self.updater.stop()
 
@@ -82,18 +82,18 @@ class QueueBot:
             self.handler_stop()
 
     def save_queue_to_file(self):
-        self.queues_manager.save_current_to_file()
+        self.queues.save_current_to_file()
 
     # paths inside .get_save_files() must match
     # with paths in load_from_cloud by folders to load correctly
     def save_to_cloud(self):
 
         self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolderType.Root)
-        self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolderType.Queues)
+        self.gdrive_saver.update_file_list(self.queues.get_save_files(), DriveFolderType.Queues)
 
         all_file_names = [
             file.name for file in (self.registered_manager.get_save_files()
-                                   + self.queues_manager.get_save_files())
+                                   + self.queues.get_save_files())
         ]
 
         self.logger.log("saved files to cloud:\n" + "\n".join(all_file_names))
@@ -109,7 +109,7 @@ class QueueBot:
 
         self.registered_manager.load_file(self.object_saver)
         self.registered_manager.update_access_levels(self.object_saver)
-        self.queues_manager.load_file(self.object_saver)
+        self.queues.load_file(self.object_saver)
 
     # loads default values from external file
     def save_registered_to_file(self):
@@ -135,10 +135,10 @@ class QueueBot:
         self.command_requested_answer = None
 
     def check_queue_selected(self):
-        return self.queues_manager.get_queue() is not None
+        return self.queues.get_queue() is not None
 
     def get_queue(self) -> StudentsQueue:
-        return self.queues_manager.get_queue()
+        return self.queues.get_queue()
 
     def handle_text_command(self, update, context):
         for entity in update.message.entities:

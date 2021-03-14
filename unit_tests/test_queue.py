@@ -1,18 +1,17 @@
 import unittest
 
-import queue_bot.commands.create_queue
-import queue_bot.commands.manage_queues
-import queue_bot.commands.modify_queue
-from queue_bot.commands import commands
+import queue_bot.commands.create_queue as create_queue
+import queue_bot.commands.manage_queues as manage_queues
+import queue_bot.commands.modify_queue as modify_queue
+
 from unit_tests.shared_test_functions import *
 
 
 class TestQueue(unittest.TestCase):
 
-
     def setUp(self) -> None:
         self.bot = setup_test_bot(self)
-        
+
         self.queue_students_with_none = list(self.bot.registered_manager.get_users())
 
         self.student_none = Student('t', None)
@@ -24,7 +23,7 @@ class TestQueue(unittest.TestCase):
         self.current_queue_students = self.bot.get_queue().students
 
         self.not_current_queue_name = None
-        for queue_name in self.bot.queues_manager.queues:
+        for queue_name in self.bot.queues.queues:
             if queue_name != self.bot.get_queue().name:
                 self.not_current_queue_name = queue_name
         self.assertIsNotNone(self.not_current_queue_name)
@@ -39,18 +38,16 @@ class TestQueue(unittest.TestCase):
         # set default admin user
         tg_set_user(self.u, 1)
 
-
     def test_queue_create_simple(self):
-        bot_request_command_send_msg(self.bot, queue_bot.commands.create_queue.CreateQueue.CreateSimple, *self.uc)
+        bot_request_command_send_msg(self.bot, create_queue.CreateSimple, *self.uc)
         bot_handle_message(self.bot, '0\n1\ntest\n2', *self.uc)
         bot_handle_message(self.bot, 'Name', *self.uc)
 
         self.assertListEqual(self.bot.get_queue().students,
                              [Student('0', 0), Student('1', 1), Student('test', None), Student('2', 2)])
 
-
     def test_queue_create_random(self):
-        bot_request_command_send_msg(self.bot, queue_bot.commands.create_queue.CreateQueue.CreateRandom, *self.uc)
+        bot_request_command_send_msg(self.bot, create_queue.CreateRandom, *self.uc)
 
         tg_write_message(self.u, '0\n1\ntest\n2')
         self.bot.handle_message_reply_command(*self.uc)
@@ -61,35 +58,32 @@ class TestQueue(unittest.TestCase):
         self.assertCountEqual(self.bot.get_queue().students,
                               [Student('0', 0), Student('1', 1), Student('test', None), Student('2', 2)])
 
-
     def test_rename_queue(self):
         prev_queue_name = self.not_current_queue_name
-        tg_select_command(self.u, queue_bot.commands.manage_queues.ManageQueues.RenameQueue, prev_queue_name)
+        tg_select_command(self.u, manage_queues.RenameQueue, prev_queue_name)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         tg_write_message(self.u, 'new_name')
         self.bot.handle_message_reply_command(*self.uc)
-        self.assertIn('new_name', self.bot.queues_manager.queues)
-        self.assertNotIn(prev_queue_name, self.bot.queues_manager.queues)
-
+        self.assertIn('new_name', self.bot.queues.queues)
+        self.assertNotIn(prev_queue_name, self.bot.queues.queues)
 
     def test_swap_users_in_queue(self):
 
         first_user = self.bot.registered_manager.get_users()[2]
         second_user = self.bot.registered_manager.get_users()[4]
 
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.MoveSwapStudents)
+        tg_select_command(self.u, modify_queue.MoveSwapStudents)
         self.bot.handle_keyboard_chosen(*self.uc)  # must only create keyboard
 
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.MoveSwapStudents, str(first_user))
+        tg_select_command(self.u, modify_queue.MoveSwapStudents, str(first_user))
         self.bot.handle_keyboard_chosen(*self.uc)
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.MoveSwapStudents, str(second_user))
+        tg_select_command(self.u, modify_queue.MoveSwapStudents, str(second_user))
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertCountEqual(self.bot.get_queue().students, self.bot.registered_manager.get_users())
         self.assertEqual(second_user, self.bot.get_queue().students[2])
         self.assertEqual(first_user, self.bot.get_queue().students[4])
-
 
     def test_queue_copy(self):
         text = self.bot.get_queue().get_str_for_copy()
@@ -105,9 +99,8 @@ class TestQueue(unittest.TestCase):
         bot_handle_text_command(empty_bot, *self.uc, text)
         self.assertListEqual(empty_bot.get_queue().students, initial_students)
 
-
     def test_create_with_empty_lines(self):
-        bot_request_command_send_msg(self.bot, queue_bot.commands.create_queue.CreateQueue.CreateSimple, *self.uc)
+        bot_request_command_send_msg(self.bot, create_queue.CreateSimple, *self.uc)
 
         message = '''Дурда + Козинцева
 
@@ -128,7 +121,7 @@ class TestQueue(unittest.TestCase):
         tg_write_message(self.u, message)
         self.bot.handle_message_reply_command(*self.uc)
 
-        tg_select_command(self.u, queue_bot.commands.create_queue.CreateQueue.DefaultQueueName)
+        tg_select_command(self.u, create_queue.DefaultQueueName)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertListEqual([Student('Дурда + Козинцева', None),
@@ -140,7 +133,6 @@ class TestQueue(unittest.TestCase):
                               Student('Копылаш + Редька', None),
                               Student('Северян + Дорошенко', None)],
                              self.bot.get_queue().students)
-
 
     def test_queue_add_user(self):
         queue = StudentsQueue(self.bot)
@@ -163,33 +155,30 @@ class TestQueue(unittest.TestCase):
         self.assertCountEqual(prev_list, queue.students)
         self.assertEqual(Student('Unknown', None), queue.get_last())
 
-
     def test_queue_delete_me(self):
 
         students = [self.bot.registered_manager.get_user_by_id(2),
                     self.bot.registered_manager.get_user_by_id(1),
                     Student('test', None)]
-        bot = setup_test_queue(self.bot, 'Queue', students)
-
+        setup_test_queue(self.bot, 'Queue', students)
 
         self.context = MagicMock()
 
         # must not do anything
         tg_set_user(self.u, 3)
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.RemoveMe)
+        tg_select_command(self.u, modify_queue.RemoveMe)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         # must delete user
         tg_set_user(self.u, 1)
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.RemoveMe)
+        tg_select_command(self.u, modify_queue.RemoveMe)
         self.bot.handle_keyboard_chosen(*self.uc)
-
 
     def test_queue_add_me(self):
 
         # must place user to the end
         tg_set_user(self.u, 15, "15")
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.AddMe)
+        tg_select_command(self.u, modify_queue.AddMe)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertEqual(self.bot.get_queue().students[-1], Student("15", 15))
@@ -198,25 +187,22 @@ class TestQueue(unittest.TestCase):
         existing = Student("3", 3)
         tg_set_user(self.u, existing.telegram_id, existing.name)
         prev_pos = self.bot.get_queue().get_student_position(existing)
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.AddMe)
+        tg_select_command(self.u, modify_queue.AddMe)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertEqual(self.bot.get_queue().students[-1], existing)
         self.assertNotEqual(self.bot.get_queue().students[prev_pos], existing)
 
-
     def test_select_queue(self):
-        tg_select_command(self.u, queue_bot.commands.manage_queues.ManageQueues.SelectOtherQueue, self.not_current_queue_name)
+        tg_select_command(self.u, manage_queues.SelectOtherQueue, self.not_current_queue_name)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertEqual(self.bot.get_queue().name, self.not_current_queue_name)
 
-
     def test_delete_queue(self):
-        tg_select_command(self.u, queue_bot.commands.manage_queues.ManageQueues.DeleteQueue, self.not_current_queue_name)
+        tg_select_command(self.u, manage_queues.DeleteQueue, self.not_current_queue_name)
         self.bot.handle_keyboard_chosen(*self.uc)
-        self.assertNotIn(self.not_current_queue_name, self.bot.queues_manager)
-
+        self.assertNotIn(self.not_current_queue_name, self.bot.queues)
 
     def test_move_queue(self):
         # can move next
@@ -243,7 +229,6 @@ class TestQueue(unittest.TestCase):
         self.assertIsNone(cur_stud)
         self.assertIsNone(next_stud)
 
-
     def test_move_students_command(self):
         pos1 = 5
         pos2 = 3
@@ -251,44 +236,21 @@ class TestQueue(unittest.TestCase):
         s1 = prev_students[pos1 - 1]
         s2 = prev_students[pos2 - 1]
 
-        bot_handle_keyboard(self.bot, *self.uc, queue_bot.commands.modify_queue.ModifyCurrentQueue.MoveStudentPosition, str(s1))
-        bot_handle_keyboard(self.bot, *self.uc, queue_bot.commands.modify_queue.ModifyCurrentQueue.MoveStudentPosition, str(s2))
+        bot_handle_keyboard(self.bot, *self.uc, modify_queue.MoveStudentPosition, str(s1))
+        bot_handle_keyboard(self.bot, *self.uc, modify_queue.MoveStudentPosition, str(s2))
 
         self.assertCountEqual(prev_students, self.bot.get_queue().students)
         self.assertEqual(self.bot.get_queue().students[pos2 - 1], s1)
         self.assertEqual(self.bot.get_queue().students[pos2 - 2], s2)
 
-
-    def test_edit_queue_indexes(self):
-        self.bot.get_queue().set_position(3)
-        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
-
-        # if we delete current user, next element must become current
-        self.bot.get_queue().remove_by_index(3)
-        self.assertNotIn(cur_stud, self.bot.get_queue())
-        self.assertEqual(next_stud, self.bot.get_queue().get_current())
-
-        # if we delete user from larger position, current student must stay
-        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
-        self.bot.get_queue().set_position(2)
-        self.bot.get_queue().remove_by_index(3)
-        self.assertEqual(cur_stud, self.bot.get_queue().get_current())
-
-        # if we delete user before current, it must remain on it`s place
-        cur_stud, next_stud = self.bot.get_queue().get_cur_and_next()
-        self.bot.get_queue().set_position(2)
-        self.bot.get_queue().remove_by_index(1)
-        self.assertEqual(cur_stud, self.bot.get_queue().get_current())
-
-
     def test_remove_students_list(self):
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.RemoveListStudents)
+        tg_select_command(self.u, modify_queue.RemoveListStudents)
         self.bot.handle_keyboard_chosen(*self.uc)
 
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.RemoveListStudents, self.queue_students_with_none[1])
+        tg_select_command(self.u, modify_queue.RemoveListStudents, self.queue_students_with_none[1])
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertNotIn(self.queue_students_with_none[1], self.bot.get_queue().students)
 
-        tg_select_command(self.u, queue_bot.commands.modify_queue.ModifyCurrentQueue.RemoveListStudents, self.queue_students_with_none[2])
+        tg_select_command(self.u, modify_queue.RemoveListStudents, self.queue_students_with_none[2])
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertNotIn(self.queue_students_with_none[2], self.bot.get_queue().students)

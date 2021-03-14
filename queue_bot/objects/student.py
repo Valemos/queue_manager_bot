@@ -1,18 +1,23 @@
 from queue_bot.bot.access_levels import AccessLevel
+from queue_bot.database import Base
+
+from sqlalchemy import Column, String, Integer, Enum
 
 
-class Student:
+class Student(Base):
+    __tablename__ = "students"
 
-    student_show_format = '{0} - {1}'
+    telegram_id = Column(Integer, primary_key=True)
+    name = Column(String(50))
+    access_level = Column(Enum(AccessLevel))
 
     def __init__(self, name, telegram_id):
-        self.name = name
         self.telegram_id = telegram_id
+        self.name = name
         self.access_level = AccessLevel.USER
 
     def __eq__(self, other):
         if not isinstance(other, Student):
-            print("Programmer error compairing students")
             return False
 
         if self.telegram_id is not None and other.telegram_id is not None:
@@ -36,7 +41,7 @@ class Student:
         if position is None:
             return self.name
         else:
-            return self.student_show_format.format(position, self.name)
+            return "{0} - {1}".format(position, self.name)
 
     # to get student back used function in queue_bot.bot_parsers.parse_student
     def str_name_id(self):
@@ -47,3 +52,8 @@ class Student:
 
 
 EmptyStudent = Student('Пусто', None)
+
+if __name__ == '__main__':
+    from queue_bot.database import engine
+
+    print(Base.metadata.create_all(engine))

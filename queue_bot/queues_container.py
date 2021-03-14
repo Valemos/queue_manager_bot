@@ -1,19 +1,14 @@
 #  class relies on unique names, and is not suitable for multiple chats
-from pathlib import Path
 
-from queue_bot.file_saving.object_file_saver import FolderType
-from queue_bot.file_saving.gdrive_saver import DriveFolderType
-from queue_bot.savable_interface import Savable
-from queue_bot.bot import keyboards, parsers as parsers
+from queue_bot.bot import keyboards
 from queue_bot.objects.students_queue import StudentsQueue
 
 
-class QueuesManager(Savable):
+class QueuesContainer:
 
     queues_count_limit = 10
     queues = {}
     selected_queue = None
-    file_selected_name = FolderType.QueuesData.value / Path('selected_name.data')
 
     def __init__(self, main_bot, queues: list = None):
         if queues is None:
@@ -54,7 +49,6 @@ class QueuesManager(Savable):
                 else:
                     # only add queue to dictionary
                     self.queues[queue.name] = queue
-
 
     @staticmethod
     def create_queue(*args):
@@ -128,48 +122,3 @@ class QueuesManager(Savable):
         if to_delete is not None:
             del self.queues[to_delete]
             self.delete_queue_files(to_delete)
-
-    # method used to save all queue files to drive
-    def get_save_files(self):
-        queues_files = []
-        for queue in self.queues.values():
-            queue.save_to_file(self.main_bot.object_saver)
-            queues_files.extend(queue.get_save_files())
-        return queues_files + [self.file_selected_name]
-
-    def save_current_to_file(self):
-        self.selected_queue.save_to_file(self.main_bot.object_saver)
-        if self.selected_queue is not None:
-            self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
-
-    def delete_queue_files(self, queue):
-        files = queue.get_save_files()
-        self.main_bot.gdrive_saver.delete_from_folder(files, DriveFolderType.Queues)
-        for file in files:
-            self.main_bot.object_saver.delete(file)
-
-    def save_to_file(self, saver):
-        for queue in self.queues.values():
-            queue.save_to_file(saver)
-        if self.selected_queue is not None:
-            self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
-
-    def load_file(self, saver):
-        # we scan save folder_type to find all required files
-        file_names = []
-        for path in StudentsQueue.save_folder.glob('**/*'):
-            file_names.append(path.name)
-
-        queue_names = parsers.parse_valid_queue_names(file_names)
-
-        self.queues = {}
-        for name in queue_names:
-            queue = StudentsQueue(self.main_bot)
-            queue.name = name
-            queue.load_file(saver)
-            self.queues[queue.name] = queue
-
-        selected_name = saver.load(self.file_selected_name)
-        if selected_name is not None:
-            if selected_name in self.queues:
-                self.selected_queue = self.queues[selected_name]

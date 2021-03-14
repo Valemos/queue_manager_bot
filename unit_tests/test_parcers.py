@@ -12,12 +12,12 @@ class TestParsers(unittest.TestCase):
 
     def test_queue_file_names_parse(self):
         from queue_bot.bot.parsers import parse_valid_queue_names
-        from queue_bot.queues_manager import QueuesManager
+        from queue_bot.queues_container import QueuesContainer
 
         bot = MagicMock()
 
         names = ['name1', 'name2', 'name3']
-        test_queues = QueuesManager(bot, [StudentsQueue(bot, name) for name in names])
+        test_queues = QueuesContainer(bot, [StudentsQueue(bot, name) for name in names])
         save_files = test_queues.get_save_files()
 
         file_names = []

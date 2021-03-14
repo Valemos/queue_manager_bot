@@ -31,28 +31,28 @@ class TestBotCommands(unittest.TestCase):
     def test_cur_and_next_in_queue(self):
         students = self.bot.get_queue().students
 
-        self.bot.queues_manager.get_queue().set_position(2)
-        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
+        self.bot.queues.get_queue().set_position(2)
+        cur_stud, next_stud = self.bot.queues.get_queue().get_cur_and_next()
 
         self.assertEqual(cur_stud, students[2])
         self.assertEqual(next_stud, students[3])
 
         # last element
-        self.bot.queues_manager.get_queue().set_position(5)
-        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
+        self.bot.queues.get_queue().set_position(5)
+        cur_stud, next_stud = self.bot.queues.get_queue().get_cur_and_next()
 
         self.assertEqual(cur_stud, students[4])
         self.assertIsNone(next_stud)
 
         # after last element
-        self.bot.queues_manager.get_queue().set_position(6)
-        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
+        self.bot.queues.get_queue().set_position(6)
+        cur_stud, next_stud = self.bot.queues.get_queue().get_cur_and_next()
 
         self.assertIsNone(cur_stud)
         self.assertIsNone(next_stud)
 
-        self.bot.queues_manager.get_queue().set_position(100)
-        cur_stud, next_stud = self.bot.queues_manager.get_queue().get_cur_and_next()
+        self.bot.queues.get_queue().set_position(100)
+        cur_stud, next_stud = self.bot.queues.get_queue().get_cur_and_next()
 
         self.assertIsNone(cur_stud)
         self.assertIsNone(next_stud)
@@ -81,8 +81,8 @@ class TestBotCommands(unittest.TestCase):
 
 
         bot = setup_test_queue(self.bot, 'test1', self.bot.registered_manager.get_users())
-        self.bot.queues_manager.get_queue().append_by_name('Unknown')
-        self.assertIn(Student('Unknown', None), self.bot.queues_manager.get_queue().students)
+        self.bot.queues.get_queue().append_by_name('Unknown')
+        self.assertIn(Student('Unknown', None), self.bot.queues.get_queue().students)
 
         # test for interactions with bot
 
@@ -93,18 +93,18 @@ class TestBotCommands(unittest.TestCase):
 
         # unknown removes himself
         bot_request_command_send_msg(self.bot, queue_bot.commands.modify_queue.ModifyCurrentQueue.RemoveMe, *self.uc)
-        self.assertNotIn(Student('V', None), self.bot.queues_manager.get_queue().students)
+        self.assertNotIn(Student('V', None), self.bot.queues.get_queue().students)
 
         bot_request_command_send_msg(self.bot, queue_bot.commands.modify_queue.ModifyCurrentQueue.AddMe, *self.uc)  # add user again
         idx = 3
         # move him to desired index
-        self.bot.queues_manager.get_queue().move_to_index(len(self.bot.queues_manager.get_queue().students) - 1, idx)
-        self.assertEqual(Student('V', None), self.bot.queues_manager.get_queue().students[idx])
+        self.bot.queues.get_queue().move_to_index(len(self.bot.queues.get_queue().students) - 1, idx)
+        self.assertEqual(Student('V', None), self.bot.queues.get_queue().students[idx])
 
         # when unknown finished, go next
-        self.bot.queues_manager.get_queue().set_position(idx)
+        self.bot.queues.get_queue().set_position(idx)
         bot_request_command_send_msg(self.bot, queue_bot.commands.modify_queue.ModifyCurrentQueue.StudentFinished, *self.uc)
-        self.assertEqual(idx + 1, self.bot.queues_manager.get_queue().get_position())
+        self.assertEqual(idx + 1, self.bot.queues.get_queue().get_position())
 
 
     def test_start_bot(self):

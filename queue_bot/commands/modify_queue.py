@@ -50,7 +50,7 @@ class MoveQueuePosition(AbstractCommand):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        update.effective_chat.send_message(bot.queues_manager.get_queue_str())
+        update.effective_chat.send_message(bot.queues.get_queue_str())
         update.effective_chat.send_message(bot.language_pack.send_new_position)
         bot.request_set(cls)
 
@@ -83,7 +83,7 @@ class ClearList(AbstractCommand):
         log_bot_queue(update, bot, 'clear queue')
         name = bot.get_queue().name if bot.get_queue() is not None else None
         if name is not None:
-            bot.queues_manager.clear_current_queue()
+            bot.queues.clear_current_queue()
             update.effective_chat.send_message(bot.language_pack.queue_removed.format(name))
 
 
@@ -294,7 +294,7 @@ class AddStudent(AbstractCommand):
             update.effective_chat.send_message(bot.language_pack.queue_not_selected)
             return
 
-        update.effective_chat.send_message(bot.queues_manager.get_queue_str())
+        update.effective_chat.send_message(bot.queues.get_queue_str())
         update.effective_chat.send_message(bot.language_pack.send_student_name_to_end)
         bot.request_set(cls)
 
@@ -327,7 +327,7 @@ class AddMe(AbstractCommand):
         student = bot.registered_manager.get_user_by_update(update)
         bot.get_queue().append_to_queue(student)
 
-        err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+        err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
         if err_msg is not None:
             log_bot_queue(update, bot, err_msg)
 
@@ -351,7 +351,7 @@ class RemoveMe(AbstractCommand):
         if student in bot.get_queue():
             bot.get_queue().remove_student(student)
 
-            err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(),
+            err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(),
                                                              update.effective_chat)
             if err_msg is not None:
                 log_bot_queue(update, bot, err_msg)
@@ -376,13 +376,13 @@ class StudentFinished(AbstractCommand):
         student_finished = bot.registered_manager.get_user_by_update(update)
 
         if student_finished == bot.get_queue().get_current():  # finished user currently first
-            bot.queues_manager.get_queue().move_next()
+            bot.queues.get_queue().move_next()
             ShowCurrentAndNextStudent.handle_request(update, bot)
         else:
             update.message.reply_text(bot.language_pack.your_turn_not_now
                                       .format(bot.registered_manager.get_user_by_update(update).str()))
 
-        err_msg = bot.last_queue_message.update_contents(bot.queues_manager.get_queue_str(), update.effective_chat)
+        err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
         if err_msg is not None:
             log_bot_queue(update, bot, err_msg)
 
