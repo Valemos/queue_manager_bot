@@ -1,8 +1,8 @@
 import pickle
 import os
 from queue_bot.registered_manager import StudentsRegisteredManager
-from queue_bot.student import Student
-from queue_bot.misc.object_file_saver import FolderType
+from queue_bot.objects.student import Student
+from queue_bot.file_saving.object_file_saver import FolderType
 from queue_bot.registered_manager import AccessLevel
 
 os.chdir('../')

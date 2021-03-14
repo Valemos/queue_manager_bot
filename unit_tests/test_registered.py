@@ -1,9 +1,9 @@
-from unittest.mock import MagicMock
-import mock
 import unittest
 
-from queue_bot import bot_commands
-from queue_bot.bot_access_levels import AccessLevel
+import queue_bot.commands.manage_access
+import queue_bot.commands.modify_registered
+from queue_bot.commands import commands
+from queue_bot.bot.access_levels import AccessLevel
 from unit_tests.shared_test_functions import *
 
 class TestRegisteredManager(unittest.TestCase):
@@ -80,16 +80,16 @@ class TestRegisteredManager(unittest.TestCase):
         context = MagicMock()
 
         tg_set_user(update, 1)
-        tg_select_command(update, bot_commands.ModifyRegistered.RemoveListUsers)
+        tg_select_command(update, queue_bot.commands.modify_registered.ModifyRegistered.RemoveListUsers)
         bot.handle_keyboard_chosen(update, context)
 
         self.assertIn(students[1], bot.registered_manager.get_users())
-        tg_select_command(update, bot_commands.ModifyRegistered.RemoveListUsers, students[1].str_name_id())
+        tg_select_command(update, queue_bot.commands.modify_registered.ModifyRegistered.RemoveListUsers, students[1].str_name_id())
         bot.handle_keyboard_chosen(update, context)
         self.assertNotIn(students[1], bot.registered_manager.get_users())
 
         self.assertIn(students[2], bot.registered_manager.get_users())
-        tg_select_command(update, bot_commands.ModifyRegistered.RemoveListUsers, students[2].str_name_id())
+        tg_select_command(update, queue_bot.commands.modify_registered.ModifyRegistered.RemoveListUsers, students[2].str_name_id())
         bot.handle_keyboard_chosen(update, context)
         self.assertNotIn(students[2], bot.registered_manager.get_users())
 
@@ -101,26 +101,26 @@ class TestRegisteredManager(unittest.TestCase):
         context = MagicMock()
 
         tg_set_user(update, 1)
-        tg_select_command(update, bot_commands.ManageAccessRights.AddAdmin)
+        tg_select_command(update, queue_bot.commands.manage_access.ManageAccessRights.AddAdmin)
         bot.handle_keyboard_chosen(update, context)
         tg_forward_message(update, 100, '100')
         bot.handle_message_reply_command(update, context)
         self.assertIs(bot.registered_manager.get_user_by_id(100).access_level, AccessLevel.ADMIN)
 
-        tg_select_command(update, bot_commands.ManageAccessRights.AddAdmin)
+        tg_select_command(update, queue_bot.commands.manage_access.ManageAccessRights.AddAdmin)
         bot.handle_keyboard_chosen(update, context)
         tg_forward_message(update, 3, '3')
         bot.handle_message_reply_command(update, context)
         self.assertIs(bot.registered_manager.get_user_by_id(3).access_level, AccessLevel.ADMIN)
 
         test_st = bot.registered_manager.get_user_by_id(100)
-        tg_select_command(update, bot_commands.ManageAccessRights.RemoveAdmin, test_st)
+        tg_select_command(update, queue_bot.commands.manage_access.ManageAccessRights.RemoveAdmin, test_st)
         bot.handle_keyboard_chosen(update, context)
         self.assertIn(test_st, bot.registered_manager)
         self.assertIs(bot.registered_manager.get_user_by_id(100).access_level, AccessLevel.USER)
 
         test_st = bot.registered_manager.get_user_by_id(3)
-        tg_select_command(update, bot_commands.ManageAccessRights.RemoveAdmin, test_st)
+        tg_select_command(update, queue_bot.commands.manage_access.ManageAccessRights.RemoveAdmin, test_st)
         bot.handle_keyboard_chosen(update, context)
         self.assertIn(test_st, bot.registered_manager)
         self.assertIs(bot.registered_manager.get_user_by_id(3).access_level, AccessLevel.USER)

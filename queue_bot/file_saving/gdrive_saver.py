@@ -8,10 +8,10 @@ from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from googleapiclient.errors import HttpError
-from queue_bot.misc.object_file_saver import FolderType
+from queue_bot.file_saving.object_file_saver import FolderType
 
 # holds file paths to folder_type id`s
-from queue_bot.misc.drive_folder import DriveFolder
+from queue_bot.file_saving.drive_folder import DriveFolder
 
 
 """

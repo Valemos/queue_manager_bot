@@ -1,8 +1,8 @@
 import random as rnd
 from pathlib import Path
 
-from queue_bot.student import Student, EmptyStudent
-from queue_bot.misc.object_file_saver import FolderType
+from queue_bot.objects.student import Student, EmptyStudent
+from queue_bot.file_saving.object_file_saver import FolderType
 from queue_bot.savable_interface import Savable
 
 

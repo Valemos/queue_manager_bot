@@ -1,5 +1,4 @@
-from queue_bot.bot_access_levels import AccessLevel
-from hashlib import md5
+from queue_bot.bot.access_levels import AccessLevel
 
 
 class Student:

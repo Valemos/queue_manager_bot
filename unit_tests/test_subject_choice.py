@@ -1,7 +1,7 @@
 import unittest
 
 from unit_tests.shared_test_functions import *
-import queue_bot.bot_commands as commands
+import queue_bot.commands.commands as commands
 
 
 

@@ -2,19 +2,19 @@ import signal
 import os
 import threading
 
-from queue_bot.misc.logger import Logger
-from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
-from queue_bot.misc.gdrive_saver import DriveSaver, DriveFolderType
+from queue_bot.file_saving.logger import Logger
+from queue_bot.file_saving.object_file_saver import ObjectSaver, FolderType
+from queue_bot.file_saving.gdrive_saver import DriveFolderType
 
 import queue_bot.languages.bot_messages_rus as messages_rus
-import queue_bot.bot_keyboards
-import queue_bot.bot_command_handler as command_handler
+import queue_bot.bot.keyboards
+import queue_bot.commands.command_handler as command_handler
 
 from queue_bot.registered_manager import StudentsRegisteredManager
 from queue_bot.queues_manager import QueuesManager
-from queue_bot.students_queue import StudentsQueue
+from queue_bot.objects.students_queue import StudentsQueue
 from queue_bot.updatable_message import UpdatableMessage
-import queue_bot.bot_available_commands
+import queue_bot.bot.command_groups
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import MessageEntity
@@ -22,8 +22,8 @@ from telegram import MessageEntity
 
 class QueueBot:
     language_pack = messages_rus
-    keyboards = queue_bot.bot_keyboards
-    available_commands = queue_bot.bot_available_commands
+    keyboards = queue_bot.bot.keyboards
+    available_commands = queue_bot.bot.command_groups
 
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()

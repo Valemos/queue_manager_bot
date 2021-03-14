@@ -1,9 +1,9 @@
 from pathlib import Path
 from pyjarowinkler import distance  # string similarity
-from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
+from queue_bot.file_saving.object_file_saver import ObjectSaver, FolderType
 from queue_bot.savable_interface import Savable
-from queue_bot.student import Student
-from queue_bot.bot_access_levels import AccessLevel
+from queue_bot.objects.student import Student
+from queue_bot.bot.access_levels import AccessLevel
 
 from telegram import Chat
 
@@ -30,10 +30,8 @@ class StudentsRegisteredManager(Savable):
     def get_users(self):
         return self.students_reg
 
-    def append_new_user(self, name, telegram_id):
-        new_student = Student(name, telegram_id)
-        self.students_reg.append(new_student)
-        return new_student
+    def add_user(self, name, telegram_id):
+        self.students_reg.append(Student(name, telegram_id))
 
     def append_users(self, users):
         if isinstance(users, Student):

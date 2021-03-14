@@ -1,7 +1,7 @@
-from queue_bot.student import Student
-from parse import parse, search
+from queue_bot.objects.student import Student
+from parse import parse
 
-from queue_bot.students_queue import StudentsQueue
+from queue_bot.objects.students_queue import StudentsQueue
 
 
 def parse_positions_list(string, min_index, max_index):
@@ -53,7 +53,7 @@ def parse_names(string):
     return [name for name in names if name != '' and check_student_name(name)]
 
 
-def parce_number_range(text):
+def parse_number_range(text):
     result = parse('{0}-{1}', text)
     if result is not None:
         try:
@@ -64,7 +64,7 @@ def parce_number_range(text):
         return None, None
 
 
-def parce_integer(text):
+def parse_integer(text):
     try:
         return int(text)
     except ValueError:
@@ -103,7 +103,7 @@ def parse_queue_message(message_text):
             return None, None
 
 
-def check_queue_single_command(message_text):
+def is_single_queue_command(message_text):
     return parse(StudentsQueue.copy_queue_format, message_text) is not None
 
 

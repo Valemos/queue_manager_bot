@@ -3,9 +3,9 @@ from unittest.mock import MagicMock
 
 from telegram import MessageEntity, Chat
 
-from queue_bot.bot_telegram_queue import QueueBot
-from queue_bot.student import Student
-from queue_bot.students_queue import StudentsQueue
+from queue_bot.bot.main_bot import QueueBot
+from queue_bot.objects.student import Student
+from queue_bot.objects.students_queue import StudentsQueue
 
 
 # generate patched test bot
@@ -15,14 +15,14 @@ from queue_bot.students_queue import StudentsQueue
 @mock.patch('queue_bot.bot_telegram_queue.Updater')
 def setup_test_bot(unit_test, *mocks) -> QueueBot:
     bot = QueueBot('0')
-    bot.registered_manager.append_new_user('0', 0)  # god
+    bot.registered_manager.add_user('0', 0)  # god
     bot.registered_manager.set_god(0)
-    bot.registered_manager.append_new_user('1', 1)  # admin
+    bot.registered_manager.add_user('1', 1)  # admin
     bot.registered_manager.set_admin(1)
-    bot.registered_manager.append_new_user('2', 2)  # user
-    bot.registered_manager.append_new_user('3', 3)  # user
-    bot.registered_manager.append_new_user('4', 4)  # user
-    bot.registered_manager.append_new_user('5', 5)  # user
+    bot.registered_manager.add_user('2', 2)  # user
+    bot.registered_manager.add_user('3', 3)  # user
+    bot.registered_manager.add_user('4', 4)  # user
+    bot.registered_manager.add_user('5', 5)  # user
 
     unit_test.addTypeEqualityFunc(Student, students_compare)
 

@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 import datetime
 import sys
-from queue_bot.misc.object_file_saver import FolderType
-from queue_bot.misc.gdrive_saver import DriveSaver, DriveFolder
+from queue_bot.file_saving.object_file_saver import FolderType
+from queue_bot.file_saving.gdrive_saver import DriveSaver, DriveFolder
 
 
 class Logger:
