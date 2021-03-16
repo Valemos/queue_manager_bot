@@ -1,10 +1,16 @@
+import logging
+
 from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
 from queue_bot.command_handling.command_handler import CommandHandler
 from .abstract_command import AbstractCommand
-from .logging_shortcuts import log_bot_queue, log_bot_user
+from .logging_shortcuts import log_queue, log_user
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class DeleteQueue(AbstractCommand):
@@ -35,10 +41,10 @@ class DeleteQueue(AbstractCommand):
                         bot.language_pack.title_select_queue,
                         reply_markup=keyboard)
             else:
-                log_bot_user(update, bot, 'queue not found, query: {0}', update.callback_query.data)
+                log.error(log_user(update, bot, f'queue not found, query: {update.callback_query.data}'))
         else:
-            log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data,
-                         cls.__qualname__)
+            log.error(log_user(update, bot, f'in {cls.__qualname__} request {update.callback_query.data} '
+                                             'has no arguments'))
 
 
 class SelectOtherQueue(AbstractCommand):
@@ -59,17 +65,16 @@ class SelectOtherQueue(AbstractCommand):
             if bot.queues.set_current_queue(queue_name):
                 if not bot.check_queue_selected():
                     update.effective_chat.send_message(bot.language_pack.queue_not_selected)
-                    log_bot_user(update, bot, 'queue was selected by name, but it is not found')
+                    log.error(log_user(update, bot, f'queue was selected by name{queue_name}, but not found'))
                     return
 
                 update.effective_chat.send_message(bot.language_pack.queue_set_format.format(bot.get_queue().name))
                 bot.refresh_last_queue_msg(update)
-                log_bot_queue(update, bot, 'selected queue')
+                log.info(log_queue(update, bot, 'selected queue'))
             else:
-                log_bot_queue(update, bot, 'queue not found, query: {0}', update.callback_query.data)
+                log.error(log_queue(update, bot, f'queue not found, query: {update.callback_query.data}'))
         else:
-            log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data,
-                         cls.__qualname__)
+            log.error(log_user(update, bot, f'request {update.callback_query.data} has no arguments'))
         update.effective_message.delete()
 
 
@@ -93,7 +98,7 @@ class RenameQueue(AbstractCommand):
                                                .format(RenameQueue.old_queue_name))
             bot.request_set(cls)
         else:
-            log_bot_user(update, bot, 'queue not selected while renaming')
+            log.warning(log_user(update, bot, 'queue not selected while renaming'))
 
     @classmethod
     def handle_request(cls, update, bot):
@@ -104,7 +109,7 @@ class RenameQueue(AbstractCommand):
             bot.queues.rename_queue(RenameQueue.old_queue_name, update.message.text)
             update.effective_chat.send_message(bot.language_pack.name_set)
             bot.request_del()
-            log_bot_queue(update, bot, 'queue renamed', RenameQueue.old_queue_name)
+            log.info(log_queue(update, bot, f'queue {RenameQueue.old_queue_name} renamed to {update.message.text}'))
         else:
             update.effective_chat.send_message(bot.language_pack.name_incorrect)
             update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name)

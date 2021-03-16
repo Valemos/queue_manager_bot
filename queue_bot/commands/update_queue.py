@@ -1,7 +1,13 @@
+import logging
+
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
 from .abstract_command import AbstractCommand
-from .logging_shortcuts import log_bot_queue, log_bot_user
+from .logging_shortcuts import log_queue, log_user
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class ShowCurrentQueue(AbstractCommand):
@@ -19,7 +25,7 @@ class ShowCurrentQueue(AbstractCommand):
                 update.effective_chat,
                 bot.keyboards.move_queue)
 
-        log_bot_user(update, bot, ' in {0} chat requested queue', update.effective_chat.type)
+        log.info(log_user(update, bot, f'in chat {update.effective_chat.type} requested queue'))
 
 
 class Refresh(AbstractCommand):
@@ -29,9 +35,9 @@ class Refresh(AbstractCommand):
             update.effective_message.delete()
         err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
         if err_msg is not None:
-            log_bot_queue(update, bot, err_msg)
+            log.warning(log_queue(update, bot, err_msg))
 
-        log_bot_user(update, bot, 'refreshed queue')
+        log.info(log_user(update, bot, 'refreshed queue'))
 
 
 class ShowCurrentAndNextStudent(AbstractCommand):
@@ -56,7 +62,7 @@ class MovePrevious(AbstractCommand):
 
         if bot.get_queue().move_prev():
             ShowCurrentAndNextStudent.handle_request(update, bot)
-            log_bot_user(update, bot, 'moved previous')
+            log.info(log_user(update, bot, 'moved previous'))
             Refresh.handle_request(update, bot)
 
 
@@ -69,5 +75,5 @@ class MoveNext(AbstractCommand):
 
         if bot.get_queue().move_next():
             ShowCurrentAndNextStudent.handle_request(update, bot)
-            log_bot_user(update, bot, 'moved queue')
+            log.info(log_user(update, bot, 'moved queue'))
             Refresh.handle_request(update, bot)

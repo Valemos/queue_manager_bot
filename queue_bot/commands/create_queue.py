@@ -1,3 +1,4 @@
+import logging
 from typing import Type
 
 from queue_bot.bot import parsers as parsers
@@ -5,8 +6,12 @@ from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
 from .abstract_command import AbstractCommand
-from .logging_shortcuts import log_bot_queue, log_bot_user
+from .logging_shortcuts import log_queue, log_user
 from .inrerface_settings_builder import ISettingsBuilderCommand
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 def create_queue(update, bot):
@@ -16,7 +21,7 @@ def create_queue(update, bot):
     else:
         update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
         bot.request_del()
-        log_bot_queue(update, bot, 'queue limit reached')
+        log.info(log_queue(update, bot, 'queue limit reached'))
         return None
 
 
@@ -111,7 +116,7 @@ class AddNameToQueue(AbstractCommand, ISettingsBuilderCommand):
             bot.request_set(cls)
         else:
             bot.request_del()
-            log_bot_queue(update, bot, 'in AddNameToQueue queue is None. Error')
+            log.warning(log_user(update, bot, 'name for new queue is none'))
 
     @classmethod
     def handle_request(cls, update, bot):
@@ -122,7 +127,7 @@ class AddNameToQueue(AbstractCommand, ISettingsBuilderCommand):
             update.effective_chat.send_message(bot.language_pack.name_incorrect)
             AddNameToQueue.handle_reply_settings(update, bot, cls.settings)
 
-        log_bot_queue(update, bot, 'queue name set {0}', update.message.text)
+        log.info(log_queue(update, bot, 'queue name set {0}', update.message.text))
 
 
 class DefaultQueueName(AbstractCommand, ISettingsBuilderCommand):
@@ -131,7 +136,7 @@ class DefaultQueueName(AbstractCommand, ISettingsBuilderCommand):
     @classmethod
     def handle_request(cls, update, bot):
         cls.settings.name = bot.language_pack.default_queue_name
-        log_bot_user(update, bot, 'queue set default name')
+        log.debug(log_user(update, bot, 'queue set default name'))
         FinishQueueCreation.settings = cls.settings
         FinishQueueCreation.handle_request(update, bot)
 
@@ -156,11 +161,12 @@ class FinishQueueCreation(AbstractCommand, ISettingsBuilderCommand):
             queue.generate(cls.settings.students, cls.settings.is_random)
 
             bot.save_queue_to_file()
-            log_bot_queue(update, bot, 'queue set')
+            log.info(log_queue(update, bot, 'queue set'))
 
             FinishQueueCreation.handle_reply(update, bot)
         else:
-            log_bot_user(update, bot, 'Fatal error: cannot finish queue creation')
+            log.error(log_user(update, bot, 'cannot finish queue creation, settings is invalid'))
+
         bot.request_del()
 
 
@@ -178,13 +184,13 @@ class CreateRandomFromRegistered(AbstractCommand, ISettingsBuilderCommand):
         if not bot.queues.add_queue(queue):
             update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
             bot.request_del()
-            log_bot_queue(update, bot, 'queue limit reached')
+            log.info(log_queue(update, bot, 'queue limit reached'))
         else:
             err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(),
                                                              update.effective_chat)
             if err_msg is not None:
-                log_bot_queue(update, bot, err_msg)
+                log.info(log_queue(update, bot, err_msg))
 
             update.effective_chat.send_message(bot.language_pack.queue_set)
-            log_bot_queue(update, bot, 'queue added')
+            log.info(log_queue(update, bot, 'queue added'))
             AddNameToQueue.handle_reply_settings(update, bot, cls.settings)

@@ -11,9 +11,6 @@ class Student(Base):
     name = Column(String(50))
     access_level = Column(Enum(AccessLevel))
 
-    # initialized in queue_students_table
-    queues = None
-
     def __init__(self, name, telegram_id):
         self.id = telegram_id
         self.name = name

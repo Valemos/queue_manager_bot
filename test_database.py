@@ -7,8 +7,7 @@ init_database()
 
 session = db_session()
 students = [Student("A", 10), Student("B", 11), Student("C", 12)]
-q = QueueStudents(QueueParameters(RegisteredManager(students)))
-q.generate_random(students)
+q = QueueStudents(QueueParameters(RegisteredManager(students), "test", students))
 
 for student in students:
     session.add(student)
@@ -18,7 +17,10 @@ session.commit()
 
 session = db_session()
 for q in session.query(QueueStudents).all():
-    print(q)
+    for s in q.students:
+        print(s)
 
 for s in session.query(Student).all():
     print(s)
+
+session.close()

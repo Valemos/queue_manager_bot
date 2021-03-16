@@ -1,11 +1,13 @@
 import random as rnd
 
 from sqlalchemy import Column, Integer, Sequence, String
+from sqlalchemy.orm import relationship
 
 import queue_bot.languages.bot_messages_rus as language_pack
 from queue_bot.bot import keyboards
-from queue_bot.database import Base
+from queue_bot.database import Base, db_session
 from .queue_parameters import QueueParameters
+from .queue_students_join import QueueStudentsOrdered
 from .student import Student, EmptyStudent
 
 
@@ -16,7 +18,7 @@ class QueueStudents(Base):
     name = Column(String(50))
     queue_pos = Column(Integer)
 
-    students = None  # initialized in queue_students_table
+    students = relationship(QueueStudentsOrdered, lazy='joined')
 
     def __init__(self, queue_parameters: QueueParameters):
         self.registered = queue_parameters.registered
@@ -114,19 +116,19 @@ class QueueStudents(Base):
 
     def append_by_name(self, name):
         student = self.registered.get_user_by_name(name)
-        if student is not None:
-            self.students.append(student)
-            return True
-        else:
-            self.students.append(self.registered.find_similar_student(name))
-            return False
+        if student is None:
+            student = self.registered.find_similar_student(name)
 
-    def append_to_queue(self, student):
-        if student in self.students:
-            self.students.remove(student)
+        self.append(student)
+        return student
 
+    def append(self, student):
         if student is not None:
+            # if student exists in queue, delete him by id
+            session = db_session()
+            self.remove_by_id(student.id)
             self.students.append(student)
+            session.commit()
             return True
         else:
             new_user = self.registered.append_users(student)
@@ -197,7 +199,7 @@ class QueueStudents(Base):
     def set_position(self, position):
         self.queue_pos = position
 
-    def get_current(self):
+    def get_current(self) -> Student:
         if 0 <= self.queue_pos < len(self):
             return self.students[self.queue_pos]
         else:

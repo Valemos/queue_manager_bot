@@ -1,11 +1,17 @@
+import logging
+
 from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
 from .abstract_command import AbstractCommand
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
 from queue_bot.command_handling import CommandHandler
-from .logging_shortcuts import log_bot_queue
+from .logging_shortcuts import log_queue
 from .update_queue import ShowCurrentAndNextStudent
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class ShowMenu(AbstractCommand):
@@ -26,10 +32,10 @@ class ShowList(AbstractCommand):
     def handle_reply(cls, update, bot):
         if bot.check_queue_selected():
             update.effective_chat.send_message(bot.get_queue().str_simple())
-            log_bot_queue(update, bot, 'showed list')
+            log.info(log_queue(update, bot, 'showed list'))
         else:
             update.effective_chat.send_message(bot.language_pack.queue_not_selected)
-            log_bot_queue(update, bot, 'queue not exists')
+            log.info(log_queue(update, bot, 'queue not selected'))
 
 
 class ShowQueueForCopy(AbstractCommand):
@@ -40,7 +46,7 @@ class ShowQueueForCopy(AbstractCommand):
         if bot.check_queue_selected():
             update.effective_chat.send_message(bot.get_queue().get_str_for_copy())
             update.effective_chat.send_message(bot.language_pack.copy_queue)
-            log_bot_queue(update, bot, 'showed list for copy')
+            log.info(log_queue(update, bot, 'showed list for copy'))
         else:
             update.effective_chat.send_message(bot.language_pack.queue_not_selected)
 
@@ -72,7 +78,7 @@ class MoveQueuePosition(AbstractCommand):
         finally:
             bot.refresh_last_queue_msg(update)
             bot.request_del()
-            log_bot_queue(update, bot, 'set queue position')
+            log.info(log_queue(update, bot, 'set queue position'))
 
 
 class ClearList(AbstractCommand):
@@ -80,7 +86,7 @@ class ClearList(AbstractCommand):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        log_bot_queue(update, bot, 'clear queue')
+        log.info(log_queue(update, bot, 'clear queue'))
         name = bot.get_queue().name if bot.get_queue() is not None else None
         if name is not None:
             bot.queues.clear_current_queue()
@@ -121,7 +127,7 @@ class RemoveListStudents(AbstractCommand):
         bot.refresh_last_queue_msg(update)
 
         bot.request_del()
-        log_bot_queue(update, bot, 'removed student {0}', student)
+        log.info(log_queue(update, bot, f'removed student {student}'))
 
 
 class MoveStudentToEnd(AbstractCommand):
@@ -161,7 +167,7 @@ class MoveStudentToEnd(AbstractCommand):
         bot.refresh_last_queue_msg(update)
         update.effective_chat.send_message(bot.language_pack.student_added_to_end.format(cls.move_student.str()))
         bot.request_del()
-        log_bot_queue(update, bot, 'moved {0} to end', str(cls.move_student))
+        log.info(log_queue(update, bot, f'moved {cls.move_student} to end'))
 
 
 class MoveStudentPosition(AbstractCommand):
@@ -176,7 +182,7 @@ class MoveStudentPosition(AbstractCommand):
             keyboard = bot.get_queue().get_keyboard_with_position(cls)
             update.effective_message.edit_text(bot.language_pack.select_students, reply_markup=keyboard)
         except Exception:
-            log_bot_queue(update, bot, "cannot update list selection message")
+            log.warning(log_queue(update, bot, "cannot update list selection message"))
 
     @classmethod
     def handle_reply(cls, update, bot):
@@ -219,7 +225,7 @@ class MoveStudentPosition(AbstractCommand):
 
     @classmethod
     def handle_request(cls, update, bot):
-        log_bot_queue(update, bot, 'set student position {0}', cls.new_position)
+        log.info(log_queue(update, bot, f'set student position {cls.new_position}'))
         bot.get_queue().set_student_position(cls.student, cls.new_position)
         update.effective_chat.send_message(
             bot.language_pack.student_moved_to_position.format(cls.student.name, cls.new_position + 1)
@@ -282,7 +288,7 @@ class MoveSwapStudents(AbstractCommand):
 
         bot.refresh_last_queue_msg(update)
         bot.request_del()
-        log_bot_queue(update, bot, 'swapped {0} and {1}', cls.first_student, cls.second_student)
+        log.info(log_queue(update, bot, f'swapped {cls.first_student} and {cls.second_student}'))
 
 
 class AddStudent(AbstractCommand):
@@ -301,15 +307,19 @@ class AddStudent(AbstractCommand):
     @classmethod
     def handle_request(cls, update, bot):
         if parsers.check_student_name(update.message.text):
-            if bot.get_queue().append_by_name(update.message.text):
-                log_msg = 'found student in registered \'' + update.message.text + '\''
-            else:
-                log_msg = 'searched similar student \'' + update.message.text + '\''
+            student = bot.get_queue().append_by_name(update.message.text)
 
             update.effective_chat.send_message(bot.language_pack.student_set)
             bot.refresh_last_queue_msg(update)
             bot.request_del()
-            log_bot_queue(update, bot, '{0}', log_msg)
+
+            if log.getEffectiveLevel() >= logging.INFO:
+                if student.name == update.message.text:
+                    log_msg = f"found student '{update.message.text}'"
+                else:
+                    log_msg = f"similar to '{update.message.text}' is '{student.name}'"
+                log.info(log_queue(update, bot, log_msg))
+
         else:
             update.effective_chat.send_message(bot.language_pack.name_incorrect)
 
@@ -325,16 +335,16 @@ class AddMe(AbstractCommand):
             return
 
         student = bot.registered.get_user_by_update(update)
-        bot.get_queue().append_to_queue(student)
+        bot.get_queue().append(student)
 
         err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
         if err_msg is not None:
-            log_bot_queue(update, bot, err_msg)
+            log.error(log_queue(update, bot, err_msg))
 
         update.message.reply_text(bot.language_pack.you_added_to_queue)
 
         bot.save_queue_to_file()
-        log_bot_queue(update, bot, 'user added himself')
+        log.info(log_queue(update, bot, 'user added himself'))
 
 
 class RemoveMe(AbstractCommand):
@@ -354,11 +364,11 @@ class RemoveMe(AbstractCommand):
             err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(),
                                                              update.effective_chat)
             if err_msg is not None:
-                log_bot_queue(update, bot, err_msg)
+                log.warning(log_queue(update, bot, err_msg))
             update.message.reply_text(bot.language_pack.you_deleted)
 
             bot.save_queue_to_file()
-            log_bot_queue(update, bot, 'removed himself')
+            log.info(log_queue(update, bot, 'removed himself'))
         else:
             update.message.reply_text(bot.language_pack.you_not_found)
 
@@ -384,7 +394,7 @@ class StudentFinished(AbstractCommand):
 
         err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
         if err_msg is not None:
-            log_bot_queue(update, bot, err_msg)
+            log.warning(log_queue(update, bot, err_msg))
 
         bot.save_queue_to_file()
-        log_bot_queue(update, bot, 'finished: {0}', bot.get_queue().get_current().code_str())
+        log.info(log_queue(update, bot, f'finished: {bot.get_queue().get_current()}'))

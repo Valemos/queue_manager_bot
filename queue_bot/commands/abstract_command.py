@@ -1,5 +1,11 @@
+import logging
+
 from queue_bot.bot.access_levels import AccessLevel
-from queue_bot.commands.logging_shortcuts import log_bot_user
+from queue_bot.commands.logging_shortcuts import log_user
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class AbstractCommand:
@@ -26,7 +32,7 @@ class AbstractCommand:
         if bot.registered.check_access(update, cls.access_requirement, cls.check_chat_private):
             return True
         else:
-            log_bot_user(update, bot, 'tried to get access to {0} command', cls.access_requirement.name)
+            log.info(log_user(update, bot, f'tried to get access to {cls.access_requirement.name} command'))
             if cls.check_chat_private:
                 update.message.reply_text(bot.language_pack.command_for_private_chat)
             else:

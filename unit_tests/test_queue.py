@@ -142,12 +142,12 @@ class TestQueue(unittest.TestCase):
         queue.append_by_name('Unknown')
         self.assertEqual(queue.students[-1], Student('Unknown', None))
 
-        queue.append_to_queue(Student('0', 4))  # different name, id the same
+        queue.append(Student('0', 4))  # different name, id the same
         self.assertEqual(queue.students[2], Student('4', 4))
 
         prev_list = queue.students
 
-        queue.append_to_queue(Student('0', 0))
+        queue.append(Student('0', 0))
         self.assertCountEqual(prev_list, queue.students)
         self.assertEqual(Student('0', 0), queue.get_last())
 

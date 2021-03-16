@@ -1,10 +1,16 @@
+import logging
+
 from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
 from queue_bot.command_handling import CommandHandler
 from .abstract_command import AbstractCommand
-from .logging_shortcuts import log_bot_queue, log_bot_user
+from .logging_shortcuts import log_queue, log_user
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class ShowMenu(AbstractCommand):
@@ -46,7 +52,7 @@ class AddListUsers(AbstractCommand):
 
         bot.save_registered_to_file()
         bot.request_del()
-        log_bot_queue(update, bot, 'added users: {0}', new_users)
+        log.info(log_queue(update, bot, f'added users: {new_users}'))
 
 
 class AddUser(AbstractCommand):
@@ -62,9 +68,9 @@ class AddUser(AbstractCommand):
         if update.message.forward_from is not None:
             bot.registered.add_user(update.message.forward_from.full_name,
                                     update.message.forward_from.id)
-            update.message.reply_text(bot.language_pack.user_register_successfull)
+            update.message.reply_text(bot.language_pack.user_register_successful)
             bot.save_registered_to_file()
-            log_bot_queue(update, bot, 'added one user: {0}', update.message.forward_from.full_name)
+            log.info(log_queue(update, bot, f'added one user: {update.message.forward_from.full_name}'))
         else:
             update.message.reply_text(bot.language_pack.was_not_forwarded)
 
@@ -120,9 +126,9 @@ class RenameUser(AbstractCommand):
         if cls.edited_user is not None:
             bot.registered.rename_user(cls.edited_user, update.message.text)
             update.effective_chat.send_message(bot.language_pack.value_set)
-            log_bot_user(update, bot, 'student {0} renamed to {1}', cls.edited_user, update.message.text)
+            log.info(log_user(update, bot, f'student {cls.edited_user} renamed to {update.message.text}'))
         else:
-            log_bot_user(update, bot, 'error, student was none in {0}', cls.query())
+            log.error(log_user(update, bot, f'error, student was None in {cls.__qualname__}'))
 
 
 class RemoveListUsers(AbstractCommand):
@@ -150,6 +156,6 @@ class RemoveListUsers(AbstractCommand):
             bot.refresh_last_queue_msg(update)
 
             bot.request_del()
-            log_bot_queue(update, bot, 'removed user {0}', user)
+            log.info(log_queue(update, bot, f'removed user {user}'))
         else:
-            log_bot_user(update, bot, 'error, user id is None in {0}', cls.query())
+            log.error(log_user(update, bot, f'error, user id is None in {cls.__qualname__}'))

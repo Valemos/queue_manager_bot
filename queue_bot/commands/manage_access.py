@@ -1,10 +1,16 @@
+import logging
+
 from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
 from queue_bot.command_handling import CommandHandler
 from .abstract_command import AbstractCommand
-from .logging_shortcuts import log_bot_user
+from .logging_shortcuts import log_user
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class AddAdmin(AbstractCommand):
@@ -23,7 +29,7 @@ class AddAdmin(AbstractCommand):
             if bot.registered.set_admin(update.message.forward_from.id):
                 update.message.reply_text(bot.language_pack.admin_set)
                 bot.save_registered_to_file()
-                log_bot_user(update, bot, 'added admin {0}', update.message.forward_from.full_name)
+                log.info(log_user(update, bot, f'added admin {update.message.forward_from.full_name}'))
             else:
                 bot.registered.add_user(
                     update.message.forward_from.full_name,
@@ -31,7 +37,7 @@ class AddAdmin(AbstractCommand):
                 bot.registered.set_admin(update.message.forward_from.id)
         else:
             update.message.reply_text(bot.language_pack.was_not_forwarded)
-            log_bot_user(update, bot, 'admin message not forwarded in {0}', cls.query())
+            log.info(log_user(update, bot, f'admin message not forwarded in {cls.__qualname__}'))
         bot.request_del()
 
 
@@ -60,7 +66,7 @@ class RemoveAdmin(AbstractCommand):
             if bot.registered.set_user(user.id):
                 bot.save_registered_to_file()
                 update.message.reply_text(bot.language_pack.admin_deleted)
-                log_bot_user(update, bot, 'deleted admin {0}', update.message.forward_from.full_name)
+                log.info(log_user(update, bot, f'deleted admin {update.message.forward_from.full_name}'))
         else:
-            log_bot_user(update, bot, 'error, admin id was None in {0}', cls.query())
+            log.info(log_user(update, bot, f'error, admin id was None in {cls.__qualname__}'))
         bot.request_del()
