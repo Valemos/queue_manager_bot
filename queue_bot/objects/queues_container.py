@@ -1,7 +1,8 @@
 #  class relies on unique names, and is not suitable for multiple chats
 
 from queue_bot.bot import keyboards
-from queue_bot.objects.students_queue import StudentsQueue
+from queue_bot.objects.queue_students import QueueStudents
+import queue_bot.languages.bot_messages_rus as language_pack
 
 
 class QueuesContainer:
@@ -10,12 +11,11 @@ class QueuesContainer:
     queues = {}
     selected_queue = None
 
-    def __init__(self, main_bot, queues: list = None):
+    def __init__(self, queues: list = None):
         if queues is None:
             self.queues = {}
         else:
             self.queues = {queue.name: queue for queue in queues}
-        self.main_bot = main_bot
 
     def __len__(self):
         return len(self.queues)
@@ -31,10 +31,10 @@ class QueuesContainer:
 
     def rename_queue(self, prev_name, new_name):
         if new_name is None:
-            new_name = self.main_bot.language_pack.default_queue_name
+            new_name = language_pack.default_queue_name
 
         if prev_name is None:
-            prev_name = self.main_bot.language_pack.default_queue_name
+            prev_name = language_pack.default_queue_name
 
         if prev_name != new_name:
             if prev_name in self.queues:
@@ -50,9 +50,11 @@ class QueuesContainer:
                     # only add queue to dictionary
                     self.queues[queue.name] = queue
 
-    @staticmethod
-    def create_queue(*args):
-        return StudentsQueue(*args)
+    def create_queue(self, parameters):
+        new_queue = QueueStudents(parameters)
+        if self.add_queue(new_queue):
+            return new_queue
+        return None
 
     # handle queue limit
     def can_add_queue(self):
@@ -94,14 +96,14 @@ class QueuesContainer:
                 return queue
         return None
 
-    def get_queue(self) -> StudentsQueue:
+    def get_queue(self) -> QueueStudents:
         return self.selected_queue
 
     def get_queue_str(self):
         if self.selected_queue is not None:
             return self.selected_queue.str()
         else:
-            return self.main_bot.language_pack.queue_not_selected
+            return language_pack.queue_not_selected
 
     def queue_empty(self):
         if self.selected_queue is None:

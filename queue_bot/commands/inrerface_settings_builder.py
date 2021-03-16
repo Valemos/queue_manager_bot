@@ -6,12 +6,11 @@ class NewQueueSettings:
     def __init__(self):
         self.name = None
         self.students = None
-        self.generate_function: Callable = None
+        self.is_random = False
 
     def is_valid(self):
         return self.name is not None and \
-                self.students is not None and \
-                self.generate_function is not None
+                self.students is not None
 
 
 class ISettingsBuilderCommand(metaclass=ABCMeta):

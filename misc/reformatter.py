@@ -1,17 +1,17 @@
 import pickle
 import os
-from queue_bot.registered_manager import StudentsRegisteredManager
+from queue_bot.objects.registered_manager import RegisteredManager
 from queue_bot.objects.student import Student
 from queue_bot.file_saving.object_file_saver import FolderType
-from queue_bot.registered_manager import AccessLevel
+from queue_bot.objects.registered_manager import AccessLevel
 
 os.chdir('../')
 
 mode = 1
 
 if mode == 1:
-    source_file = FolderType.Data.value / StudentsRegisteredManager._file_registered_users
-    registered_file = FolderType.Data.value / StudentsRegisteredManager._file_registered_users
+    source_file = FolderType.Data.value / RegisteredManager._file_registered_users
+    registered_file = FolderType.Data.value / RegisteredManager._file_registered_users
 
     with source_file.open('rb') as fin:
         print('registered')
@@ -22,8 +22,8 @@ if mode == 1:
         pickle.dump(students, fout)
 
 elif mode == 2:
-    access_source_file = FolderType.Data.value / StudentsRegisteredManager._file_access_levels
-    access_levels_path = FolderType.Data.value / StudentsRegisteredManager._file_access_levels
+    access_source_file = FolderType.Data.value / RegisteredManager._file_access_levels
+    access_levels_path = FolderType.Data.value / RegisteredManager._file_access_levels
 
     with access_levels_path.open('rb') as fin:
         access = pickle.load(fin)

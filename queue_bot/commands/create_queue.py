@@ -2,47 +2,45 @@ from typing import Type
 
 from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
-from abstract_command import AbstractCommand
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
-from queue_bot.objects.students_queue import StudentsQueue
 
-from logging_shortcuts import log_bot_queue, log_bot_user
-from inrerface_settings_builder import ISettingsBuilderCommand
+from .abstract_command import AbstractCommand
+from .logging_shortcuts import log_bot_queue, log_bot_user
+from .inrerface_settings_builder import ISettingsBuilderCommand
 
 
-def handle_add_queue(update, bot, queue):
-    if bot.queues.can_add_queue():
-        bot.queues.add_queue(queue)
-        FinishQueueCreation.handle_reply(update, bot)
+def create_queue(update, bot):
+    new_queue = bot.new_queue()
+    if new_queue is not None:
+        return new_queue
     else:
         update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
         bot.request_del()
         log_bot_queue(update, bot, 'queue limit reached')
+        return None
 
 
-def handle_queue_create_message(cmd: Type[ISettingsBuilderCommand], update, bot):
+def handle_create_queue_dialog(cmd: Type[ISettingsBuilderCommand], update, bot):
     # simple command runs chain of callbacks
     if bot.queues.can_add_queue():
         if parsers.is_single_queue_command(update.message.text):
-            handle_queue_create(update, bot, cmd.settings)
+            handle_create_queue_instant(update, bot, cmd.settings)
         else:
             SelectStudentList.handle_reply_settings(update, bot, cmd.settings)
     else:
         update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
 
 
-def handle_queue_create(update, bot, generate_function):
+def handle_create_queue_instant(update, bot, is_random):
     queue_name, names = parsers.parse_queue_message(update.message.text)
     students = bot.registered_manager.get_registered_students(names)
-    queue = bot.queues.create_queue(bot)
 
-    if queue_name is None:
-        queue_name = bot.language_pack.default_queue_name
+    queue = create_queue(update, bot)
+    if queue is None:
+        return
 
-    queue.name = queue_name
-    generate_function(queue, students)
-
-    handle_add_queue(update, bot, queue)
+    queue.name = queue_name if queue_name is not None else bot.language_pack.default_queue_name
+    queue.generate(students, is_random)
 
 
 class CreateSimple(AbstractCommand, ISettingsBuilderCommand):
@@ -50,16 +48,14 @@ class CreateSimple(AbstractCommand, ISettingsBuilderCommand):
     description = commands_descriptions.new_queue_descr
     access_requirement = AccessLevel.ADMIN
 
-    # this function handles single command without arguments and runs chain of prompts
     @classmethod
     def handle_reply(cls, update, bot):
-        cls.settings.generate_function = StudentsQueue.generate_simple
-        handle_queue_create_message(cls, update, bot)
+        cls.settings.is_random = False
+        handle_create_queue_dialog(cls, update, bot)
 
-    # this function handles single command queue initialization
     @classmethod
     def handle_request(cls, update, bot):
-        handle_queue_create(update, bot, StudentsQueue.generate_simple)
+        handle_create_queue_instant(update, bot, is_random=False)
 
 
 class CreateRandom(AbstractCommand, ISettingsBuilderCommand):
@@ -67,15 +63,14 @@ class CreateRandom(AbstractCommand, ISettingsBuilderCommand):
     description = commands_descriptions.new_random_queue_descr
     access_requirement = AccessLevel.ADMIN
 
-    # the same as CreateSimple
     @classmethod
     def handle_reply(cls, update, bot):
-        cls.settings.generate_function = StudentsQueue.generate_random
-        handle_queue_create_message(cls, update, bot)
+        cls.settings.is_random = True
+        handle_create_queue_dialog(cls, update, bot)
 
     @classmethod
     def handle_request(cls, update, bot):
-        handle_queue_create(update, bot, StudentsQueue.generate_random)
+        handle_create_queue_instant(update, bot, is_random=True)
 
 
 class SelectStudentList(AbstractCommand, ISettingsBuilderCommand):
@@ -153,13 +148,17 @@ class FinishQueueCreation(AbstractCommand, ISettingsBuilderCommand):
     @classmethod
     def handle_request(cls, update, bot):
         if cls.settings.is_valid():
-            queue = StudentsQueue(bot, cls.settings.name)
-            cls.settings.generate_function(queue, cls.settings.students)
+            queue = create_queue(bot, update)
+            if queue is None:
+                return
 
-            # handle_add_queue at the end calls FinishQueueCreation.handle_reply
-            handle_add_queue(update, bot, queue)
+            queue.name = cls.settings.name
+            queue.generate(cls.settings.students, cls.settings.is_random)
+
             bot.save_queue_to_file()
             log_bot_queue(update, bot, 'queue set')
+
+            FinishQueueCreation.handle_reply(update, bot)
         else:
             log_bot_user(update, bot, 'Fatal error: cannot finish queue creation')
         bot.request_del()
@@ -170,8 +169,11 @@ class CreateRandomFromRegistered(AbstractCommand, ISettingsBuilderCommand):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        queue = StudentsQueue(bot)
-        queue.generate_random(bot.registered_manager.get_users())  # we specify parameter in "self"
+        queue = create_queue(update, bot)
+        if queue is None:
+            return
+
+        queue.generate_random(bot.registered.get_users())  # we specify parameter in "self"
 
         if not bot.queues.add_queue(queue):
             update.effective_chat.send_message(bot.language_pack.queue_limit_reached)

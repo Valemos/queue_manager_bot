@@ -2,9 +2,9 @@ from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
-from abstract_command import AbstractCommand
-from command_handler import CommandHandler
-from logging_shortcuts import log_bot_queue, log_bot_user
+from queue_bot.command_handling import CommandHandler
+from .abstract_command import AbstractCommand
+from .logging_shortcuts import log_bot_queue, log_bot_user
 
 
 class ShowMenu(AbstractCommand):
@@ -23,7 +23,7 @@ class ShowListUsers(AbstractCommand):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        update.effective_chat.send_message(bot.registered_manager.get_users_str())
+        update.effective_chat.send_message(bot.registered.get_users_str())
 
 
 class AddListUsers(AbstractCommand):
@@ -37,7 +37,7 @@ class AddListUsers(AbstractCommand):
     @classmethod
     def handle_request(cls, update, bot):
         new_users, errors = parsers.parse_users(update.effective_message.text)
-        bot.registered_manager.append_users(new_users)
+        bot.registered.append_users(new_users)
 
         if len(errors) > 0:
             update.effective_chat.send_message(bot.language_pack.error_in_this_values.format('\n'.join(errors)))
@@ -60,8 +60,8 @@ class AddUser(AbstractCommand):
     @classmethod
     def handle_request(cls, update, bot):
         if update.message.forward_from is not None:
-            bot.registered_manager.add_user(update.message.forward_from.full_name,
-                                            update.message.forward_from.id)
+            bot.registered.add_user(update.message.forward_from.full_name,
+                                    update.message.forward_from.id)
             update.message.reply_text(bot.language_pack.user_register_successfull)
             bot.save_registered_to_file()
             log_bot_queue(update, bot, 'added one user: {0}', update.message.forward_from.full_name)
@@ -81,13 +81,13 @@ class RenameAllUsers(AbstractCommand):
 
     def handle_request(cls, update, bot):
         names = parsers.parse_names(update.message.text)
-        if len(names) <= len(bot.registered_manager):
+        if len(names) <= len(bot.registered):
             for i in range(len(names)):
-                bot.registered_manager.rename_user(i, names[i])
+                bot.registered.rename_user(i, names[i])
         else:
             update.effective_chat.send_message(bot.language_pack.names_more_than_users)
             bot.logger.log('names more than users - {0}'
-                           .format(bot.registered_manager.get_user_by_update(update)))
+                           .format(bot.registered.get_user_by_update(update)))
         bot.request_del()
 
 
@@ -103,7 +103,7 @@ class RenameUser(AbstractCommand):
             return
 
         cls.edited_user = None
-        keyboard = bot.get_queue().get_students_keyboard(cls)
+        keyboard = bot.get_queue().get_keyboard(cls)
         update.effective_chat.send_message(bot.language_pack.select_student, reply_markup=keyboard)
         update.effective_chat.send_message(bot.language_pack.select_student)
         bot.request_set(cls)
@@ -118,7 +118,7 @@ class RenameUser(AbstractCommand):
     @classmethod
     def handle_request(cls, update, bot):
         if cls.edited_user is not None:
-            bot.registered_manager.rename_user(cls.edited_user, update.message.text)
+            bot.registered.rename_user(cls.edited_user, update.message.text)
             update.effective_chat.send_message(bot.language_pack.value_set)
             log_bot_user(update, bot, 'student {0} renamed to {1}', cls.edited_user, update.message.text)
         else:
@@ -130,13 +130,13 @@ class RemoveListUsers(AbstractCommand):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        keyboard = bot.registered_manager.get_users_keyboard(cls)
+        keyboard = bot.registered.get_users_keyboard(cls)
         update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
 
     @classmethod
     def handle_keyboard(cls, update, bot):
         cls.handle_request(update, bot)
-        keyboard = bot.registered_manager.get_users_keyboard(cls)
+        keyboard = bot.registered.get_users_keyboard(cls)
         # if keyboards not equal
         if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
             update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
@@ -145,8 +145,8 @@ class RemoveListUsers(AbstractCommand):
     def handle_request(cls, update, bot):
         student_str = CommandHandler.get_arguments(update.callback_query.data)
         user = parsers.parse_student(student_str)
-        if user.telegram_id is not None:
-            bot.registered_manager.remove_by_id(user.telegram_id)
+        if user.id is not None:
+            bot.registered.remove_by_id(user.id)
             bot.refresh_last_queue_msg(update)
 
             bot.request_del()

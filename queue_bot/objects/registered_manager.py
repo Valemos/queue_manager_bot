@@ -1,19 +1,20 @@
-from pathlib import Path
-from pyjarowinkler import distance  # string similarity
+from pyjarowinkler import distance
+
+from queue_bot.bot import keyboards
 from queue_bot.objects.student import Student
 from queue_bot.bot.access_levels import AccessLevel
+import queue_bot.languages.bot_messages_rus as language_pack
 
 from telegram import Chat
 
 
-class StudentsRegisteredManager:
+class RegisteredManager:
 
     students_reg = []
 
-    def __init__(self, main_bot, students=None):
+    def __init__(self, students=None):
         if students is None:
             self.students_reg = []
-        self.main_bot = main_bot
 
     def __len__(self):
         return len(self.students_reg)
@@ -41,7 +42,7 @@ class StudentsRegisteredManager:
 
     def remove_by_id(self, remove_id: int):
         for i in range(len(self.students_reg)):
-            if self.students_reg[i].telegram_id == remove_id:
+            if self.students_reg[i].id == remove_id:
                 self.students_reg.pop(i)
                 return True
         return False
@@ -73,7 +74,7 @@ class StudentsRegisteredManager:
 
     def get_user_by_id(self, search_id: int):
         for student in self.students_reg:
-            if student.telegram_id == search_id:
+            if student.id == search_id:
                 return student
         return None
 
@@ -81,16 +82,16 @@ class StudentsRegisteredManager:
         str_list = []
         i = 1
         for student in self.students_reg:
-            str_list.append('{0}. {1}-{2}'.format(i, student.name, str(student.telegram_id)))
+            str_list.append(f"{i}. {student.name_id_str()}")
             i += 1
 
-        return self.main_bot.language_pack.all_known_users.format('\n'.join(str_list))
+        return language_pack.all_known_users.format('\n'.join(str_list))
 
     def get_users_keyboard(self, command):
-        return self.main_bot.keyboards.generate_keyboard(
+        return keyboards.generate_keyboard(
             command,
             [s.name for s in self.students_reg],
-            [s.str_name_id() for s in self.students_reg])
+            [s.code_str() for s in self.students_reg])
 
     def get_admins_keyboard(self, command):
         admins = []
@@ -98,10 +99,10 @@ class StudentsRegisteredManager:
             if user.access_level is AccessLevel.ADMIN:
                 admins.append(user)
 
-        return self.main_bot.keyboards.generate_keyboard(
+        return keyboards.generate_keyboard(
             command,
             [s.name for s in admins],
-            [s.str_name_id() for s in admins])
+            [s.code_str() for s in admins])
 
     def exists_user_access(self, access_level):
         for user in self.students_reg:
@@ -132,7 +133,7 @@ class StudentsRegisteredManager:
 
     def find_similar_student(self, name: str):
         for student in self.students_reg:
-            if StudentsRegisteredManager.is_similar(name, student.name):
+            if RegisteredManager.is_similar(name, student.name):
                 return student
         return Student(name, None)
 
@@ -146,10 +147,10 @@ class StudentsRegisteredManager:
         access_level_updates = saver.load(self._file_access_levels)
         if access_level_updates is not None:
             for student in self.students_reg:
-                if student.telegram_id in access_level_updates:
-                    student.access_level = AccessLevel(access_level_updates[student.telegram_id])
+                if student.id in access_level_updates:
+                    student.access_level = AccessLevel(access_level_updates[student.id])
 
-    # by default this function requires private chat to allow commands
+    # by default this function requires private chat to allow command_handling
     def check_access(self, update, level_requriment=AccessLevel.ADMIN, check_chat_private=True):
         student = self.get_user_by_update(update)
 

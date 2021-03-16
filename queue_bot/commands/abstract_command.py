@@ -1,12 +1,13 @@
 from queue_bot.bot.access_levels import AccessLevel
-from logging_shortcuts import log_bot_user
+from queue_bot.commands.logging_shortcuts import log_bot_user
 
 
 class AbstractCommand:
     """
     To add new command, class must be a child class of AbstractCommand,
     must be added in corresponding command group in __init__.py
-    If new command group is needed, it must be in separate file and added to __all__ in __init__.py
+    If new command group is needed, it must be in separate file
+    and listed in _command_modules list to properly initialize
     """
 
     command_name = None
@@ -22,7 +23,7 @@ class AbstractCommand:
 
     @classmethod
     def check_access(cls, update, bot):
-        if bot.registered_manager.check_access(update, cls.access_requirement, cls.check_chat_private):
+        if bot.registered.check_access(update, cls.access_requirement, cls.check_chat_private):
             return True
         else:
             log_bot_user(update, bot, 'tried to get access to {0} command', cls.access_requirement.name)

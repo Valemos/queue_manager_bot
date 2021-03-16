@@ -1,20 +1,27 @@
 import random as rnd
-from pathlib import Path
 
-from queue_bot.objects.student import Student, EmptyStudent
+from sqlalchemy import Column, Integer, Sequence, String
+
+import queue_bot.languages.bot_messages_rus as language_pack
+from queue_bot.bot import keyboards
+from queue_bot.database import Base
+from .queue_parameters import QueueParameters
+from .student import Student, EmptyStudent
 
 
-class StudentsQueue:
+class QueueStudents(Base):
+    __tablename__ = "queue"
 
-    queue_pos = 0
-    students = []
+    id = Column(Integer, Sequence("queue_id_seq"), primary_key=True)
+    name = Column(String(50))
+    queue_pos = Column(Integer)
 
-    copy_queue_format = '/new_queue {name}\n{students}'
+    students = None  # initialized in queue_students_table
 
-    def __init__(self, bot, name=None, students=None):
-        self.name = name if name is not None else bot.language_pack.default_queue_name
-        self.main_bot = bot
-        self.students = students if students is not None else []
+    def __init__(self, queue_parameters: QueueParameters):
+        self.registered = queue_parameters.registered
+        self.name = queue_parameters.name
+        self.students = queue_parameters.students
 
     def __len__(self):
         if self.students is None:
@@ -26,7 +33,7 @@ class StudentsQueue:
             return item in self.students
         elif isinstance(item, int):
             for student in self.students:
-                if student.telegram_id == item:
+                if student.id == item:
                     return True
         return False
 
@@ -38,7 +45,7 @@ class StudentsQueue:
 
             cur_stud, next_stud = self.get_cur_and_next()
             if cur_stud is None:
-                return self.main_bot.language_pack.queue_finished_select_other.format(self.name)
+                return language_pack.queue_finished_select_other.format(self.name)
             else:
                 cur_stud = cur_stud.str(self.queue_pos + 1)
 
@@ -56,22 +63,22 @@ class StudentsQueue:
             # name must be specified with '\n'
             # because telegram trims first characters if they are '\n'
             queue_name = self.name + '\n\n' if self.name != '' else ''
-            return self.main_bot.language_pack.queue_format.format(name=queue_name,
-                                                                   current=cur_stud,
-                                                                   next=next_stud,
-                                                                   other=other_studs)
+            return language_pack.queue_format.format(name=queue_name,
+                                                     current=cur_stud,
+                                                     next=next_stud,
+                                                     other=other_studs)
         else:
-            return self.main_bot.language_pack.queue_finished_select_other.format(self.name)
+            return language_pack.queue_finished_select_other.format(self.name)
 
     def str_simple(self):
         queue_name = (self.name + '\n\n') if self.name != '' else ''
         students_str = [self.students[i].str() for i in range(len(self.students))]
-        return self.main_bot.language_pack.queue_simple_format.format(name=queue_name,
-                                                                      students='\n'.join(students_str))
+        return language_pack.queue_simple_format.format(name=queue_name,
+                                                        students='\n'.join(students_str))
 
     def get_str_for_copy(self):
         students_str = [self.students[i].str() for i in range(len(self.students))]
-        return self.copy_queue_format.format(name=self.name, students='\n'.join(students_str))
+        return language_pack.copy_queue_format.format(name=self.name, students='\n'.join(students_str))
 
     def move_prev(self):
         if self.queue_pos > 0:
@@ -106,12 +113,12 @@ class StudentsQueue:
         self.students[pos1], self.students[pos2] = self.students[pos2], self.students[pos1]
 
     def append_by_name(self, name):
-        student = self.main_bot.registered_manager.get_user_by_name(name)
+        student = self.registered.get_user_by_name(name)
         if student is not None:
             self.students.append(student)
             return True
         else:
-            self.students.append(self.main_bot.registered_manager.find_similar_student(name))
+            self.students.append(self.registered.find_similar_student(name))
             return False
 
     def append_to_queue(self, student):
@@ -122,7 +129,7 @@ class StudentsQueue:
             self.students.append(student)
             return True
         else:
-            new_user = self.main_bot.registered_manager.append_users(student)
+            new_user = self.registered.append_users(student)
             self.students.append(new_user)
             return False
 
@@ -134,8 +141,8 @@ class StudentsQueue:
         self.queue_pos = 0
 
     def remove_student(self, student):
-        if student.telegram_id is not None:
-            self.remove_by_id(student.telegram_id)
+        if student.id is not None:
+            self.remove_by_id(student.id)
         else:
             self.remove_by_name(student.name)
 
@@ -149,18 +156,18 @@ class StudentsQueue:
                 to_delete.append(self.students[ind])
 
             for elem in to_delete:
-                self.remove_by_id(elem.telegram_id)
+                self.remove_by_id(elem.id)
 
     def remove_by_id(self, remove_id):
         for remove_index in range(len(self.students)):
-            if self.students[remove_index].telegram_id == remove_id:
+            if self.students[remove_index].id == remove_id:
                 self.students.pop(remove_index)
                 self.adjust_queue_position(remove_index)
                 break
 
     def remove_by_name(self, student_name):
         for remove_index in range(len(self.students)):
-            if self.students[remove_index].telegram_id is None:
+            if self.students[remove_index].id is None:
                 if self.students[remove_index].name == student_name:
                     self.students.pop(remove_index)
                     self.adjust_queue_position(remove_index)
@@ -230,53 +237,37 @@ class StudentsQueue:
         if next_stud is not None:
             msg += '\nГотовится - {0}'.format(next_stud.str())
 
-        return msg if msg != '' else self.main_bot.language_pack.queue_finished
+        return msg if msg != '' else language_pack.queue_finished
 
-    def get_students_keyboard(self, command):
-        return self.main_bot.keyboards.generate_keyboard(
+    def get_keyboard(self, command):
+        return keyboards.generate_keyboard(
             command,
             [s.name for s in self.students],
-            [s.str_name_id() for s in self.students])
+            [s.code_str() for s in self.students])
 
-    def get_students_keyboard_with_position(self, command):
-        return self.main_bot.keyboards.generate_keyboard(
+    def get_keyboard_with_position(self, command):
+        return keyboards.generate_keyboard(
             command,
             [self.students[i].str(i + 1) for i in range(len(self.students))],
-            [s.str_name_id() for s in self.students])
+            [s.code_str() for s in self.students])
 
-    def generate_simple(self, students=None):
-        if students is None:
-            self.students = self.main_bot.registered_manager.get_users()
+    def generate_simple(self, students_init=None):
+        if students_init is None:
+            self.students = self.registered.get_users()
         else:
-            self.students = students
+            self.students = students_init
 
-    def generate_random(self, students=None):
-        if students is None:
-            students = self.main_bot.registered_manager.get_users()
-            rnd.shuffle(students)
-            self.students = students
+    def generate_random(self, students_init=None):
+        if students_init is None:
+            students_init = self.registered.get_users()
+            rnd.shuffle(students_init)
+            self.students = students_init
         else:
-            rnd.shuffle(students)
-            self.students = students
+            rnd.shuffle(students_init)
+            self.students = students_init
 
-    def get_state_save_file(self):
-        return self.save_folder / Path(self.file_format_queue_state.format(self.name))
-
-    def get_queue_save_file(self):
-        return self.save_folder / Path(self.file_format_queue.format(self.name))
-
-    def get_save_files(self):
-        return [self.get_state_save_file(), self.get_queue_save_file()]
-
-    def get_save_file_formats(self):
-        return [self.file_format_queue, self.file_format_queue_state]
-
-    def save_to_file(self, saver):
-        state = {'_queue_pos': self.queue_pos}
-        saver.save(state, self.get_state_save_file())
-        saver.save(self.students, self.get_queue_save_file())
-
-    def load_file(self, saver):
-        self.students = saver.load(self.get_queue_save_file())
-        state = saver.load(self.get_state_save_file())
-        self.queue_pos = state['_queue_pos']
+    def generate(self, students, is_random: bool):
+        if is_random:
+            self.generate_random(students)
+        else:
+            self.generate_simple(students)

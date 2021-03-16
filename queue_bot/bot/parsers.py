@@ -1,7 +1,7 @@
 from queue_bot.objects.student import Student
 from parse import parse
 
-from queue_bot.objects.students_queue import StudentsQueue
+import queue_bot.languages.bot_messages_rus as language_pack
 
 
 def parse_positions_list(string, min_index, max_index):
@@ -91,7 +91,7 @@ def parse_student(string: str):
 
 
 def parse_queue_message(message_text):
-    result = parse(StudentsQueue.copy_queue_format, message_text)
+    result = parse(language_pack.copy_queue_format, message_text)
     if result is not None:
         return result['name'], parse_names(result['students'])
     else:
@@ -104,33 +104,4 @@ def parse_queue_message(message_text):
 
 
 def is_single_queue_command(message_text):
-    return parse(StudentsQueue.copy_queue_format, message_text) is not None
-
-
-def parse_valid_queue_names(all_names):
-    result_names = []
-
-    # for each file format we write in dict true
-    parsed_names = {}
-
-    def handle_name(parced_value, format_of_name):
-        if parced_value not in parsed_names:
-            parsed_names[parced_value] = {}
-        parsed_names[parced_value][format_of_name] = True
-
-    # for each file there are some complementary files with other format
-    for name in all_names:
-        parse_result = parse(StudentsQueue.file_format_queue, name)
-        if parse_result is not None:
-            handle_name(parse_result[0], StudentsQueue.file_format_queue)
-        else:
-            parse_result = parse(StudentsQueue.file_format_queue_state, name)
-            if parse_result is not None:
-                handle_name(parse_result[0], StudentsQueue.file_format_queue_state)
-
-    for name, parsed in parsed_names.items():
-        if parsed[StudentsQueue.file_format_queue] and \
-           parsed[StudentsQueue.file_format_queue_state]:
-            result_names.append(name)
-
-    return result_names
+    return parse(language_pack.copy_queue_format, message_text) is not None

@@ -1,11 +1,11 @@
 from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
-from abstract_command import AbstractCommand
+from .abstract_command import AbstractCommand
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
-from command_handler import CommandHandler
-from logging_shortcuts import log_bot_queue
-from update_queue import ShowCurrentAndNextStudent
+from queue_bot.command_handling import CommandHandler
+from .logging_shortcuts import log_bot_queue
+from .update_queue import ShowCurrentAndNextStudent
 
 
 class ShowMenu(AbstractCommand):
@@ -96,7 +96,7 @@ class RemoveListStudents(AbstractCommand):
             update.effective_chat.send_message(bot.language_pack.queue_not_selected)
             return
 
-        keyboard = bot.get_queue().get_students_keyboard(cls)
+        keyboard = bot.get_queue().get_keyboard(cls)
         update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
 
     @classmethod
@@ -108,7 +108,7 @@ class RemoveListStudents(AbstractCommand):
         cls.handle_request(update, bot)
 
         # after student deleted, message updates
-        keyboard = bot.get_queue().get_students_keyboard(cls)
+        keyboard = bot.get_queue().get_keyboard(cls)
         # keyboards not equal
         if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
             update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
@@ -137,7 +137,7 @@ class MoveStudentToEnd(AbstractCommand):
             return
 
         cls.move_student = None
-        keyboard = bot.get_queue().get_students_keyboard(cls)
+        keyboard = bot.get_queue().get_keyboard(cls)
         update.effective_chat.send_message(bot.language_pack.select_student, reply_markup=keyboard)
         update.effective_chat.send_message(bot.language_pack.select_student)
         bot.request_set(cls)
@@ -173,7 +173,7 @@ class MoveStudentPosition(AbstractCommand):
     @classmethod
     def update_message_keyboard(cls, update, bot):
         try:
-            keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+            keyboard = bot.get_queue().get_keyboard_with_position(cls)
             update.effective_message.edit_text(bot.language_pack.select_students, reply_markup=keyboard)
         except Exception:
             log_bot_queue(update, bot, "cannot update list selection message")
@@ -186,7 +186,7 @@ class MoveStudentPosition(AbstractCommand):
 
         cls.student = None
         cls.new_position = -1
-        keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+        keyboard = bot.get_queue().get_keyboard_with_position(cls)
         update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
 
     @classmethod
@@ -248,7 +248,7 @@ class MoveSwapStudents(AbstractCommand):
 
         cls.first_student = None
         cls.second_student = None
-        keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+        keyboard = bot.get_queue().get_keyboard_with_position(cls)
         MoveSwapStudents.keyboard_message = \
             update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
         bot.request_set(cls)
@@ -324,7 +324,7 @@ class AddMe(AbstractCommand):
             update.effective_chat.send_message(bot.language_pack.queue_not_selected)
             return
 
-        student = bot.registered_manager.get_user_by_update(update)
+        student = bot.registered.get_user_by_update(update)
         bot.get_queue().append_to_queue(student)
 
         err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
@@ -347,7 +347,7 @@ class RemoveMe(AbstractCommand):
             update.effective_chat.send_message(bot.language_pack.queue_not_selected)
             return
 
-        student = bot.registered_manager.get_user_by_update(update)
+        student = bot.registered.get_user_by_update(update)
         if student in bot.get_queue():
             bot.get_queue().remove_student(student)
 
@@ -373,18 +373,18 @@ class StudentFinished(AbstractCommand):
             update.effective_chat.send_message(bot.language_pack.queue_not_selected)
             return
 
-        student_finished = bot.registered_manager.get_user_by_update(update)
+        student_finished = bot.registered.get_user_by_update(update)
 
         if student_finished == bot.get_queue().get_current():  # finished user currently first
             bot.queues.get_queue().move_next()
             ShowCurrentAndNextStudent.handle_request(update, bot)
         else:
             update.message.reply_text(bot.language_pack.your_turn_not_now
-                                      .format(bot.registered_manager.get_user_by_update(update).str()))
+                                      .format(bot.registered.get_user_by_update(update).str()))
 
         err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
         if err_msg is not None:
             log_bot_queue(update, bot, err_msg)
 
         bot.save_queue_to_file()
-        log_bot_queue(update, bot, 'finished: {0}', bot.get_queue().get_current().str_name_id())
+        log_bot_queue(update, bot, 'finished: {0}', bot.get_queue().get_current().code_str())

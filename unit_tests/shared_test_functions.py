@@ -5,7 +5,7 @@ from telegram import MessageEntity, Chat
 
 from queue_bot.bot.main_bot import QueueBot
 from queue_bot.objects.student import Student
-from queue_bot.objects.students_queue import StudentsQueue
+from queue_bot.objects.queue_students import QueueStudents
 
 
 # generate patched test bot
@@ -31,13 +31,13 @@ def setup_test_bot(unit_test, *mocks) -> QueueBot:
 
 def students_compare(f, s, msg=None):
     return f.name == s.name and \
-           f.telegram_id == s.telegram_id and \
+           f.id == s.id and \
            f.access_level == s.access_level
 
 
 def setup_test_queue(bot, name, students):
     # be aware of list reference copy in students !
-    queue = StudentsQueue(bot)
+    queue = QueueStudents(bot)
     queue.name = name
     queue.set_students(list(students))
     bot.queues.add_queue(queue)

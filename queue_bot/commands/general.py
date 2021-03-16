@@ -1,6 +1,6 @@
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
-from abstract_command import AbstractCommand
+from .abstract_command import AbstractCommand
 
 
 class Cancel(AbstractCommand):
@@ -18,14 +18,14 @@ class Start(AbstractCommand):
     @classmethod
     def handle_request(cls, update, bot):
         # if god user not exists, set current user as AccessLevel.GOD and set admins as AccessLevel.ADMIN
-        if not bot.registered_manager.exists_user_access(AccessLevel.GOD):
-            bot.registered_manager.add_user(update.message.from_user.username, update.message.from_user.id)
-            bot.registered_manager.set_god(update.message.from_user.id)
+        if not bot.registered.exists_user_access(AccessLevel.GOD):
+            bot.registered.add_user(update.message.from_user.username, update.message.from_user.id)
+            bot.registered.set_god(update.message.from_user.id)
             update.message.reply_text(bot.language_pack.first_user_added.format(update.message.from_user.username))
 
             for admin in update.effective_chat.get_administrators():
-                bot.registered_manager.add_user(admin.user.username, admin.user.id)
-                bot.registered_manager.set_admin(admin.user.id)
+                bot.registered.add_user(admin.user.username, admin.user.id)
+                bot.registered.set_admin(admin.user.id)
 
             bot.save_registered_to_file()
             update.effective_chat.send_message(bot.language_pack.admins_added)

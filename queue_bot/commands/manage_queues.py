@@ -2,9 +2,9 @@ from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
-from command_handler import CommandHandler
-from abstract_command import AbstractCommand
-from logging_shortcuts import log_bot_queue, log_bot_user
+from queue_bot.command_handling.command_handler import CommandHandler
+from .abstract_command import AbstractCommand
+from .logging_shortcuts import log_bot_queue, log_bot_user
 
 
 class DeleteQueue(AbstractCommand):

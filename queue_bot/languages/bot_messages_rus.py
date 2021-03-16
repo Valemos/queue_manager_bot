@@ -14,6 +14,8 @@ queue_format = '''{name}Сдает:
 чтобы попасть в конец очереди
 /add_me'''
 
+copy_queue_format = '/new_queue {name}\n{students}'
+
 unknown_command = 'Неизвестная команда'
 
 queue_simple_format = '{name}:\n{students}'

@@ -2,57 +2,54 @@ import signal
 import os
 import threading
 
-from queue_bot.file_saving.logger import Logger
-from queue_bot.file_saving.object_file_saver import ObjectSaver, FolderType
-from queue_bot.file_saving.gdrive_saver import DriveFolderType
+from queue_bot.database import init_database
 
-import queue_bot.languages.bot_messages_rus as messages_rus
-import queue_bot.bot.keyboards
+from queue_bot.objects import QueueStudents
+from queue_bot.objects.queue_parameters import QueueParameters
+from queue_bot.objects.registered_manager import RegisteredManager
+from queue_bot.objects.queues_container import QueuesContainer
 
-from queue_bot.registered_manager import StudentsRegisteredManager
-from queue_bot.queues_container import QueuesContainer
-from queue_bot.objects.students_queue import StudentsQueue
-from queue_bot.updatable_message import UpdatableMessage
-import queue_bot.commands
-from queue_bot.commands import command_handler
+from queue_bot.commands import console_commands, command_handler
+
+from queue_bot.bot.updatable_message import UpdatableMessage
+import queue_bot.languages.bot_messages_rus as language_pack
+import queue_bot.bot.keyboards as bot_keyboards
+
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import MessageEntity
 
 
 class QueueBot:
-    language_pack = messages_rus
-    keyboards = queue_bot.bot.keyboards
-    available_commands = queue_bot.commands
+    language_pack = language_pack
+    keyboards = bot_keyboards
 
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
     command_requested_answer = None
 
     def __init__(self, bot_token=None):
-        # logger contains drive saver
-        # and drive saver uses logger
-        self.logger = Logger()
-        self.object_saver = ObjectSaver(logger=self.logger)
-        self.gdrive_saver = self.logger.drive_saver
+        # todo use logging module
 
-        # this bot object passed for access to both classes inside one another
-        self.registered_manager = StudentsRegisteredManager(self)
-        self.queues = QueuesContainer(self)
+        # this bot object passed for access to both commands inside one another
+        self.registered_manager = RegisteredManager()
+        self.queues = QueuesContainer()
 
         if bot_token is None:
             bot_token = self.get_token()
 
         self.updater = Updater(bot_token, use_context=True, user_sig_handler=self.handler_signal)
-        self.init_updater_commands()
+        self.init_commands(self.updater)
 
-    def init_updater_commands(self):
-        for command in self.available_commands.all_commands:
-            self.updater.dispatcher.add_handler(CommandHandler(command.command_name, self.handle_text_command))
+        init_database()
 
-        self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message_reply_command))
-        self.updater.dispatcher.add_handler(CallbackQueryHandler(self.handle_keyboard_chosen))
-        self.updater.dispatcher.add_error_handler(self.handle_error)
+    def init_commands(self, updater):
+        for command in console_commands:
+            updater.dispatcher.add_handler(CommandHandler(command.command_name, self.handle_text_command))
+
+        updater.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message_reply_command))
+        updater.dispatcher.add_handler(CallbackQueryHandler(self.handle_keyboard_chosen))
+        updater.dispatcher.add_error_handler(self.handle_error)
 
     def refresh_last_queue_msg(self, update):
         err_msg = self.last_queue_message.update_contents(self.queues.get_queue_str(), update.effective_chat)
@@ -137,8 +134,11 @@ class QueueBot:
     def check_queue_selected(self):
         return self.queues.get_queue() is not None
 
-    def get_queue(self) -> StudentsQueue:
+    def get_queue(self) -> QueueStudents:
         return self.queues.get_queue()
+
+    def new_queue(self, students=None, name=None):
+        return self.queues.create_queue(QueueParameters(self.registered_manager, name, students))
 
     def handle_text_command(self, update, context):
         for entity in update.message.entities:

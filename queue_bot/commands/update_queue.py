@@ -1,6 +1,7 @@
-from abstract_command import AbstractCommand
-from logging_shortcuts import log_bot_queue, log_bot_user
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
+
+from .abstract_command import AbstractCommand
+from .logging_shortcuts import log_bot_queue, log_bot_user
 
 
 class ShowCurrentQueue(AbstractCommand):
