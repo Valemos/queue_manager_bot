@@ -2,6 +2,7 @@ from queue_bot.objects.student import Student
 from parse import parse
 
 import queue_bot.languages.bot_messages_rus as language_pack
+from queue_bot.objects.student_factory import student_factory
 
 
 def parse_positions_list(string, min_index, max_index):
@@ -38,7 +39,7 @@ def parse_users(string: str):
     for line in new_users_str_lines:
         try:
             user_temp = line.split('-')
-            new_users.append(Student(user_temp[0], int(user_temp[1])))
+            new_users.append(student_factory(user_temp[0], int(user_temp[1])))
         except ValueError:
             err_list.append(line)
 
@@ -75,10 +76,10 @@ def parse_student(id_name: str):
     if id_name is not None:
         if id_name[:4] == 'None':
             if Student.check_name(id_name[4:]):
-                return Student(str(id_name[4:]), None)
+                return student_factory(str(id_name[4:]), None)
         elif len(id_name) >= 8:
             if Student.check_name(id_name[8:]):
-                return Student(id_name[8:], int(id_name[:8], 16))
+                return student_factory(id_name[8:], int(id_name[:8], 16))
     return None
 
 

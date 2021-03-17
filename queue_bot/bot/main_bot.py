@@ -34,7 +34,7 @@ class QueueBot:
     command_requested_answer = None
 
     def __init__(self, bot_token=None):
-        # todo use logging module
+        init_database()
 
         # this bot object passed for access to both commands inside one another
         self.registered_manager = RegisteredManager()
@@ -45,8 +45,6 @@ class QueueBot:
 
         self.updater = Updater(bot_token, use_context=True, user_sig_handler=self.handler_signal)
         self.init_commands(self.updater)
-
-        init_database()
 
     def init_commands(self, updater):
         for command in console_commands:

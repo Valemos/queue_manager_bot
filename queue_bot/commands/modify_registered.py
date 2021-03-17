@@ -67,7 +67,7 @@ class AddUser(AbstractCommand):
     def handle_request(cls, update, bot):
         if update.message.forward_from is not None:
             bot.registered.add_user(update.message.forward_from.full_name,
-                                    update.message.forward_from.id)
+                                    update.message.forward_from.telegram_id)
             update.message.reply_text(bot.language_pack.user_register_successful)
             bot.save_registered_to_file()
             log.info(log_queue(update, bot, f'added one user: {update.message.forward_from.full_name}'))
@@ -151,8 +151,8 @@ class RemoveListUsers(AbstractCommand):
     def handle_request(cls, update, bot):
         student_str = CommandHandler.get_arguments(update.callback_query.data)
         user = parsers.parse_student(student_str)
-        if user.id is not None:
-            bot.registered.remove_by_id(user.id)
+        if user.get_id() is not None:
+            bot.registered.remove_by_id(user.telegram_id)
             bot.refresh_last_queue_msg(update)
 
             bot.request_del()

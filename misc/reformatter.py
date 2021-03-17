@@ -15,7 +15,7 @@ if mode == 1:
 
     with source_file.open('rb') as fin:
         print('registered')
-        students = [Student(name, tel_id) for tel_id, name in pickle.load(fin).items()]
+        students = [student_factory(name, tel_id) for tel_id, name in pickle.load(fin).items()]
         print(students)
 
     with registered_file.open('wb') as fout:

@@ -19,13 +19,13 @@ class Start(AbstractCommand):
     def handle_request(cls, update, bot):
         # if god user not exists, set current user as AccessLevel.GOD and set admins as AccessLevel.ADMIN
         if not bot.registered.exists_user_access(AccessLevel.GOD):
-            bot.registered.add_user(update.message.from_user.username, update.message.from_user.id)
-            bot.registered.set_god(update.message.from_user.id)
+            bot.registered.add_user(update.message.from_user.username, update.message.from_user.telegram_id)
+            bot.registered.set_god(update.message.from_user.telegram_id)
             update.message.reply_text(bot.language_pack.first_user_added.format(update.message.from_user.username))
 
             for admin in update.effective_chat.get_administrators():
-                bot.registered.add_user(admin.user.username, admin.user.id)
-                bot.registered.set_admin(admin.user.id)
+                bot.registered.add_user(admin.user.username, admin.user.telegram_id)
+                bot.registered.set_admin(admin.user.telegram_id)
 
             bot.save_registered_to_file()
             update.effective_chat.send_message(bot.language_pack.admins_added)

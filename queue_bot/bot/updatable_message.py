@@ -8,8 +8,8 @@ class UpdatableMessage:
         self.default_keyboard = default_keyboard
 
     def message_exists(self, chat):
-        if chat.id in self.chat_message:
-            if self.chat_message[chat.id] is not None:
+        if chat.telegram_id in self.chat_message:
+            if self.chat_message[chat.telegram_id] is not None:
                 return True
         return False
 
@@ -17,17 +17,17 @@ class UpdatableMessage:
         if keyboard is None:
             keyboard = self.default_keyboard
 
-        if chat.id in self.chat_message:
+        if chat.telegram_id in self.chat_message:
             # delete message in current chat
-            self.chat_message[chat.id].delete()
-            del self.chat_message[chat.id]
+            self.chat_message[chat.telegram_id].delete()
+            del self.chat_message[chat.telegram_id]
 
-        self.chat_message[chat.id] = chat.send_message(contents, reply_markup=keyboard)
+        self.chat_message[chat.telegram_id] = chat.send_message(contents, reply_markup=keyboard)
 
     def update_contents(self, contents, chat, keyboard=None):
         """Returns error message if update was not successful"""
         try:
-            if chat.id not in self.chat_message:
+            if chat.telegram_id not in self.chat_message:
                 self.resend(contents, chat, keyboard)
 
             for chat_id in self.chat_message.keys():

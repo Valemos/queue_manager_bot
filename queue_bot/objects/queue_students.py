@@ -8,7 +8,10 @@ from queue_bot.bot import keyboards
 from queue_bot.database import Base, db_session
 from .queue_parameters import QueueParameters
 from .queue_students_join import QueueStudentOrdered
-from .student import Student, EmptyStudent
+from .student import Student
+from .student_abstract import AbstractStudent
+from .student_factory import student_factory
+from .student_no_id import StudentNoId
 
 
 class QueueStudents(Base):
@@ -132,7 +135,7 @@ class QueueStudents(Base):
         if student is not None:
             # if student exists in queue, delete him by id
             session = db_session()
-            self.remove_by_id(student.id)
+            self.remove_by_id(student.telegram_id)
             self.stud_ordered.append(student)
             session.commit()
             return True
@@ -152,8 +155,8 @@ class QueueStudents(Base):
         self.position = 0
 
     def remove_student(self, student):
-        if student.id is not None:
-            self.remove_by_id(student.id)
+        if student.get_id() is not None:
+            self.remove_by_id(student.telegram_id)
         else:
             self.remove_by_name(student.name)
 
@@ -173,14 +176,14 @@ class QueueStudents(Base):
     def remove_by_id(self, remove_id):
         # todo rewrite this with database connection
         for remove_index in range(len(self.stud_ordered)):
-            if self.stud_ordered[remove_index].student.id == remove_id:
+            if self.stud_ordered[remove_index].student.telegram_id == remove_id:
                 self.stud_ordered.pop(remove_index)
                 self.adjust_queue_position(remove_index)
                 break
 
     def remove_by_name(self, student_name):
         for remove_index in range(len(self.stud_ordered)):
-            if self.stud_ordered[remove_index].student.id is None:
+            if self.stud_ordered[remove_index].student.telegram_id is None:
                 if self.stud_ordered[remove_index].student.name == student_name:
                     self.stud_ordered.pop(remove_index)
                     self.adjust_queue_position(remove_index)
@@ -215,11 +218,11 @@ class QueueStudents(Base):
         self.position = position
         session.commit()
 
-    def get_current(self) -> Student:
+    def get_current(self) -> AbstractStudent:
         if 0 <= self.position < len(self):
             return self.stud_ordered[self.position].student
         else:
-            return EmptyStudent
+            return student_factory("Пусто")
 
     def get_last(self):
         if len(self) > 0:
@@ -287,7 +290,7 @@ class QueueStudents(Base):
         Needed to wrap every Student object with corresponding QueueStudentOrdered object
         to correctly handle students <-> queue relation in database
         """
-        return [QueueStudentOrdered(self.id, student.id, pos) for pos, student in enumerate(students)]
+        return [QueueStudentOrdered(self.id, student.get_id(), pos) for pos, student in enumerate(students)]
 
     def update_positions(self, start, end):
         """Updates all positions in wrappers between :start: and :end: and commit changes to database"""

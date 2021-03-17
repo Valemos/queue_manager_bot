@@ -6,7 +6,7 @@ from queue_bot.objects.registered_manager import RegisteredManager
 init_database()
 
 session = db_session()
-students = [Student("A", 10), Student("B", 11), Student("C", 12)]
+students = [student_factory("A", 10), student_factory("B", 11), student_factory("C", 12)]
 q = QueueStudents(QueueParameters(RegisteredManager(students), "test", students))
 
 for student in students:

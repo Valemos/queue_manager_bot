@@ -26,15 +26,15 @@ class AddAdmin(AbstractCommand):
     @classmethod
     def handle_request(cls, update, bot):
         if update.message.forward_from is not None:
-            if bot.registered.set_admin(update.message.forward_from.id):
+            if bot.registered.set_admin(update.message.forward_from.telegram_id):
                 update.message.reply_text(bot.language_pack.admin_set)
                 bot.save_registered_to_file()
                 log.info(log_user(update, bot, f'added admin {update.message.forward_from.full_name}'))
             else:
                 bot.registered.add_user(
                     update.message.forward_from.full_name,
-                    update.message.forward_from.id)
-                bot.registered.set_admin(update.message.forward_from.id)
+                    update.message.forward_from.telegram_id)
+                bot.registered.set_admin(update.message.forward_from.telegram_id)
         else:
             update.message.reply_text(bot.language_pack.was_not_forwarded)
             log.info(log_user(update, bot, f'admin message not forwarded in {cls.__qualname__}'))
@@ -62,8 +62,8 @@ class RemoveAdmin(AbstractCommand):
     def handle_request(cls, update, bot):
         student_str = CommandHandler.get_arguments(update.callback_query.data)
         user = parsers.parse_student(student_str)
-        if user.id is not None:
-            if bot.registered.set_user(user.id):
+        if user.get_id() is not None:
+            if bot.registered.set_user(user.telegram_id):
                 bot.save_registered_to_file()
                 update.message.reply_text(bot.language_pack.admin_deleted)
                 log.info(log_user(update, bot, f'deleted admin {update.message.forward_from.full_name}'))
