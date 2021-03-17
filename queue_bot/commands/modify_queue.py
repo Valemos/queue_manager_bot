@@ -5,6 +5,7 @@ from queue_bot.bot.access_levels import AccessLevel
 from .abstract_command import AbstractCommand
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
+from queue_bot.objects.student import Student
 from queue_bot.command_handling import CommandHandler
 from .logging_shortcuts import log_queue
 from .update_queue import ShowCurrentAndNextStudent
@@ -306,7 +307,7 @@ class AddStudent(AbstractCommand):
 
     @classmethod
     def handle_request(cls, update, bot):
-        if parsers.check_student_name(update.message.text):
+        if Student.check_name(update.message.text):
             student = bot.get_queue().append_by_name(update.message.text)
 
             update.effective_chat.send_message(bot.language_pack.student_set)

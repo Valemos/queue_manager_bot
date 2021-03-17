@@ -143,7 +143,7 @@ class RegisteredManager:
         return dist > 0.9
 
     def update_access_levels(self, saver):
-        # todo change to file loading
+        # todo change to database loading
         access_level_updates = saver.load(self._file_access_levels)
         if access_level_updates is not None:
             for student in self.students_reg:

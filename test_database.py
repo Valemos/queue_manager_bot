@@ -17,8 +17,8 @@ session.commit()
 
 session = db_session()
 for q in session.query(QueueStudents).all():
-    for s in q.students:
-        print(s)
+    for s in q.stud_ordered:
+        print(s.student)
 
 for s in session.query(Student).all():
     print(s)

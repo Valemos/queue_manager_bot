@@ -35,7 +35,11 @@ class Student(Base):
         return self.name_id_str()
 
     def __hash__(self):
-        return hash(self.name) + (0 if self.id is None else self.id) * (2 << 64)
+        return hash(str(self.id) + self.name)
+
+    @classmethod
+    def check_name(cls, name):
+        return len(name) < 50
 
     def str(self, position=None):
         if position is None:
@@ -43,7 +47,6 @@ class Student(Base):
         else:
             return f"{position} - {self.name}"
 
-    # to get student back used function in queue_bot.bot_parsers.parse_student
     def code_str(self):
         if self.id is None:
             return str(None) + self.name

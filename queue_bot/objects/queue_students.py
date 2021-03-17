@@ -7,7 +7,7 @@ import queue_bot.languages.bot_messages_rus as language_pack
 from queue_bot.bot import keyboards
 from queue_bot.database import Base, db_session
 from .queue_parameters import QueueParameters
-from .queue_students_join import QueueStudentsOrdered
+from .queue_students_join import QueueStudentOrdered
 from .student import Student, EmptyStudent
 
 
@@ -16,49 +16,48 @@ class QueueStudents(Base):
 
     id = Column(Integer, Sequence("queue_id_seq"), primary_key=True)
     name = Column(String(50))
-    queue_pos = Column(Integer)
+    position = Column(Integer)
 
-    students = relationship(QueueStudentsOrdered, lazy='joined')
+    # todo modify all accesses to self.stud_ordered
+    stud_ordered = relationship(QueueStudentOrdered, order_by=QueueStudentOrdered.position, lazy='joined')
 
     def __init__(self, queue_parameters: QueueParameters):
         self.registered = queue_parameters.registered
         self.name = queue_parameters.name
-        self.students = queue_parameters.students
+        self.stud_ordered = self.wrap_students(queue_parameters.students)
 
     def __len__(self):
-        if self.students is None:
+        if self.stud_ordered is None:
             return 0
-        return len(self.students)
+        return len(self.stud_ordered)
 
     def __contains__(self, item):
         if isinstance(item, Student):
-            return item in self.students
+            return any(map(lambda wrapper: wrapper.student == item, self.stud_ordered))
         elif isinstance(item, int):
-            for student in self.students:
-                if student.id == item:
-                    return True
+            return any(map(lambda wrapper: wrapper.student_id == item, self.stud_ordered))
         return False
 
     def __str__(self):
-        return self.name + ' : ' + str(len(self.students))
+        return self.name + ' : ' + str(len(self.stud_ordered))
 
     def str(self):
-        if len(self.students) > 0 and self.queue_pos is not None:
+        if len(self.stud_ordered) > 0 and self.position is not None:
 
             cur_stud, next_stud = self.get_cur_and_next()
             if cur_stud is None:
                 return language_pack.queue_finished_select_other.format(self.name)
             else:
-                cur_stud = cur_stud.str(self.queue_pos + 1)
+                cur_stud = cur_stud.str(self.position + 1)
 
             if next_stud is not None:
-                next_stud = next_stud.str(self.queue_pos + 2)
+                next_stud = next_stud.str(self.position + 2)
             else:
                 next_stud = 'Нет'
 
-            if (self.queue_pos + 2) < len(self.students):
-                other_studs = '\n'.join([self.students[i].str(i + 1)
-                                         for i in range(self.queue_pos + 2, len(self.students))])
+            if (self.position + 2) < len(self.stud_ordered):
+                other_studs = '\n'.join([self.stud_ordered[i].student.str(i + 1)
+                                         for i in range(self.position + 2, len(self.stud_ordered))])
             else:
                 other_studs = ''
 
@@ -74,45 +73,52 @@ class QueueStudents(Base):
 
     def str_simple(self):
         queue_name = (self.name + '\n\n') if self.name != '' else ''
-        students_str = [self.students[i].str() for i in range(len(self.students))]
+        students_str = [self.stud_ordered[i].student.str() for i in range(len(self.stud_ordered))]
         return language_pack.queue_simple_format.format(name=queue_name,
                                                         students='\n'.join(students_str))
 
     def get_str_for_copy(self):
-        students_str = [self.students[i].str() for i in range(len(self.students))]
+        students_str = [self.stud_ordered[i].student.str() for i in range(len(self.stud_ordered))]
         return language_pack.copy_queue_format.format(name=self.name, students='\n'.join(students_str))
 
     def move_prev(self):
-        if self.queue_pos > 0:
-            self.queue_pos -= 1
+        if self.position > 0:
+            self.increment_position(-1)
             return True
         return False
 
     def move_next(self):
-        if self.queue_pos < len(self.students):
-            self.queue_pos += 1
+        if self.position < len(self.stud_ordered):
+            self.increment_position(1)
             return True
         return False
 
+    def increment_position(self, increment):
+        session = db_session()
+        # must use this form of increment to produce SQL statement
+        self.position = self.position + increment
+        session.commit()
+
     def move_to_index(self, position, desired_position):
         try:
-            # todo: fix insert to first position
-            self.students.insert(desired_position, self.students.pop(position))
+            student_moving = self.stud_ordered.pop(position)
+            self.stud_ordered.insert(desired_position, student_moving)
+            self.update_positions(position, desired_position)
             return True
         except ValueError:
             return False
 
     def move_to_end(self, student):
-        if student in self.students:
-            self.students.append(self.students.pop(self.students.index(student)))
+        if student in self.stud_ordered:
+            self.stud_ordered.append(self.stud_ordered.pop(self.stud_ordered.index(student)))
             return True
         else:
             return False
 
     def swap_students(self, stud1, stud2):
-        pos1 = self.students.index(stud1)
-        pos2 = self.students.index(stud2)
-        self.students[pos1], self.students[pos2] = self.students[pos2], self.students[pos1]
+        pos1 = self.stud_ordered.index(stud1)
+        pos2 = self.stud_ordered.index(stud2)
+        self.stud_ordered[pos1], self.stud_ordered[pos2] = self.stud_ordered[pos2], self.stud_ordered[pos1]
 
     def append_by_name(self, name):
         student = self.registered.get_user_by_name(name)
@@ -127,20 +133,23 @@ class QueueStudents(Base):
             # if student exists in queue, delete him by id
             session = db_session()
             self.remove_by_id(student.id)
-            self.students.append(student)
+            self.stud_ordered.append(student)
             session.commit()
             return True
         else:
             new_user = self.registered.append_users(student)
-            self.students.append(new_user)
+            self.stud_ordered.append(new_user)
             return False
 
-    def set_students(self, students):
-        self.students = list(students)
+    def set_students(self, students: list):
+        s = db_session()
+        self.stud_ordered = self.wrap_students(students)
+        s.commit()
 
     def clear(self):
-        self.students = []
-        self.queue_pos = 0
+        # todo rewrite this with database connection
+        self.stud_ordered = []
+        self.position = 0
 
     def remove_student(self, student):
         if student.id is not None:
@@ -149,44 +158,49 @@ class QueueStudents(Base):
             self.remove_by_name(student.name)
 
     def remove_by_index(self, index):
+        # todo rewrite this with database connection
         if isinstance(index, int):
-            self.students.pop(index)
+            self.stud_ordered.pop(index)
             self.adjust_queue_position(index)
         else:
             to_delete = []
             for ind in index:
-                to_delete.append(self.students[ind])
+                to_delete.append(self.stud_ordered[ind])
 
             for elem in to_delete:
                 self.remove_by_id(elem.id)
 
     def remove_by_id(self, remove_id):
-        for remove_index in range(len(self.students)):
-            if self.students[remove_index].id == remove_id:
-                self.students.pop(remove_index)
+        # todo rewrite this with database connection
+        for remove_index in range(len(self.stud_ordered)):
+            if self.stud_ordered[remove_index].student.id == remove_id:
+                self.stud_ordered.pop(remove_index)
                 self.adjust_queue_position(remove_index)
                 break
 
     def remove_by_name(self, student_name):
-        for remove_index in range(len(self.students)):
-            if self.students[remove_index].id is None:
-                if self.students[remove_index].name == student_name:
-                    self.students.pop(remove_index)
+        for remove_index in range(len(self.stud_ordered)):
+            if self.stud_ordered[remove_index].student.id is None:
+                if self.stud_ordered[remove_index].student.name == student_name:
+                    self.stud_ordered.pop(remove_index)
                     self.adjust_queue_position(remove_index)
                     break
 
     # if we delete element, that is before current queue position,
     # it will shift queue forward by one position
     def adjust_queue_position(self, deleted_pos):
-        if deleted_pos < self.queue_pos:
-            self.queue_pos -= 1
+        if deleted_pos < self.position:
+            self.position -= 1
 
     def get_position(self):
-        return self.queue_pos
+        return self.position
+
+    def is_finished(self):
+        return self.position >= len(self.stud_ordered)
 
     def get_student_position(self, student):
-        for i in range(len(self.students)):
-            if student == self.students[i]:
+        for i in range(len(self.stud_ordered)):
+            if student == self.stud_ordered[i]:
                 return i
         return None
 
@@ -197,36 +211,26 @@ class QueueStudents(Base):
         return self.move_to_index(prev_position, new_position)
 
     def set_position(self, position):
-        self.queue_pos = position
+        session = db_session()
+        self.position = position
+        session.commit()
 
     def get_current(self) -> Student:
-        if 0 <= self.queue_pos < len(self):
-            return self.students[self.queue_pos]
+        if 0 <= self.position < len(self):
+            return self.stud_ordered[self.position].student
         else:
             return EmptyStudent
 
     def get_last(self):
         if len(self) > 0:
-            return self.students[-1]
+            return self.stud_ordered[-1]
         return None
 
-    def get_names_with_positions(self):
-        names = []
-        for i in range(len(self.students)):
-            names.append(self.students[i].str(i))
-        return names
-
-    def get_student_identifiers(self):
-        names = []
-        for i in range(len(self.students)):
-            names.append(self.students[i].str(i))
-        return names
-
     def get_cur_and_next(self):
-        if 0 <= self.queue_pos < len(self.students) - 1:
-            return self.students[self.queue_pos], self.students[self.queue_pos + 1]
-        elif self.queue_pos == len(self.students) - 1:
-            return self.students[self.queue_pos], None
+        if 0 <= self.position < len(self.stud_ordered) - 1:
+            return self.stud_ordered[self.position], self.stud_ordered[self.position + 1]
+        elif self.position == len(self.stud_ordered) - 1:
+            return self.stud_ordered[self.position], None
         return None, None
 
     # get string format of result of get_cur_and_next() call
@@ -244,32 +248,53 @@ class QueueStudents(Base):
     def get_keyboard(self, command):
         return keyboards.generate_keyboard(
             command,
-            [s.name for s in self.students],
-            [s.code_str() for s in self.students])
+            [s.student.name for s in self.stud_ordered],
+            [s.student.code_str() for s in self.stud_ordered])
 
     def get_keyboard_with_position(self, command):
         return keyboards.generate_keyboard(
             command,
-            [self.students[i].str(i + 1) for i in range(len(self.students))],
-            [s.code_str() for s in self.students])
+            [s.student.str(i + 1) for i, s in enumerate(self.stud_ordered)],
+            [s.student.code_str() for s in self.stud_ordered])
 
     def generate_simple(self, students_init=None):
+        session = db_session()
         if students_init is None:
-            self.students = self.registered.get_users()
+            self.stud_ordered = self.registered.get_users()
         else:
-            self.students = students_init
+            self.stud_ordered = students_init
+        session.commit()
 
     def generate_random(self, students_init=None):
+        session = db_session()
         if students_init is None:
             students_init = self.registered.get_users()
             rnd.shuffle(students_init)
-            self.students = students_init
+            self.stud_ordered = students_init
         else:
             rnd.shuffle(students_init)
-            self.students = students_init
+            self.stud_ordered = students_init
+        session.commit()
 
     def generate(self, students, is_random: bool):
         if is_random:
             self.generate_random(students)
         else:
             self.generate_simple(students)
+
+    def wrap_students(self, students):
+        """
+        Needed to wrap every Student object with corresponding QueueStudentOrdered object
+        to correctly handle students <-> queue relation in database
+        """
+        return [QueueStudentOrdered(self.id, student.id, pos) for pos, student in enumerate(students)]
+
+    def update_positions(self, start, end):
+        """Updates all positions in wrappers between :start: and :end: and commit changes to database"""
+        if start > end:
+            start, end = end, start
+        # todo test correct indexes
+        s = db_session()
+        for i in range(start, end + 1):
+            self.stud_ordered[i].position = i
+        s.commit()

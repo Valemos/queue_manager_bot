@@ -50,7 +50,7 @@ def parse_names(string):
         names = string.split('\n')
     else:
         names = [string]
-    return [name for name in names if name != '' and check_student_name(name)]
+    return [name for name in names if name != '' and Student.check_name(name)]
 
 
 def parse_number_range(text):
@@ -71,22 +71,14 @@ def parse_integer(text):
         return None
 
 
-def check_queue_name(text):
-    return not (' ' in text or '\n' in text or len(text) > 60)
-
-
-def check_student_name(text):
-    return len(text) <= 40
-
-
-def parse_student(string: str):
-    if string is not None:
-        if string[:4] == 'None':
-            if check_student_name(string[4:]):
-                return Student(str(string[4:]), None)
-        elif len(string) >= 8:
-            if check_student_name(string[8:]):
-                return Student(string[8:], int(string[:8], 16))
+def parse_student(id_name: str):
+    if id_name is not None:
+        if id_name[:4] == 'None':
+            if Student.check_name(id_name[4:]):
+                return Student(str(id_name[4:]), None)
+        elif len(id_name) >= 8:
+            if Student.check_name(id_name[8:]):
+                return Student(id_name[8:], int(id_name[:8], 16))
     return None
 
 

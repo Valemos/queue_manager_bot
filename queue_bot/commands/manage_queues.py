@@ -1,6 +1,5 @@
 import logging
 
-from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
@@ -22,7 +21,7 @@ class DeleteQueue(AbstractCommand):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        keyboard = bot.queues.generate_choice_keyboard(cls)
+        keyboard = bot.queues.generate_keyboard(cls)
         DeleteQueue.keyboard_message = \
             update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
 
@@ -36,7 +35,7 @@ class DeleteQueue(AbstractCommand):
 
                 # update keyboard
                 if DeleteQueue.keyboard_message is not None:
-                    keyboard = bot.queues.generate_choice_keyboard(cls)
+                    keyboard = bot.queues.generate_keyboard(cls)
                     DeleteQueue.keyboard_message.edit_text(
                         bot.language_pack.title_select_queue,
                         reply_markup=keyboard)
@@ -55,14 +54,14 @@ class SelectOtherQueue(AbstractCommand):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        keyboard = bot.queues.generate_choice_keyboard(cls)
+        keyboard = bot.queues.generate_keyboard(cls)
         update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
 
     @classmethod
     def handle_keyboard(cls, update, bot):
         queue_name = CommandHandler.get_arguments(update.callback_query.data)
         if queue_name is not None:
-            if bot.queues.set_current_queue(queue_name):
+            if bot.queues.select_queue(queue_name):
                 if not bot.check_queue_selected():
                     update.effective_chat.send_message(bot.language_pack.queue_not_selected)
                     log.error(log_user(update, bot, f'queue was selected by name{queue_name}, but not found'))
@@ -87,7 +86,7 @@ class RenameQueue(AbstractCommand):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        keyboard = bot.queues.generate_choice_keyboard(cls)
+        keyboard = bot.queues.generate_keyboard(cls)
         update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
 
     @classmethod
@@ -96,23 +95,19 @@ class RenameQueue(AbstractCommand):
         if RenameQueue.old_queue_name is not None:
             update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name
                                                .format(RenameQueue.old_queue_name))
-            bot.request_set(cls)
+            RenameQueue.handle_request(update, bot)
         else:
-            log.warning(log_user(update, bot, 'queue not selected while renaming'))
+            log.error(log_user(update, bot, 'keyboard argument is None while renaming queue'))
 
     @classmethod
     def handle_request(cls, update, bot):
-        if RenameQueue.old_queue_name is None:
-            RenameQueue.old_queue_name = bot.language_pack.default_queue_name
-
-        if parsers.check_queue_name(update.message.text):
-            bot.queues.rename_queue(RenameQueue.old_queue_name, update.message.text)
+        if bot.queues.rename_queue(RenameQueue.old_queue_name, update.message.text):
             update.effective_chat.send_message(bot.language_pack.name_set)
-            bot.request_del()
             log.info(log_queue(update, bot, f'queue {RenameQueue.old_queue_name} renamed to {update.message.text}'))
         else:
             update.effective_chat.send_message(bot.language_pack.name_incorrect)
-            update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name)
+
+        bot.request_del()
 
 
 class SaveQueuesToGoogleDrive(AbstractCommand):

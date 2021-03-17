@@ -20,7 +20,7 @@ class TestQueue(unittest.TestCase):
 
         self.bot = setup_test_queue(self.bot, 'idNone', self.queue_students_with_none)
         self.bot = setup_test_queue(self.bot, 'reg', self.bot.registered.get_users())
-        self.current_queue_students = self.bot.get_queue().students
+        self.current_queue_students = self.bot.get_queue().stud_ordered
 
         self.not_current_queue_name = None
         for queue_name in self.bot.queues.queues:
@@ -43,7 +43,7 @@ class TestQueue(unittest.TestCase):
         bot_handle_message(self.bot, '0\n1\ntest\n2', *self.uc)
         bot_handle_message(self.bot, 'Name', *self.uc)
 
-        self.assertListEqual(self.bot.get_queue().students,
+        self.assertListEqual(self.bot.get_queue().stud_ordered,
                              [Student('0', 0), Student('1', 1), Student('test', None), Student('2', 2)])
 
     def test_queue_create_random(self):
@@ -55,7 +55,7 @@ class TestQueue(unittest.TestCase):
         tg_write_message(self.u, 'Name')
         self.bot.handle_message_reply_command(*self.uc)
 
-        self.assertCountEqual(self.bot.get_queue().students,
+        self.assertCountEqual(self.bot.get_queue().stud_ordered,
                               [Student('0', 0), Student('1', 1), Student('test', None), Student('2', 2)])
 
     def test_rename_queue(self):
@@ -81,13 +81,13 @@ class TestQueue(unittest.TestCase):
         tg_select_command(self.u, modify_queue.MoveSwapStudents, str(second_user))
         self.bot.handle_keyboard_chosen(*self.uc)
 
-        self.assertCountEqual(self.bot.get_queue().students, self.bot.registered.get_users())
-        self.assertEqual(second_user, self.bot.get_queue().students[2])
-        self.assertEqual(first_user, self.bot.get_queue().students[4])
+        self.assertCountEqual(self.bot.get_queue().stud_ordered, self.bot.registered.get_users())
+        self.assertEqual(second_user, self.bot.get_queue().stud_ordered[2])
+        self.assertEqual(first_user, self.bot.get_queue().stud_ordered[4])
 
     def test_queue_copy(self):
         text = self.bot.get_queue().get_str_for_copy()
-        initial_students = self.bot.get_queue().students
+        initial_students = self.bot.get_queue().stud_ordered
 
         # delete queues and start with empty bot
         empty_bot = setup_test_bot(self)
@@ -97,7 +97,7 @@ class TestQueue(unittest.TestCase):
         self.assertIsNone(empty_bot.get_queue())
 
         bot_handle_text_command(empty_bot, *self.uc, text)
-        self.assertListEqual(empty_bot.get_queue().students, initial_students)
+        self.assertListEqual(empty_bot.get_queue().stud_ordered, initial_students)
 
     def test_create_with_empty_lines(self):
         bot_request_command_send_msg(self.bot, create_queue.CreateSimple, *self.uc)
@@ -132,27 +132,27 @@ class TestQueue(unittest.TestCase):
                               Student('Воловик + Комисар', None),
                               Student('Копылаш + Редька', None),
                               Student('Северян + Дорошенко', None)],
-                             self.bot.get_queue().students)
+                             self.bot.get_queue().stud_ordered)
 
     def test_queue_add_user(self):
         queue = QueueStudents(self.bot)
 
         queue.append_by_name('0')
-        self.assertEqual(queue.students[-1], Student('0', 0))
+        self.assertEqual(queue.stud_ordered[-1], Student('0', 0))
         queue.append_by_name('Unknown')
-        self.assertEqual(queue.students[-1], Student('Unknown', None))
+        self.assertEqual(queue.stud_ordered[-1], Student('Unknown', None))
 
         queue.append(Student('0', 4))  # different name, id the same
-        self.assertEqual(queue.students[2], Student('4', 4))
+        self.assertEqual(queue.stud_ordered[2], Student('4', 4))
 
-        prev_list = queue.students
+        prev_list = queue.stud_ordered
 
         queue.append(Student('0', 0))
-        self.assertCountEqual(prev_list, queue.students)
+        self.assertCountEqual(prev_list, queue.stud_ordered)
         self.assertEqual(Student('0', 0), queue.get_last())
 
         queue.append_by_name('Unknown')
-        self.assertCountEqual(prev_list, queue.students)
+        self.assertCountEqual(prev_list, queue.stud_ordered)
         self.assertEqual(Student('Unknown', None), queue.get_last())
 
     def test_queue_delete_me(self):
@@ -181,7 +181,7 @@ class TestQueue(unittest.TestCase):
         tg_select_command(self.u, modify_queue.AddMe)
         self.bot.handle_keyboard_chosen(*self.uc)
 
-        self.assertEqual(self.bot.get_queue().students[-1], Student("15", 15))
+        self.assertEqual(self.bot.get_queue().stud_ordered[-1], Student("15", 15))
 
         # must delete user and place him to the end
         existing = Student("3", 3)
@@ -190,8 +190,8 @@ class TestQueue(unittest.TestCase):
         tg_select_command(self.u, modify_queue.AddMe)
         self.bot.handle_keyboard_chosen(*self.uc)
 
-        self.assertEqual(self.bot.get_queue().students[-1], existing)
-        self.assertNotEqual(self.bot.get_queue().students[prev_pos], existing)
+        self.assertEqual(self.bot.get_queue().stud_ordered[-1], existing)
+        self.assertNotEqual(self.bot.get_queue().stud_ordered[prev_pos], existing)
 
     def test_select_queue(self):
         tg_select_command(self.u, manage_queues.SelectOtherQueue, self.not_current_queue_name)
@@ -232,16 +232,16 @@ class TestQueue(unittest.TestCase):
     def test_move_students_command(self):
         pos1 = 5
         pos2 = 3
-        prev_students = list(self.bot.get_queue().students)
+        prev_students = list(self.bot.get_queue().stud_ordered)
         s1 = prev_students[pos1 - 1]
         s2 = prev_students[pos2 - 1]
 
         bot_handle_keyboard(self.bot, *self.uc, modify_queue.MoveStudentPosition, str(s1))
         bot_handle_keyboard(self.bot, *self.uc, modify_queue.MoveStudentPosition, str(s2))
 
-        self.assertCountEqual(prev_students, self.bot.get_queue().students)
-        self.assertEqual(self.bot.get_queue().students[pos2 - 1], s1)
-        self.assertEqual(self.bot.get_queue().students[pos2 - 2], s2)
+        self.assertCountEqual(prev_students, self.bot.get_queue().stud_ordered)
+        self.assertEqual(self.bot.get_queue().stud_ordered[pos2 - 1], s1)
+        self.assertEqual(self.bot.get_queue().stud_ordered[pos2 - 2], s2)
 
     def test_remove_students_list(self):
         tg_select_command(self.u, modify_queue.RemoveListStudents)
@@ -249,8 +249,8 @@ class TestQueue(unittest.TestCase):
 
         tg_select_command(self.u, modify_queue.RemoveListStudents, self.queue_students_with_none[1])
         self.bot.handle_keyboard_chosen(*self.uc)
-        self.assertNotIn(self.queue_students_with_none[1], self.bot.get_queue().students)
+        self.assertNotIn(self.queue_students_with_none[1], self.bot.get_queue().stud_ordered)
 
         tg_select_command(self.u, modify_queue.RemoveListStudents, self.queue_students_with_none[2])
         self.bot.handle_keyboard_chosen(*self.uc)
-        self.assertNotIn(self.queue_students_with_none[2], self.bot.get_queue().students)
+        self.assertNotIn(self.queue_students_with_none[2], self.bot.get_queue().stud_ordered)

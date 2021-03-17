@@ -181,16 +181,17 @@ class CreateRandomFromRegistered(AbstractCommand, ISettingsBuilderCommand):
 
         queue.generate_random(bot.registered.get_users())  # we specify parameter in "self"
 
-        if not bot.queues.add_queue(queue):
-            update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
-            bot.request_del()
-            log.info(log_queue(update, bot, 'queue limit reached'))
-        else:
-            err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(),
-                                                             update.effective_chat)
+        if bot.queues.add_queue(queue):
+            bot.queues.select_queue(queue.name)
+
+            err_msg = bot.last_queue_message.update_contents(bot.queues.get_queue_str(), update.effective_chat)
             if err_msg is not None:
                 log.info(log_queue(update, bot, err_msg))
 
             update.effective_chat.send_message(bot.language_pack.queue_set)
             log.info(log_queue(update, bot, 'queue added'))
             AddNameToQueue.handle_reply_settings(update, bot, cls.settings)
+        else:
+            update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
+            bot.request_del()
+            log.info(log_queue(update, bot, 'queue limit reached'))
