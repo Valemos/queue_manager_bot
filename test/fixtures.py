@@ -2,9 +2,8 @@ from unittest import mock
 
 from pytest import fixture
 
-from queue_bot.bot.main_bot import QueueBot
-from queue_bot.objects.queue_students import QueueStudents, QueueParameters
-from queue_bot.objects.student import Student
+from queue_bot.main_bot import QueueBot
+from queue_bot.objects.queue_students import QueueStudents
 from queue_bot.database import reset_database, db_session
 
 

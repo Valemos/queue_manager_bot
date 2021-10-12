@@ -1,7 +1,7 @@
-from queue_bot.objects.student import Student
 from parse import parse
 
 import queue_bot.languages.bot_messages_rus as language_pack
+from queue_bot.objects.student import Student
 from queue_bot.objects.student_factory import student_factory
 
 

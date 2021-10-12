@@ -1,5 +1,5 @@
-from queue_bot.objects.student_abstract import AbstractStudent
 from queue_bot.objects.student import Student
+from queue_bot.objects.student_abstract import AbstractStudent
 from queue_bot.objects.student_no_id import StudentNoId
 
 

@@ -1,13 +1,11 @@
 from pyjarowinkler import distance
-
-from queue_bot.bot import keyboards
-from queue_bot.database import db_session
-from queue_bot.objects.student import Student
-from queue_bot.bot.access_levels import AccessLevel
-import queue_bot.languages.bot_messages_rus as language_pack
-
 from telegram import Chat
 
+import queue_bot.languages.bot_messages_rus as language_pack
+from queue_bot.bot import keyboards
+from queue_bot.bot.access_levels import AccessLevel
+from queue_bot.database import db_session
+from queue_bot.objects.student import Student
 from queue_bot.objects.student_abstract import AbstractStudent
 from queue_bot.objects.student_factory import student_factory
 

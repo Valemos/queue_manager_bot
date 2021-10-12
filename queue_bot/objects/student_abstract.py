@@ -4,7 +4,6 @@ from sqlalchemy import Integer, String, Column, Enum, PrimaryKeyConstraint, Uniq
 
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.database import Base
-from queue_bot.objects.student import Student
 
 
 class AbstractStudent(Base, metaclass=ABCMeta):
@@ -27,7 +26,7 @@ class AbstractStudent(Base, metaclass=ABCMeta):
         self.access_level = AccessLevel.USER
 
     def __eq__(self, other):
-        if not isinstance(other, Student):
+        if not isinstance(other, AbstractStudent):
             return False
 
         if self.get_id() is not None and other.get_id() is not None:

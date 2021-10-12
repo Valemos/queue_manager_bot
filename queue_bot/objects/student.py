@@ -1,5 +1,5 @@
 from queue_bot.database import db_session, init_database
-from queue_bot.objects.student_abstract import AbstractStudent, AccessLevel
+from queue_bot.objects.student_abstract import AbstractStudent
 
 
 class Student(AbstractStudent):

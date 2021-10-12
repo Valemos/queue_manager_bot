@@ -1,9 +1,9 @@
 #  class relies on unique names, and is not suitable for multiple chats
 
+import queue_bot.languages.bot_messages_rus as language_pack
 from queue_bot.bot import keyboards
 from queue_bot.database import db_session
 from queue_bot.objects.queue_students import QueueStudents
-import queue_bot.languages.bot_messages_rus as language_pack
 
 
 class QueuesContainer:

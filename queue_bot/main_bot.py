@@ -1,25 +1,20 @@
 import logging
+import os
 import pickle
 import signal
-import os
 import threading
 
-from queue_bot.database import init_database
-
-from queue_bot.objects.queue_parameters import QueueParameters
-from queue_bot.objects.registered_manager import RegisteredManager
-from queue_bot.objects.queues_container import QueuesContainer
-
-from queue_bot.command_handling import command_handler, console_commands
-
-from queue_bot.bot.updatable_message import UpdatableMessage
-import queue_bot.languages.bot_messages_rus as language_pack
-import queue_bot.bot.keyboards as bot_keyboards
-
-
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import MessageEntity
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 
+import queue_bot.bot.keyboards as bot_keyboards
+import queue_bot.languages.bot_messages_rus as language_pack
+from queue_bot.bot.updatable_message import UpdatableMessage
+from queue_bot.command_handling import command_handler, console_commands
+from queue_bot.database import init_database
+from queue_bot.objects.queue_parameters import QueueParameters
+from queue_bot.objects.queues_container import QueuesContainer
+from queue_bot.objects.registered_manager import RegisteredManager
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)

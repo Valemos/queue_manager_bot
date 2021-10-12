@@ -1,6 +1,3 @@
-from test.fixtures import *
-
-
 def test_move_prev(queue):
     assert queue.position == 0
 

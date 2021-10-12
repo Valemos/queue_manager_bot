@@ -1,8 +1,8 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
+import queue_bot.languages.keyboard_names_rus as kb_names
 from queue_bot.command_handling import command_handler as ch
 from queue_bot.commands import *
-import queue_bot.languages.keyboard_names_rus as kb_names
 
 create_simple_queue = InlineKeyboardMarkup([
     [InlineKeyboardButton(kb_names.create_queue, callback_data=ch.query(CreateSimple))],

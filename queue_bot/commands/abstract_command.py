@@ -3,7 +3,6 @@ import logging
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.commands.logging_shortcuts import log_user
 
-
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 

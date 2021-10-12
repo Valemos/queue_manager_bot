@@ -2,12 +2,13 @@
 from queue_bot.database import db_session, init_database
 from queue_bot.objects.queue_students import QueueStudents, QueueParameters, Student
 from queue_bot.objects.registered_manager import RegisteredManager
+from queue_bot.objects.student_factory import student_factory
 
 init_database()
 
 session = db_session()
 students = [student_factory("A", 10), student_factory("B", 11), student_factory("C", 12)]
-q = QueueStudents(QueueParameters(RegisteredManager(students), "test", students))
+q = QueueStudents.from_params(QueueParameters(RegisteredManager(students), "test", students))
 
 for student in students:
     session.add(student)

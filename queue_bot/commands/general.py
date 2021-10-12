@@ -1,6 +1,6 @@
 from queue_bot.bot.access_levels import AccessLevel
-from queue_bot.languages import command_descriptions_rus as commands_descriptions
 from queue_bot.commands.abstract_command import AbstractCommand
+from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
 
 class Cancel(AbstractCommand):

@@ -1,10 +1,8 @@
 import logging
 
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
-
 from .abstract_command import AbstractCommand
 from .logging_shortcuts import log_queue, log_user
-
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)

@@ -1,7 +1,7 @@
-from typing import Type
 import inspect
 
 from queue_bot.bot.access_levels import AccessLevel
+
 
 class CommandHandler:
 

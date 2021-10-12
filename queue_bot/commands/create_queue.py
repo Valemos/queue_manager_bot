@@ -4,11 +4,9 @@ from typing import Type
 from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
-
 from .abstract_command import AbstractCommand
-from .logging_shortcuts import log_queue, log_user
 from .inrerface_settings_builder import ISettingsBuilderCommand
-
+from .logging_shortcuts import log_queue, log_user
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)

@@ -2,14 +2,12 @@ import logging
 
 from queue_bot.bot import parsers as parsers
 from queue_bot.bot.access_levels import AccessLevel
-from .abstract_command import AbstractCommand
-from queue_bot.languages import command_descriptions_rus as commands_descriptions
-
-from queue_bot.objects.student import Student
 from queue_bot.command_handling import CommandHandler
+from queue_bot.languages import command_descriptions_rus as commands_descriptions
+from queue_bot.objects.student import Student
+from .abstract_command import AbstractCommand
 from .logging_shortcuts import log_queue
 from .update_queue import ShowCurrentAndNextStudent
-
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
