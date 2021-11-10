@@ -2,7 +2,6 @@
 file.txt
 misc/serializer.py
 /.pylint.d/
-run_test_bot.py
 misc/show_data.py
 queue-bot-key.json
 /drive_data/
@@ -10,7 +9,7 @@ queue-bot-key.json
 /data/queue_state.data
 /.spyproject/
 /test_data/
-/test_bot.py
+/run_test_bot.py
 /data_backup/
 /queues_data/
 /.pytest_cache/
