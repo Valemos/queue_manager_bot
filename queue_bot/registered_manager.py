@@ -10,10 +10,10 @@ from telegram import Chat
 
 class StudentsRegisteredManager(Savable):
 
-    _file_registered_users = FolderType.Data.value / Path('registered.data')
+    _file_registered_users = FolderType.Data.value / Path('registered.json')
 
     # dictionary with id`s as keys and levels as values stored in file
-    _file_access_levels = FolderType.Data.value / Path('access_levels.data')
+    _file_access_levels = FolderType.Data.value / Path('access_levels.json')
     students_reg = []
 
     def __init__(self, main_bot, students=None):
@@ -172,12 +172,18 @@ class StudentsRegisteredManager(Savable):
             self.save_to_file(saver)
 
     def save_to_file(self, saver: ObjectSaver):
-        saver.save(self.students_reg, self._file_registered_users)
+        saved_values = {}
+        for student in self.students_reg:
+            if student.telegram_id is not None:
+                saved_values[student.telegram_id] = student.name
+        saver.save(saved_values, self._file_registered_users)
 
     def load_file(self, loader: ObjectSaver):
-        self.students_reg = loader.load(self._file_registered_users)
-        if self.students_reg is None:
+        loaded_values = loader.load(self._file_registered_users)
+        if loaded_values is not None:
             self.students_reg = []
+            for student_id, name in loaded_values.items():
+                self.append_new_user(name, student_id)
 
     def get_save_files(self):
         return [self._file_registered_users, self._file_access_levels]

@@ -2,7 +2,7 @@ import enum
 import os
 from pathlib import Path
 import shutil
-import pickle
+import json
 
 
 class FolderType(enum.Enum):
@@ -34,9 +34,9 @@ class ObjectSaver:
             save_path.touch()
 
         try:
-            with save_path.open('wb') as fw:
-                pickle.dump(var, fw)
-        except (pickle.PickleError, TypeError) as err:
+            with save_path.open('w', encoding='utf-8') as fw:
+                json.dump(var, fw)
+        except Exception as err:
             self.log('file {0}: save failed\n{1}'.format(save_path, str(err)))
             print('file {0}: save failed\n{1}'.format(save_path, str(err)))
 
@@ -47,9 +47,9 @@ class ObjectSaver:
             save_path.touch()
             return None
         try:
-            with save_path.open('rb') as fr:
-                return pickle.load(fr)
-        except (pickle.UnpicklingError, EOFError):
+            with save_path.open('r', encoding='utf-8') as fr:
+                return json.load(fr)
+        except (json.JSONDecodeError, EOFError):
             self.log('file {0}: load failed'.format(save_path))
             return None
 
@@ -59,7 +59,6 @@ class ObjectSaver:
             self.log('deleted ' + str(save_path))
         else:
             self.log('file does not exists ' + str(save_path))
-
 
     @staticmethod
     def clear_folder(folder: Path):

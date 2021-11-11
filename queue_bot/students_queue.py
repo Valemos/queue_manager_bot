@@ -13,8 +13,8 @@ class StudentsQueue(Savable):
 
     save_folder = FolderType.QueuesData.value
 
-    file_format_queue = 'queue_{0}.data'
-    file_format_queue_state = 'state_{0}.data'
+    file_format_queue = 'queue_{0}.json'
+    file_format_queue_state = 'state_{0}.json'
 
     copy_queue_format = '/new_queue {name}\n{students}'
 
@@ -281,9 +281,14 @@ class StudentsQueue(Savable):
     def save_to_file(self, saver):
         state = {'_queue_pos': self.queue_pos}
         saver.save(state, self.get_state_save_file())
-        saver.save(self.students, self.get_queue_save_file())
+        saver.save([{'name': s.name, 'id': s.telegram_id} for s in self.students], self.get_queue_save_file())
 
     def load_file(self, saver):
-        self.students = saver.load(self.get_queue_save_file())
+        self.students = []
+        for student_dict in saver.load(self.get_queue_save_file()):
+            self.students.append(Student(
+                name=student_dict['name'],
+                telegram_id=student_dict['id'],
+            ))
         state = saver.load(self.get_state_save_file())
         self.queue_pos = state['_queue_pos']
