@@ -15,4 +15,3 @@ queue-bot-key.json
 /.pytest_cache/
 /logs/
 /venv/
-/data/
