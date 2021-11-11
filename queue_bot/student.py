@@ -1,15 +1,14 @@
+from dataclasses import dataclass
+from typing import Optional
+
 from queue_bot.bot_access_levels import AccessLevel
-from hashlib import md5
 
 
+@dataclass
 class Student:
-
-    student_show_format = '{0} - {1}'
-
-    def __init__(self, name, telegram_id):
-        self.name = name
-        self.telegram_id = telegram_id
-        self.access_level = AccessLevel.USER
+    name: str
+    telegram_id: Optional[int]
+    access_level: AccessLevel = AccessLevel.USER
 
     def __eq__(self, other):
         if not isinstance(other, Student):
@@ -37,7 +36,7 @@ class Student:
         if position is None:
             return self.name
         else:
-            return self.student_show_format.format(position, self.name)
+            return f'{position} - {self.name}'
 
     # to get student back used function in queue_bot.bot_parsers.parse_student
     def str_name_id(self):
