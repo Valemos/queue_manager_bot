@@ -172,28 +172,36 @@ class StudentsRegisteredManager(Savable):
             self.save_to_file(saver)
 
     def save_to_file(self, saver: ObjectSaver):
-        saved_values = {}
+        saved_values = []
         for student in self.students_reg:
             if student.telegram_id is not None:
-                saved_values[student.telegram_id] = student.name
+                saved_values.append({
+                    'name': student.name,
+                    'id': student.telegram_id,
+                    'access': student.access_level.value,
+                })
         saver.save(saved_values, self._file_registered_users)
 
     def load_file(self, loader: ObjectSaver):
         loaded_values = loader.load(self._file_registered_users)
         if loaded_values is not None:
             self.students_reg = []
-            for student_id, name in loaded_values.items():
-                self.append_new_user(name, student_id)
+            for student_dict in loaded_values:
+                self.students_reg.append(Student(
+                    student_dict['name'],
+                    student_dict['id'],
+                    AccessLevel(student_dict['access']),
+                ))
 
     def get_save_files(self):
         return [self._file_registered_users, self._file_access_levels]
 
     # by default this function requires private chat to allow commands
-    def check_access(self, update, level_requriment=AccessLevel.ADMIN, check_chat_private=True):
+    def check_access(self, update, level_requirement=AccessLevel.ADMIN, check_chat_private=True):
         student = self.get_user_by_update(update)
 
         if check_chat_private:
             if update.effective_chat.type != Chat.PRIVATE:
                 return False
 
-        return student.access_level.value <= level_requriment.value
+        return student.access_level.value <= level_requirement.value

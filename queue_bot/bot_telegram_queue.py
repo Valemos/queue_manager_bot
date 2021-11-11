@@ -108,7 +108,6 @@ class QueueBot:
         self.gdrive_saver.get_all_folder_files(DriveFolderType.Queues, FolderType.QueuesData)
 
         self.registered_manager.load_file(self.object_saver)
-        self.registered_manager.update_access_levels(self.object_saver)
         self.queues_manager.load_file(self.object_saver)
 
     # loads default values from external file

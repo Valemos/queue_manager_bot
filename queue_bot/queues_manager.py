@@ -13,7 +13,7 @@ class QueuesManager(Savable):
     queues_count_limit = 10
     queues = {}
     selected_queue = None
-    file_selected_name = FolderType.QueuesData.value / Path('selected_name.data')
+    file_manager_state = FolderType.QueuesData.value / Path('queues_state.json')
 
     def __init__(self, main_bot, queues: list = None):
         if queues is None:
@@ -135,12 +135,12 @@ class QueuesManager(Savable):
         for queue in self.queues.values():
             queue.save_to_file(self.main_bot.object_saver)
             queues_files.extend(queue.get_save_files())
-        return queues_files + [self.file_selected_name]
+        return queues_files + [self.file_manager_state]
 
     def save_current_to_file(self):
         self.selected_queue.save_to_file(self.main_bot.object_saver)
         if self.selected_queue is not None:
-            self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
+            self.main_bot.object_saver.save(self.selected_queue.name, self.file_manager_state)
 
     def delete_queue_files(self, queue):
         files = queue.get_save_files()
@@ -151,8 +151,9 @@ class QueuesManager(Savable):
     def save_to_file(self, saver):
         for queue in self.queues.values():
             queue.save_to_file(saver)
-        if self.selected_queue is not None:
-            self.main_bot.object_saver.save(self.selected_queue.name, self.file_selected_name)
+
+        selected_name = self.selected_queue.name if self.selected_queue is not None else None
+        self.main_bot.object_saver.save({'name': selected_name}, self.file_manager_state)
 
     def load_file(self, saver):
         # we scan save folder_type to find all required files
@@ -169,7 +170,8 @@ class QueuesManager(Savable):
             queue.load_file(saver)
             self.queues[queue.name] = queue
 
-        selected_name = saver.load(self.file_selected_name)
-        if selected_name is not None:
+        state = saver.load(self.file_manager_state)
+        if state is not None:
+            selected_name = state['name']
             if selected_name in self.queues:
                 self.selected_queue = self.queues[selected_name]
