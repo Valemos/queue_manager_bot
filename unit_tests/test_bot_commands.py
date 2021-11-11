@@ -2,7 +2,6 @@ import unittest
 
 import queue_bot.bot_commands as commands
 
-
 from unit_tests.shared_test_functions import *
 
 
@@ -21,11 +20,8 @@ class TestBotCommands(unittest.TestCase):
         tg_set_user(self.u, 1)
 
     def test_command_parse(self):
-
-        
         tg_set_user(self.u, 1)
         bot_handle_text_command(self.bot, *self.uc, '/new_queue@QueueBot')
-
 
     def test_cur_and_next_in_queue(self):
         students = self.bot.get_queue().students
@@ -56,9 +52,8 @@ class TestBotCommands(unittest.TestCase):
         self.assertIsNone(cur_stud)
         self.assertIsNone(next_stud)
 
-
     def test_move_to_end(self):
-        tg_select_command(self.u, commands.ModifyCurrentQueue.MoveStudentToEnd, Student.student_show_format.format('2', 2))
+        tg_select_command(self.u, commands.ModifyCurrentQueue.MoveStudentToEnd, str(Student('2', 2)))
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertEqual(self.bot.get_queue().students[-1], self.bot.registered_manager.get_user_by_id(2))
 
@@ -66,19 +61,14 @@ class TestBotCommands(unittest.TestCase):
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertEqual(Student('Unknown', None), self.bot.get_queue().students[-1])
 
-
     def test_append_delete_user(self):
-
         self.bot.registered_manager.append_new_user('Test', 100)
         self.assertIn(Student('Test', 100), self.bot.registered_manager.students_reg)
 
         self.bot.registered_manager.remove_by_id(100)
         self.assertNotIn(Student('Test', 100), self.bot.registered_manager.students_reg)
 
-
     def test_unknown_user_in_queue(self):
-
-
         bot = setup_test_queue(self.bot, 'test1', self.bot.registered_manager.get_users())
         self.bot.queues_manager.get_queue().append_by_name('Unknown')
         self.assertIn(Student('Unknown', None), self.bot.queues_manager.get_queue().students)
@@ -104,7 +94,6 @@ class TestBotCommands(unittest.TestCase):
         self.bot.queues_manager.get_queue().set_position(idx)
         bot_request_command_send_msg(self.bot, commands.ModifyCurrentQueue.StudentFinished, *self.uc)
         self.assertEqual(idx + 1, self.bot.queues_manager.get_queue().get_position())
-
 
     def test_start_bot(self):
         tg_set_user(self.u, 0, '0')
