@@ -149,7 +149,7 @@ class DriveSaver:
 
         service = self.init_service()
 
-        existing_files = DriveSaver.get_existing_files(service, 'id,name')
+        existing_files = self.get_existing_files('id,name')
 
         # update if files exist
         paths_dict = {p.name: p for p in path_list if p.exists()}
@@ -165,9 +165,8 @@ class DriveSaver:
             self.upload_to_drive(path, file_metadata, service)
         return True
 
-    @staticmethod
-    def get_existing_files(service, fields):
-        return service.files().list(fields='files({0})'.format(fields)).execute()['files']
+    def get_existing_files(self, fields):
+        return self.init_service().files().list(fields='files({0})'.format(fields)).execute()['files']
 
     # if path_list not specified, all files from folder_type will be written to 'new_folder'
     def get_folder_files(self, path_list, folder_type: DriveFolderType):
@@ -189,9 +188,8 @@ class DriveSaver:
         return self.download_drive_files(folder_id, path_list)
 
     def download_drive_files(self, folder_id, path_list):
-
+        existing_files = self.get_existing_files('id,name,parents')
         service = self.init_service()
-        existing_files = DriveSaver.get_existing_files(service, 'id,name,parents')
 
         names_list = {p.name: p for p in path_list}
         for file in existing_files:
@@ -233,7 +231,7 @@ class DriveSaver:
 
         service = self.init_service()
 
-        existing_files = DriveSaver.get_existing_files(service, 'id,name,parents,mimeType')
+        existing_files = self.get_existing_files('id,name,parents,mimeType')
 
         folder_id = self.get_folder_type_id(folder_type)
         for file in existing_files:
@@ -253,7 +251,7 @@ class DriveSaver:
     def delete_from_folder(self, files: list, folder_type: DriveFolderType):
         service = self.init_service()
 
-        existing_files = DriveSaver.get_existing_files(service, 'id,name,parents,mimeType')
+        existing_files = self.get_existing_files('id,name,parents,mimeType')
         file_names = [file.name for file in files]
 
         folder_id = self.get_folder_type_id(folder_type)
@@ -272,11 +270,11 @@ class DriveSaver:
     def delete_everything_on_disk(self):
 
         service = self.init_service()
-        existing_files = DriveSaver.get_existing_files(service, 'id,name')
+        existing_files = self.get_existing_files('id,name')
 
         for file in existing_files:
             try:
-                result = service.files().delete(fileId=file['id']).execute()
+                service.files().delete(fileId=file['id']).execute()
                 self.log(f"deleted {file['name']}")
             except HttpError as err:
                 if err.resp.status == 404:
@@ -287,7 +285,7 @@ class DriveSaver:
     def update_all_permissions(self):
 
         service = self.init_service()
-        existing_files = DriveSaver.get_existing_files(service, 'id')
+        existing_files = self.get_existing_files('id')
 
         for file in existing_files:
             try:
@@ -302,7 +300,7 @@ class DriveSaver:
         folder_id = self.get_folder_type_id(folder_type)
 
         service = self.init_service()
-        existing_files = DriveSaver.get_existing_files(service, 'name,parents,id')
+        existing_files = self.get_existing_files('name,parents,id')
 
         c = 1  # counter of files
         for file in existing_files:
@@ -313,8 +311,7 @@ class DriveSaver:
     def get_all_folder_files(self, folder_type: DriveFolderType, output_folder: FolderType):
         folder_id = self.get_folder_type_id(folder_type)
 
-        service = self.init_service()
-        existing_files = DriveSaver.get_existing_files(service, 'name,parents,id')
+        existing_files = self.get_existing_files('name,parents,id')
 
         path_list = []
         c = 1  # counter of files

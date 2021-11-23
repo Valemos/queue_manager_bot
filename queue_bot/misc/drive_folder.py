@@ -111,7 +111,7 @@ class DriveFolder:
         """
 
         if not DriveFolder.validate_json_dict(json_dict):
-            return
+            raise ValueError(f"invalid json dictionary for drive folders {str(json_dict)}")
 
         # update id for current folder_type if name matches
         if self.name == json_dict["name"]:
