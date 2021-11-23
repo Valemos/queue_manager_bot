@@ -3,7 +3,7 @@ from pathlib import Path
 import datetime
 import sys
 from queue_bot.misc.object_file_saver import FolderType
-from queue_bot.misc.gdrive_saver import DriveSaver, DriveFolder
+from queue_bot.misc.gdrive_saver import DriveSaver, DriveFolderType
 
 
 class Logger:
@@ -55,7 +55,7 @@ class Logger:
         return path
 
     def save_to_cloud(self):
-        self.drive_saver.save(self.log_file_path, DriveFolder.Log)
+        self.drive_saver.save(self.log_file_path, DriveFolderType.Log)
 
 
 if __name__ == '__main__':

@@ -45,18 +45,17 @@ class DriveSaver:
 
         # these variables correspond to
         self.drive_folder_root = DriveFolder("HelperBot")
-        self.drive_folder_queues = self.drive_folder_root.Queues
-        self.drive_folder_log = self.drive_folder_root.Log
 
         """DriveFolderType constant enum tuple to get DriveFolder objects from it"""
         self.drive_folder_type_mapping: dict[DriveFolderType, DriveFolder] = {
             DriveFolderType.Root: self.drive_folder_root,
-            DriveFolderType.Queues: self.drive_folder_queues,
-            DriveFolderType.Log: self.drive_folder_log,
+            DriveFolderType.Queues: self.drive_folder_root.Queues,
+            DriveFolderType.Log: self.drive_folder_root.Log,
         }
 
         # load DriveFolder tree from json file
-        self.load_folders_config()
+        config = self.load_folders_config()
+        self.drive_folder_root.update_from_config(config)
 
     def log(self, string):
         print(string)
@@ -112,8 +111,9 @@ class DriveSaver:
             service.permissions().create(fileId=cloud_folder['id'],
                                          body={'type': 'user', 'role': 'writer',
                                                'emailAddress': self.work_email}).execute()
+            self.log(f'created google drive folder {folder.name} ({cloud_folder["id"]}) parent: {parent_id}')
         except Exception as err:
-            self.log(err.args)
+            self.log(str(err))
             return None
 
         self.log(f"created folder {folder.name} with id {cloud_folder['id']}")
@@ -125,25 +125,23 @@ class DriveSaver:
 
         folder_id = self.get_folder_type_id(folder_type)
         file_metadata = DriveSaver.get_file_metadata(file_path.name, folder_id)
-        return self.upload_to_drive(file_path, file_metadata, service)
+        self.upload_to_drive(file_path, file_metadata, service)
 
     def upload_to_drive(self, file_path, file_metadata, service):
         try:
             upload_file = MediaFileUpload(file_path, mimetype='application/octet-stream')
             service.files().create(body=file_metadata, media_body=upload_file, fields='id').execute()
+            self.log(f'uploaded "{file_path.name}"')
         except Exception as err:
-            print(err)
-            self.log(err)
-            return False
-        return True
+            self.log(str(err))
 
-    @staticmethod
-    def update_on_drive(service, file_path, file_id):
+    def update_on_drive(self, service, file_path, file_id):
         try:
             update_file = MediaFileUpload(file_path, mimetype='application/octet-stream')
             service.files().update(fileId=file_id, media_body=update_file).execute()
+            self.log(f'updated drive "{file_path.name}"')
         except HttpError as err:
-            print(err.error_details)
+            self.log(err.error_details)
 
     def update_file_list(self, path_list, folder_type: DriveFolderType):
 
@@ -154,8 +152,9 @@ class DriveSaver:
         # update if files exist
         paths_dict = {p.name: p for p in path_list if p.exists()}
         for file in existing_files:
-            if file['name'] in paths_dict:
-                DriveSaver.update_on_drive(service, paths_dict[file['name']], file['id'])
+            file_path = paths_dict.get(file['name'], None)
+            if file_path is not None:
+                self.update_on_drive(service, file_path, file['id'])
                 del paths_dict[file['name']]
 
         # download to folder_type if file does not exists
@@ -169,31 +168,27 @@ class DriveSaver:
         return self.init_service().files().list(fields='files({0})'.format(fields)).execute()['files']
 
     # if path_list not specified, all files from folder_type will be written to 'new_folder'
-    def get_folder_files(self, path_list, folder_type: DriveFolderType):
-        if len(path_list) == 0:
+    def get_folder_files(self, name_save_path_map, folder_type: DriveFolderType):
+        if len(name_save_path_map) == 0:
             return True
-
-        if self._credentials is None:
-            return False
 
         folder_id = self.get_folder_type_id(folder_type)
         if folder_id is None:
             return False
 
         # create folders on local drive
-        for path in path_list:
+        for path in name_save_path_map:
             if not path.parent.exists():
                 path.parent.mkdir(parents=True)
 
-        return self.download_drive_files(folder_id, path_list)
+        return self.download_drive_files(folder_id, name_save_path_map)
 
-    def download_drive_files(self, folder_id, path_list):
+    def download_drive_files(self, folder_id, name_save_path_map):
         existing_files = self.get_existing_files('id,name,parents')
         service = self.init_service()
 
-        names_list = {p.name: p for p in path_list}
         for file in existing_files:
-            if not file['name'] in names_list:
+            if not file['name'] in name_save_path_map:
                 continue
 
             # if parent folder_type does not match, continue
@@ -201,7 +196,7 @@ class DriveSaver:
                 continue
 
             # form path for file
-            result_path = names_list[file['name']]
+            result_path = name_save_path_map[file['name']]
             # create if not exists
             if not result_path.parent.exists():
                 result_path.parent.mkdir(parents=True)
@@ -333,18 +328,16 @@ class DriveSaver:
         :return: True if operation succeeded
         """
 
-        config_json = os.environ.get('GOOGLE_DRIVE_FOLDERS', None)
+        config_json_string = os.environ.get('GOOGLE_DRIVE_FOLDERS', None)
 
-        if config_json is not None:
-            config_json = json.loads(config_json)
+        if config_json_string is not None:
+            return json.loads(config_json_string)
         else:
             try:
-                config_json = self.load_config_file()
+                return self.load_config_file()
             except Exception as err:
                 self.log(str(err))
                 self.save_folders_config()
-
-        self.drive_folder_root.update_from_json_dict(config_json)
 
     def load_config_file(self):
         if not self.folders_config_file.exists():

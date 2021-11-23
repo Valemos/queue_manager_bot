@@ -6,14 +6,9 @@ import json
 
 
 class FolderType(enum.Enum):
-    NoFolder = Path()
     Data = Path('data')
     QueuesData = Path('queues_data')
-    SubjectChoices = Path('subject_choices')
-    DriveData = Path('drive_data')
-    Backup = Path('data_backup')
     Logs = Path('logs')
-    Test = Path('test_data')
 
 
 class ObjectSaver:

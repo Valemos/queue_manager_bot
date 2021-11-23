@@ -61,7 +61,7 @@ class QueueBot:
 
     def start(self):
         self.logger.log('start')
-        self.load_defaults()
+        self.load_drive_config()
         self.updater.start_polling()
         self.updater.idle()
 
@@ -87,24 +87,16 @@ class QueueBot:
     # paths inside .get_save_files() must match
     # with paths in load_from_cloud by folders to load correctly
     def save_to_cloud(self):
-
         self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolderType.Root)
         self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolderType.Queues)
-
-        all_file_names = [
-            file.name for file in (self.registered_manager.get_save_files()
-                                   + self.queues_manager.get_save_files())
-        ]
-
-        self.logger.log("saved files to cloud:\n" + "\n".join(all_file_names))
-        print("saved files to cloud:\n" + "\n".join(all_file_names))
 
         dump_path = self.logger.dump_to_file()
         self.gdrive_saver.update_file_list([dump_path], DriveFolderType.Log)
         self.logger.delete_logs()
 
-    def load_defaults(self):
-        self.gdrive_saver.get_folder_files(self.registered_manager.get_save_files(), DriveFolderType.Root)
+    def load_drive_config(self):
+        name_save_path_map = {p.name: p for p in self.registered_manager.get_save_files()}
+        self.gdrive_saver.get_folder_files(name_save_path_map, DriveFolderType.Root)
         self.gdrive_saver.get_all_folder_files(DriveFolderType.Queues, FolderType.QueuesData)
 
         self.registered_manager.load_file(self.object_saver)

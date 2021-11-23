@@ -102,7 +102,7 @@ class DriveFolder:
 
         return folder
 
-    def update_from_json_dict(self, json_dict):
+    def update_from_config(self, json_dict):
         """
         Reads json dictionary recursively
         updates folders whose names exist in current tree
@@ -124,7 +124,7 @@ class DriveFolder:
                 for subfolder_json in json_dict["subfolders"]:
                     if subfolder_json["name"] in self.subfolders:
                         # recursively update subfolder with data
-                        self.subfolders[subfolder_json["name"]].update_from_json_dict(subfolder_json)
+                        self.subfolders[subfolder_json["name"]].update_from_config(subfolder_json)
                     else:
                         # insert new subfolder
                         subfolder = DriveFolder.from_json_dict(subfolder_json)
