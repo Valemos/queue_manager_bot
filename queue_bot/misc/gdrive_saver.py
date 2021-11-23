@@ -177,7 +177,7 @@ class DriveSaver:
             return False
 
         # create folders on local drive
-        for path in name_save_path_map:
+        for path in name_save_path_map.values():
             if not path.parent.exists():
                 path.parent.mkdir(parents=True)
 
