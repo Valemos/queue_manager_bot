@@ -1,5 +1,5 @@
-
 import json
+
 
 class DriveFolder:
 
@@ -37,6 +37,11 @@ class DriveFolder:
             new_folder = DriveFolder(name)
             return self.add_folder(new_folder)
 
+    def iterate_tree(self):
+        yield self
+        for subfolder in self.subfolders:
+            yield from subfolder.iterate_tree()
+
     def add_folder(self, folder):
         """
         Performs subfolder append operation for current folder_type
@@ -66,6 +71,9 @@ class DriveFolder:
     @staticmethod
     def validate_json_dict(json_dict: dict):
         """checks if json dictionary contains required fields"""
+        if not isinstance(json_dict, dict):
+            return False
+
         if "name" not in json_dict or "drive_id" not in json_dict:
             return False
         return True
@@ -122,7 +130,6 @@ class DriveFolder:
                         subfolder = DriveFolder.from_json_dict(subfolder_json)
                         subfolder.parent = self
                         self.subfolders[subfolder.name] = subfolder
-
 
     def get_folder_hierarchy(self):
         """
