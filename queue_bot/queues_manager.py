@@ -139,8 +139,7 @@ class QueuesManager(Savable):
 
     def save_current_to_file(self):
         self.selected_queue.save_to_file(self.main_bot.object_saver)
-        if self.selected_queue is not None:
-            self.main_bot.object_saver.save(self.selected_queue.name, self.file_manager_state)
+        self.save_queues_state()
 
     def delete_queue_files(self, queue):
         files = queue.get_save_files()
@@ -152,6 +151,9 @@ class QueuesManager(Savable):
         for queue in self.queues.values():
             queue.save_to_file(saver)
 
+        self.save_queues_state()
+
+    def save_queues_state(self):
         selected_name = self.selected_queue.name if self.selected_queue is not None else None
         self.main_bot.object_saver.save({'name': selected_name}, self.file_manager_state)
 
