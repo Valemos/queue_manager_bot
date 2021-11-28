@@ -6,23 +6,22 @@ from queue_bot.misc.logger import Logger
 from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
 from queue_bot.misc.gdrive_saver import DriveFolderType
 
-import queue_bot.languages.messages_rus as messages_rus
 import queue_bot.command_handling.handlers as command_handler
 
 from queue_bot.objects.registered_manager import StudentsRegisteredManager
 from queue_bot.objects.queues_manager import QueuesManager
 from queue_bot.objects.students_queue import StudentsQueue
 from queue_bot.bot.updatable_message import UpdatableMessage
-import queue_bot.bot.command_levels
+import queue_bot.bot.command_collections
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 from telegram import MessageEntity
 
 
 class QueueBot:
-    language_pack = messages_rus
-    keyboards = queue_bot.bot_keyboards
-    available_commands = queue_bot.bot_available_commands
+    language_pack = queue_bot.language_pack
+    keyboards = queue_bot.keyboards
+    available_commands = queue_bot.available_commands
 
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
