@@ -72,7 +72,7 @@ def parce_integer(text):
 
 
 def check_queue_name(text):
-    return not (' ' in text or '\n' in text or len(text) > 60)
+    return not ('\n' in text or len(text) > 60)
 
 
 def check_student_name(text):

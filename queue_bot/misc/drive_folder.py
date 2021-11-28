@@ -150,7 +150,6 @@ class DriveFolder:
         if len(folders[index].subfolders) == 0:
             return
 
-        # todo: for each branch at first walk recursively in this branch and than continue to next branch
         folders.extend(folders[index].subfolders.values())
         index += 1
         DriveFolder._subfolders_recursion(folders, index)

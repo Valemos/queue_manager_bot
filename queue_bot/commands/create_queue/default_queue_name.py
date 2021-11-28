@@ -1,5 +1,6 @@
 import queue_bot.commands.create_queue.finish_creation
 from queue_bot.commands.command import Command, log_bot_user
+from queue_bot.commands.create_queue.queue_creation_state import QueueCreateDialogState
 from queue_bot.objects.access_level import AccessLevel
 
 
@@ -8,7 +9,7 @@ class DefaultQueueName(Command):
 
     @classmethod
     def handle_request(cls, update, bot):
-        # todo save to queue dialog state
-        # CreateQueue.new_queue_name = bot.language_pack.default_queue_name
+        state: QueueCreateDialogState
+        state.new_queue_name = bot.language_pack.default_queue_name
         log_bot_user(update, bot, 'queue set default name')
         queue_bot.commands.create_queue.finish_creation.FinishCreation.handle_request(update, bot)

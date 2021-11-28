@@ -14,9 +14,7 @@ class Delete(Command):
     @classmethod
     def handle_reply(cls, update, bot):
         keyboard = bot.queues_manager.generate_choice_keyboard(cls)
-        # todo save to manage queues dialog state
-        # ManageQueues.Delete.keyboard_message = \
-        #     update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
+        update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
 
     @classmethod
     def handle_keyboard(cls, update, bot):
@@ -26,13 +24,9 @@ class Delete(Command):
                 update.effective_chat.send_message(bot.language_pack.queue_removed.format(queue_name))
                 bot.refresh_last_queue_msg(update)
 
-                # todo use manage queues dialog state
                 # update keyboard
-                # if ManageQueues.Delete.keyboard_message is not None:
-                #     keyboard = bot.queues_manager.generate_choice_keyboard(cls)
-                #     ManageQueues.Delete.keyboard_message.edit_text(
-                #         bot.language_pack.title_select_queue,
-                #         reply_markup=keyboard)
+                keyboard = bot.queues_manager.generate_choice_keyboard(cls)
+                update.effective_message.edit_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
             else:
                 log_bot_user(update, bot, 'queue not found, query: {0}', update.callback_query.data)
         else:
