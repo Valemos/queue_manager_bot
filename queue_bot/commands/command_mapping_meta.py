@@ -20,7 +20,7 @@ class CommandMappingMeta(type):
         if cls.command_name is not None:
             cls.__name_command__[cls.command_name] = cls
 
-        command_id = cls.__last_command_id__
+        command_id = str(cls.__last_command_id__)
         cls.__command_id_dict__[cls] = command_id
         cls.__id_command_dict__[command_id] = cls
         cls.__last_command_id__ += 1

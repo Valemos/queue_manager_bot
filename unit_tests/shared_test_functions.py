@@ -9,10 +9,10 @@ from queue_bot.objects.students_queue import StudentsQueue
 
 
 # generate patched test bot
-@mock.patch('queue_bot.bot_telegram_queue.DriveSaver')
-@mock.patch('queue_bot.bot_telegram_queue.ObjectSaver')
-@mock.patch('queue_bot.bot_telegram_queue.Logger')
-@mock.patch('queue_bot.bot_telegram_queue.Updater')
+@mock.patch('queue_bot.misc.gdrive_saver.DriveSaver')
+@mock.patch('queue_bot.misc.object_file_saver.ObjectSaver')
+@mock.patch('queue_bot.misc.logger.Logger')
+@mock.patch('queue_bot.queue_bot.Updater')
 def setup_test_bot(unit_test, *mocks) -> QueueBot:
     bot = QueueBot('0')
     bot.registered_manager.append_new_user('0', 0)  # god

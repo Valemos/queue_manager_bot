@@ -38,7 +38,7 @@ class TestQueue(unittest.TestCase):
 
 
     def test_queue_create_simple(self):
-        bot_request_command_send_msg(self.bot, commands.create_queue.start_create.StartCreate, *self.uc)
+        bot_request_command_send_msg(self.bot, commands.create_queue.StartCreate, *self.uc)
         bot_handle_message(self.bot, '0\n1\ntest\n2', *self.uc)
         bot_handle_message(self.bot, 'Name', *self.uc)
 
@@ -47,7 +47,7 @@ class TestQueue(unittest.TestCase):
 
 
     def test_queue_create_random(self):
-        bot_request_command_send_msg(self.bot, commands.create_queue.start_create_random.StartCreateRandom, *self.uc)
+        bot_request_command_send_msg(self.bot, commands.create_queue.StartCreateRandom, *self.uc)
 
         tg_write_message(self.u, '0\n1\ntest\n2')
         self.bot.handle_message_reply_command(*self.uc)
@@ -61,7 +61,7 @@ class TestQueue(unittest.TestCase):
 
     def test_rename_queue(self):
         prev_queue_name = self.not_current_queue_name
-        tg_select_command(self.u, commands.manage_queues.rename.Rename, prev_queue_name)
+        tg_select_command(self.u, commands.manage_queues.Rename, prev_queue_name)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         tg_write_message(self.u, 'new_name')
@@ -75,12 +75,12 @@ class TestQueue(unittest.TestCase):
         first_user = self.bot.registered_manager.get_users()[2]
         second_user = self.bot.registered_manager.get_users()[4]
 
-        tg_select_command(self.u, commands.modify_queue.swap_students.MoveSwapStudents)
+        tg_select_command(self.u, commands.modify_queue.MoveSwapStudents)
         self.bot.handle_keyboard_chosen(*self.uc)  # must only create keyboard
 
-        tg_select_command(self.u, commands.modify_queue.swap_students.MoveSwapStudents, str(first_user))
+        tg_select_command(self.u, commands.modify_queue.MoveSwapStudents, str(first_user))
         self.bot.handle_keyboard_chosen(*self.uc)
-        tg_select_command(self.u, commands.modify_queue.swap_students.MoveSwapStudents, str(second_user))
+        tg_select_command(self.u, commands.modify_queue.MoveSwapStudents, str(second_user))
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertCountEqual(self.bot.get_queue().students, self.bot.registered_manager.get_users())
@@ -186,7 +186,7 @@ class TestQueue(unittest.TestCase):
 
         # must place user to the end
         tg_set_user(self.u, 15, "15")
-        tg_select_command(self.u, commands.modify_queue.add_me.AddMe)
+        tg_select_command(self.u, commands.modify_queue.AddMe)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertEqual(self.bot.get_queue().students[-1], Student("15", 15))
@@ -195,7 +195,7 @@ class TestQueue(unittest.TestCase):
         existing = Student("3", 3)
         tg_set_user(self.u, existing.telegram_id, existing.name)
         prev_pos = self.bot.get_queue().get_student_position(existing)
-        tg_select_command(self.u, commands.modify_queue.add_me.AddMe)
+        tg_select_command(self.u, commands.modify_queue.AddMe)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertEqual(self.bot.get_queue().students[-1], existing)
@@ -203,14 +203,14 @@ class TestQueue(unittest.TestCase):
 
 
     def test_select_queue(self):
-        tg_select_command(self.u, commands.select_queue.SelectQueue, self.not_current_queue_name)
+        tg_select_command(self.u, commands.manage_queues.SelectQueue, self.not_current_queue_name)
         self.bot.handle_keyboard_chosen(*self.uc)
 
         self.assertEqual(self.bot.get_queue().name, self.not_current_queue_name)
 
 
     def test_delete_queue(self):
-        tg_select_command(self.u, commands.manage_queues.delete_queue.Delete, self.not_current_queue_name)
+        tg_select_command(self.u, commands.manage_queues.Delete, self.not_current_queue_name)
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertNotIn(self.not_current_queue_name, self.bot.queues_manager)
 
@@ -279,13 +279,13 @@ class TestQueue(unittest.TestCase):
 
 
     def test_remove_students_list(self):
-        tg_select_command(self.u, commands.modify_queue.remove_students.RemoveListStudents)
+        tg_select_command(self.u, commands.modify_queue.RemoveListStudents)
         self.bot.handle_keyboard_chosen(*self.uc)
 
-        tg_select_command(self.u, commands.modify_queue.remove_students.RemoveListStudents, self.queue_students_with_none[1])
+        tg_select_command(self.u, commands.modify_queue.RemoveListStudents, self.queue_students_with_none[1])
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertNotIn(self.queue_students_with_none[1], self.bot.get_queue().students)
 
-        tg_select_command(self.u, commands.modify_queue.remove_students.RemoveListStudents, self.queue_students_with_none[2])
+        tg_select_command(self.u, commands.modify_queue.RemoveListStudents, self.queue_students_with_none[2])
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertNotIn(self.queue_students_with_none[2], self.bot.get_queue().students)

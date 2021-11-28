@@ -103,7 +103,7 @@ class QueueBot:
     # loads default values from external file
     def save_registered_to_file(self):
         self.registered_manager.save_to_file(self.object_saver)
-        self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), FolderType.Data)
+        self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolderType.Queues)
 
     def get_token(self, path=None):
         if path is None:
