@@ -35,7 +35,7 @@ class DriveSaver:
         self.logger = logger
 
         # _SERVICE_ACCOUNT_FILE usage can be replaced with environment variable
-        self._SERVICE_ACCOUNT_FILE = Path(r'drive_data/queue-bot-key.json')
+        self._SERVICE_ACCOUNT_FILE = FolderType.Data.value / Path('queue-bot-key.json')
 
         self._SCOPES = ['https://www.googleapis.com/auth/drive']
         self.work_email = 'programworkerbox@gmail.com'

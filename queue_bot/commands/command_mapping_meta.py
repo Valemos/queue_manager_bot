@@ -14,15 +14,15 @@ class CommandMappingMeta(type):
         super().__init__(name, bases, namespace)
 
         if not hasattr(cls, "command_name"):
-            raise ValueError('attribute not defined "command_name"')
-        command_name = cls.command_name
-        if command_name is None:
+            # this means, that command does not need to be indexed
             return
+
+        if cls.command_name is not None:
+            cls.__name_command__[cls.command_name] = cls
 
         command_id = cls.__last_command_id__
         cls.__command_id_dict__[cls] = command_id
         cls.__id_command_dict__[command_id] = cls
-        cls.__name_command__[command_name] = cls
         cls.__last_command_id__ += 1
 
         # also for every command we must set if we need to check for private chat

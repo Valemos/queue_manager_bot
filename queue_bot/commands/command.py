@@ -1,15 +1,16 @@
 from abc import abstractmethod
 
-from queue_bot.bot.parsers import parse_command_name
 from queue_bot.commands.command_mapping_meta import CommandMappingMeta
 from queue_bot.commands.misc.logging import log_bot_user
 from queue_bot.objects.access_level import AccessLevel
 
 
 class Command(metaclass=CommandMappingMeta):
-    command_name = None
     description = None
     access_requirement = AccessLevel.USER
+
+    # must be defined to access command using /<command_name> telegram message syntax
+    command_name: str = None
 
     # this field is initialized on import if it was not set already
     check_chat_private = None

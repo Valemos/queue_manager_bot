@@ -35,6 +35,6 @@ if answer == '' or answer.lower() == 'y':
     for file_id, file_name in files_to_delete.items():
         try:
             saver.init_service().files().delete(fileId=file_id).execute()
-            print(f'Delete {file_name}')
+            print(f'Deleted {file_name} ({file_id})')
         except Exception:
             print(f'Cannot delete {file_name} ({file_id})')

@@ -14,3 +14,4 @@ queue-bot-key.json
 /venv/
 /data/
 google_drive_folders.json
+.env
