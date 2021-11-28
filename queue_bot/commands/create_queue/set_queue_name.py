@@ -1,6 +1,7 @@
 import queue_bot.commands.create_queue.finish_creation
 from queue_bot.bot import parsers as parsers
-from queue_bot.commands.command import Command, log_bot_queue
+from queue_bot.commands.misc.logging import log_bot_queue
+from queue_bot.commands.command import Command
 from queue_bot.objects.access_level import AccessLevel
 
 
@@ -9,6 +10,7 @@ class SetQueueName(Command):
 
     @classmethod
     def handle_reply(cls, update, bot):
+        # todo use queue state
         if CreateQueue.new_queue_students is not None:
             update.effective_chat.send_message(bot.language_pack.enter_queue_name,
                                                reply_markup=bot.keyboards.set_default_queue_name)
@@ -19,6 +21,7 @@ class SetQueueName(Command):
 
     @classmethod
     def handle_request(cls, update, bot):
+        # todo use queue state
         if parsers.check_queue_name(update.message.text):
             CreateQueue.new_queue_name = update.message.text
             queue_bot.commands.create_queue.finish_creation.FinishCreation.handle_request(update, bot)

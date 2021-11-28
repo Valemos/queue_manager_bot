@@ -1,5 +1,6 @@
 import queue_bot.commands
-from queue_bot.commands.command import Command, log_bot_queue
+from queue_bot.commands.command import Command
+from queue_bot.commands.misc.logging import log_bot_queue
 from queue_bot.objects.access_level import AccessLevel
 from queue_bot.objects.students_queue import StudentsQueue
 

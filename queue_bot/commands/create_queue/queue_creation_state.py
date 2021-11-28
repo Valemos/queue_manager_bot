@@ -1,32 +1,13 @@
 import queue_bot.commands.create_queue.finish_creation
 import queue_bot.commands.create_queue.select_students
-
-# todo finish queue creation dialog
-
-
-def get_command_list_help(cmd_list):
-    """
-    Collects data about commands in list and creates help message
-    :param cmd_list: list of CommandGroup objects
-    :return: str help message
-    """
-
-    # get max cmd length
-    max_len = max((len(cmd.command_name) for cmd in cmd_list if cmd is not None)) + 3
-
-    final_message = []
-    for command in cmd_list:
-        if command is not None:
-            final_message.append(f"/{command.command_name:<{max_len}} - {command.description}")
-        else:
-            final_message.append('')
-
-    return '\n'.join(final_message)
-
+from queue_bot.bot.parsers import check_queue_single_command
+from queue_bot.commands.misc.logging import log_bot_queue
 
 new_queue_name = None
 new_queue_students = None
 queue_generate_function = None
+
+# todo finish queue creation dialog
 
 def reset_variables():
     CreateQueue.new_queue_name = None
@@ -47,7 +28,7 @@ def handle_add_queue(update, bot, queue):
 def handle_queue_create_message(cmd, update, bot, generate_function):
     # simple command runs chain of callbacks
     if bot.queues_manager.can_add_queue():
-        if parsers.check_queue_single_command(update.message.text):
+        if check_queue_single_command(update.message.text):
             CreateQueue.handle_queue_create_single_command(update, bot, generate_function)
         else:
             CreateQueue.queue_generate_function = generate_function
@@ -57,6 +38,7 @@ def handle_queue_create_message(cmd, update, bot, generate_function):
 
 
 def handle_queue_create_single_command(update, bot, generate_function):
+    # todo refactor queue creation
     queue_name, names = parsers.parse_queue_message(update.message.text)
     students = bot.registered_manager.get_registered_students(names)
     queue = bot.queues_manager.create_queue(bot)

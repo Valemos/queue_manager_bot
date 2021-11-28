@@ -16,5 +16,6 @@ class SelectStudents(Command):
     @classmethod
     def handle_request(cls, update, bot):
         names = parsers.parse_names(update.message.text)
+        # todo use queue state
         CreateQueue.new_queue_students = bot.registered_manager.get_registered_students(names)
-        queue_bot.commands.create_queue.add_queue_name.SetQueueName.handle_reply(update, bot)
+        queue_bot.commands.create_queue.SetQueueName.handle_reply(update, bot)

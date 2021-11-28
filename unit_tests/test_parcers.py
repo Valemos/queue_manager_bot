@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
+from queue_bot.bot import parsers
 from queue_bot.objects.student import Student
 from queue_bot.objects.students_queue import StudentsQueue
 from unit_tests.shared_test_functions import students_compare
@@ -39,8 +40,8 @@ class TestParsers(unittest.TestCase):
         str4 = 'No'
         str5 = s5.str_name_id()
 
-        self.assertEqual(s1, bot_parsers.parse_student(str1))
-        self.assertIsNone(bot_parsers.parse_student(str2))
-        self.assertEqual(s3, bot_parsers.parse_student(str3))
-        self.assertIsNone(bot_parsers.parse_student(str4))
-        self.assertEqual(s5, bot_parsers.parse_student(str5))
+        self.assertEqual(s1, parsers.parse_student(str1))
+        self.assertIsNone(parsers.parse_student(str2))
+        self.assertEqual(s3, parsers.parse_student(str3))
+        self.assertIsNone(parsers.parse_student(str4))
+        self.assertEqual(s5, parsers.parse_student(str5))

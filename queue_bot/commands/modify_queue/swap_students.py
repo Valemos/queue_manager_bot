@@ -1,5 +1,6 @@
 from queue_bot.bot import parsers as parsers
-from queue_bot.commands.command import Command, log_bot_queue
+from queue_bot.commands.command import Command
+from queue_bot.commands.misc.logging import log_bot_queue
 from queue_bot.objects.access_level import AccessLevel
 
 
@@ -20,6 +21,7 @@ class MoveSwapStudents(Command):
         cls.first_student = None
         cls.second_student = None
         keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
+        # todo use modify queue state
         ModifyCurrentQueue.MoveSwapStudents.keyboard_message = \
             update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
         bot.request_set(cls)
@@ -48,6 +50,7 @@ class MoveSwapStudents(Command):
                 cls.first_student.str(),
                 cls.second_student.str()))
 
+        # todo use modify queue state
         if ModifyCurrentQueue.MoveSwapStudents.keyboard_message is not None:
             ModifyCurrentQueue.MoveSwapStudents.keyboard_message.delete()
 

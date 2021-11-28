@@ -1,4 +1,5 @@
-from queue_bot.commands.command import Command, log_bot_queue
+from queue_bot.commands.misc.logging import log_bot_queue
+from queue_bot.commands.command import Command
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 
 

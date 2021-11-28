@@ -1,10 +1,10 @@
 #  class relies on unique names, and is not suitable for multiple chats
 from pathlib import Path
 
+from queue_bot.bot import keyboards, parsers
 from queue_bot.misc.object_file_saver import FolderType
 from queue_bot.misc.gdrive_saver import DriveFolderType
 from queue_bot.objects.savable_interface import Savable
-from queue_bot import bot_keyboards, bot_parsers as parsers
 from queue_bot.objects.students_queue import StudentsQueue
 
 
@@ -117,7 +117,7 @@ class QueuesManager(Savable):
         return False
 
     def generate_choice_keyboard(self, command):
-        return bot_keyboards.generate_keyboard(command, self.queues.keys())
+        return keyboards.generate_keyboard(command, self.queues.keys())
 
     def clear_finished_queues(self):
         to_delete = None

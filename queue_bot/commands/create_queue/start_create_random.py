@@ -11,9 +11,6 @@ class StartCreateRandom(Command):
 
     # the same as CreateSimple
     @classmethod
-    def handle_reply(cls, update, bot):
-        CreateQueue.handle_queue_create_message(cls, update, bot, StudentsQueue.generate_random)
-
-    @classmethod
     def handle_request(cls, update, bot):
-        CreateQueue.handle_queue_create_single_command(update, bot, StudentsQueue.generate_random)
+        # todo refactor this
+        pass

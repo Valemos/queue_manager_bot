@@ -8,6 +8,7 @@ class DefaultQueueName(Command):
 
     @classmethod
     def handle_request(cls, update, bot):
-        CreateQueue.new_queue_name = bot.language_pack.default_queue_name
+        # todo save to queue dialog state
+        # CreateQueue.new_queue_name = bot.language_pack.default_queue_name
         log_bot_user(update, bot, 'queue set default name')
         queue_bot.commands.create_queue.finish_creation.FinishCreation.handle_request(update, bot)

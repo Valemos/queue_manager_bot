@@ -1,10 +1,10 @@
-import help
-import general
-import create_queue
-import modify_queue
-import update_queue
-import manage_queues
-import manage_access
-import modify_registered
+from . import help
+from . import general
+from . import create_queue
+from . import modify_queue
+from . import update_queue
+from . import manage_queues
+from . import manage_access
+from . import modify_registered
 
-import misc
+from . import misc

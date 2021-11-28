@@ -8,5 +8,6 @@ class SetEmptyStudents(Command):
 
     @classmethod
     def handle_request(cls, update, bot):
+        # todo use queue state
         CreateQueue.new_queue_students = []
-        queue_bot.commands.create_queue.add_queue_name.SetQueueName.handle_reply(update, bot)
+        queue_bot.commands.create_queue.SetQueueName.handle_reply(update, bot)

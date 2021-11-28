@@ -1,4 +1,5 @@
-from queue_bot.commands.command import Command, log_bot_queue, log_bot_user
+from queue_bot.commands.command import Command
+from queue_bot.commands.misc.logging import log_bot_queue, log_bot_user
 from queue_bot.objects.access_level import AccessLevel
 from queue_bot.objects.students_queue import StudentsQueue
 
@@ -14,6 +15,7 @@ class FinishCreation(Command):
     # this function handles end of dialog chain
     @classmethod
     def handle_request(cls, update, bot):
+        # todo use queues dialog state
         if CreateQueue.new_queue_name is not None and \
            CreateQueue.new_queue_students is not None and \
            CreateQueue.queue_generate_function is not None:

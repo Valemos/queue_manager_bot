@@ -1,5 +1,6 @@
 from queue_bot.bot import parsers as parsers
-from queue_bot.commands.command import Command, log_bot_user, log_bot_queue
+from queue_bot.commands.misc.logging import log_bot_queue, log_bot_user
+from queue_bot.commands.command import Command
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 from queue_bot.objects.access_level import AccessLevel
 
@@ -18,6 +19,7 @@ class Rename(Command):
 
     @classmethod
     def handle_keyboard(cls, update, bot):
+        # todo use manage queues state
         ManageQueues.Rename.old_queue_name = cls.get_arguments(update.callback_query.data)
         if ManageQueues.Rename.old_queue_name is not None:
             update.effective_chat.send_message(bot.language_pack.queue_rename_send_new_name
@@ -28,6 +30,7 @@ class Rename(Command):
 
     @classmethod
     def handle_request(cls, update, bot):
+        # todo use manage queues state
         if ManageQueues.Rename.old_queue_name is None:
             ManageQueues.Rename.old_queue_name = bot.language_pack.default_queue_name
 
