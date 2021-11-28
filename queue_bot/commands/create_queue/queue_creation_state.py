@@ -1,0 +1,70 @@
+import queue_bot.commands.create_queue.finish_creation
+import queue_bot.commands.create_queue.select_students
+
+# todo finish queue creation dialog
+
+
+def get_command_list_help(cmd_list):
+    """
+    Collects data about commands in list and creates help message
+    :param cmd_list: list of CommandGroup objects
+    :return: str help message
+    """
+
+    # get max cmd length
+    max_len = max((len(cmd.command_name) for cmd in cmd_list if cmd is not None)) + 3
+
+    final_message = []
+    for command in cmd_list:
+        if command is not None:
+            final_message.append(f"/{command.command_name:<{max_len}} - {command.description}")
+        else:
+            final_message.append('')
+
+    return '\n'.join(final_message)
+
+
+new_queue_name = None
+new_queue_students = None
+queue_generate_function = None
+
+def reset_variables():
+    CreateQueue.new_queue_name = None
+    CreateQueue.new_queue_students = None
+    CreateQueue.queue_generate_function = None
+
+
+def handle_add_queue(update, bot, queue):
+    if bot.queues_manager.can_add_queue():
+        bot.queues_manager.add_queue(queue)
+        queue_bot.commands.create_queue.finish_creation.FinishCreation.handle_reply(update, bot)
+    else:
+        update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
+        bot.request_del()
+        log_bot_queue(update, bot, 'queue limit reached')
+
+
+def handle_queue_create_message(cmd, update, bot, generate_function):
+    # simple command runs chain of callbacks
+    if bot.queues_manager.can_add_queue():
+        if parsers.check_queue_single_command(update.message.text):
+            CreateQueue.handle_queue_create_single_command(update, bot, generate_function)
+        else:
+            CreateQueue.queue_generate_function = generate_function
+            queue_bot.commands.create_queue.select_students.SelectStudents.handle_reply(update, bot)
+    else:
+        update.effective_chat.send_message(bot.language_pack.queue_limit_reached)
+
+
+def handle_queue_create_single_command(update, bot, generate_function):
+    queue_name, names = parsers.parse_queue_message(update.message.text)
+    students = bot.registered_manager.get_registered_students(names)
+    queue = bot.queues_manager.create_queue(bot)
+
+    if queue_name is None:
+        queue_name = bot.language_pack.default_queue_name
+
+    queue.name = queue_name
+    generate_function(queue, students)
+
+    CreateQueue.handle_add_queue(update, bot, queue)

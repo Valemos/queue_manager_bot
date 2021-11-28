@@ -134,3 +134,9 @@ def parse_valid_queue_names(all_names):
             result_names.append(name)
 
     return result_names
+
+
+def parse_command_name(command: str):
+    if '@' in command:
+        return command[:command.index('@')]
+    return command

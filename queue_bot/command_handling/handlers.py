@@ -1,4 +1,5 @@
-from queue_bot.commands import commands
+from queue_bot import commands
+from queue_bot.commands import command
 
 
 # this function requires callback query to be present
@@ -6,10 +7,10 @@ def handle_keyboard(update, bot):
     if update.callback_query is None:
         raise ValueError('update does not have any callback query')
 
-    index, argument = bot_commands.CommandGroup.Command.parse_command(update.callback_query.data)
+    command_id, argument = commands.command.Command.parse_command(update.callback_query.data)
 
     # find command
-    cmd = bot_commands.CommandGroup.Command.get_command_class(index)
+    cmd = commands.command.Command.get_command_class(command_id)
 
     if argument is None:
         cmd.handle_reply_access(update, bot)
@@ -19,7 +20,7 @@ def handle_keyboard(update, bot):
 
 def handle_text_command(update, command_entity, bot):
     command_string = update.message.text[command_entity.offset + 1: command_entity.length]
-    cmd = bot_commands.CommandGroup.Command.get_command_by_name(command_string)
+    cmd = commands.command.Command.get_command_by_name(command_string)
 
     if cmd is None:
         update.effective_message.reply_text(bot.language_pack.unknown_command)

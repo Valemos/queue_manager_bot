@@ -1,6 +1,11 @@
 import unittest
 
-import queue_bot.commands.commands as commands
+import queue_bot.commands.command as commands
+import queue_bot.commands.general.start
+import queue_bot.commands.modify_queue.add_me
+import queue_bot.commands.modify_queue.move_to_end
+import queue_bot.commands.modify_queue.remove_me
+import queue_bot.commands.modify_queue.student_finished
 
 from unit_tests.shared_test_functions import *
 
@@ -53,11 +58,11 @@ class TestBotCommands(unittest.TestCase):
         self.assertIsNone(next_stud)
 
     def test_move_to_end(self):
-        tg_select_command(self.u, commands.ModifyCurrentQueue.MoveStudentToEnd, str(Student('2', 2)))
+        tg_select_command(self.u, queue_bot.commands.modify_queue.move_to_end.MoveStudentToEnd, str(Student('2', 2)))
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertEqual(self.bot.get_queue().students[-1], self.bot.registered_manager.get_user_by_id(2))
 
-        tg_select_command(self.u, commands.ModifyCurrentQueue.MoveStudentToEnd, str(Student('Unknown', None)))
+        tg_select_command(self.u, queue_bot.commands.modify_queue.move_to_end.MoveStudentToEnd, str(Student('Unknown', None)))
         self.bot.handle_keyboard_chosen(*self.uc)
         self.assertEqual(Student('Unknown', None), self.bot.get_queue().students[-1])
 
@@ -77,14 +82,14 @@ class TestBotCommands(unittest.TestCase):
 
         # unknown adds himself
         tg_set_user(self.u, None, 'V')
-        bot_request_command_send_msg(self.bot, commands.ModifyCurrentQueue.AddMe, *self.uc)
+        bot_request_command_send_msg(self.bot, queue_bot.commands.modify_queue.add_me.AddMe, *self.uc)
         self.assertIn(Student('V', None), self.bot.get_queue().students)
 
         # unknown removes himself
-        bot_request_command_send_msg(self.bot, commands.ModifyCurrentQueue.RemoveMe, *self.uc)
+        bot_request_command_send_msg(self.bot, queue_bot.commands.modify_queue.remove_me.RemoveMe, *self.uc)
         self.assertNotIn(Student('V', None), self.bot.queues_manager.get_queue().students)
 
-        bot_request_command_send_msg(self.bot, commands.ModifyCurrentQueue.AddMe, *self.uc)  # add user again
+        bot_request_command_send_msg(self.bot, queue_bot.commands.modify_queue.add_me.AddMe, *self.uc)  # add user again
         idx = 3
         # move him to desired index
         self.bot.queues_manager.get_queue().move_to_index(len(self.bot.queues_manager.get_queue().students) - 1, idx)
@@ -92,17 +97,17 @@ class TestBotCommands(unittest.TestCase):
 
         # when unknown finished, go next
         self.bot.queues_manager.get_queue().set_position(idx)
-        bot_request_command_send_msg(self.bot, commands.ModifyCurrentQueue.StudentFinished, *self.uc)
+        bot_request_command_send_msg(self.bot, queue_bot.commands.modify_queue.student_finished.StudentFinished, *self.uc)
         self.assertEqual(idx + 1, self.bot.queues_manager.get_queue().get_position())
 
     def test_start_bot(self):
         tg_set_user(self.u, 0, '0')
-        bot_request_command_send_msg(self.bot, commands.General.Start, *self.uc)
+        bot_request_command_send_msg(self.bot, queue_bot.commands.general.start.Start, *self.uc)
         self.u.message.reply_text.assert_called_with(self.bot.language_pack.bot_already_running)
 
         self.bot.registered_manager.remove_by_id(0)  # remove god user
         tg_set_user(self.u, 0, '0')
-        bot_request_command_send_msg(self.bot, commands.General.Start, *self.uc)
+        bot_request_command_send_msg(self.bot, queue_bot.commands.general.start.Start, *self.uc)
         self.u.message.reply_text.assert_called_with(self.bot.language_pack.first_user_added.format('0'))
 
 
