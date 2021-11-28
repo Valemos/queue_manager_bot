@@ -44,12 +44,6 @@ def setup_test_queue(bot, name, students):
     return bot
 
 
-def setup_test_subject_choices(bot: QueueBot):
-    bot.choice_manager.set_choice_group('Name', (1, 15), 2)
-    bot.choice_manager.can_choose = True
-    return bot
-
-
 def tg_set_user(update, user_id, user_name=''):
     update.effective_user.full_name = user_name
     update.effective_user.id = user_id

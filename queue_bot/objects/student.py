@@ -1,14 +1,23 @@
 from dataclasses import dataclass
-from typing import Optional
 
+from sqlalchemy import Column, String, Integer, Enum
+
+from queue_bot.database import Base
 from queue_bot.objects.access_level import AccessLevel
 
 
 @dataclass
-class Student:
-    name: str
-    telegram_id: Optional[int]
-    access_level: AccessLevel = AccessLevel.USER
+class Student(Base):
+    __tablename__ = 'student'
+
+    name = Column(String)
+    telegram_id = Column(Integer, primary_key=True)
+    access_level = Column(Enum(AccessLevel))
+
+    def __init__(self, name, telegram_id, access_level=AccessLevel.USER):
+        self.name = name
+        self.telegram_id = telegram_id
+        self.access_level = access_level
 
     def __eq__(self, other):
         if not isinstance(other, Student):

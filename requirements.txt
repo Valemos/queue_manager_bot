@@ -8,3 +8,5 @@ pandas~=1.1.1
 pyjarowinkler~=1.8
 mock~=4.0.2
 parse~=1.18.0
+SQLAlchemy~=1.4
+psycopg2~=2.9.2
