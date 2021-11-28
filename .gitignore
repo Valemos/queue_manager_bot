@@ -4,14 +4,13 @@ tools/serializer.py
 /.pylint.d/
 tools/show_data.py
 queue-bot-key.json
-/drive_data/
 /DataReformatter.ipynb
-/data/google_drive_folders.json
 /.spyproject/
 /test_data/
 /run_test_bot.py
-/data_backup/
 /queues_data/
 /.pytest_cache/
 /logs/
 /venv/
+/data/
+google_drive_folders.json
