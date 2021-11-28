@@ -3,9 +3,9 @@ from unittest.mock import MagicMock
 
 from telegram import MessageEntity, Chat
 
-from queue_bot.bot_telegram_queue import QueueBot
-from queue_bot.student import Student
-from queue_bot.students_queue import StudentsQueue
+from queue_bot.queue_bot import QueueBot
+from queue_bot.objects.student import Student
+from queue_bot.objects.students_queue import StudentsQueue
 
 
 # generate patched test bot

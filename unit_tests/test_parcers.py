@@ -1,10 +1,8 @@
 import unittest
-from unittest import mock
 from unittest.mock import MagicMock
 
-from queue_bot import bot_parsers
-from queue_bot.student import Student
-from queue_bot.students_queue import StudentsQueue
+from queue_bot.objects.student import Student
+from queue_bot.objects.students_queue import StudentsQueue
 from unit_tests.shared_test_functions import students_compare
 
 
@@ -12,8 +10,8 @@ class TestParsers(unittest.TestCase):
 
 
     def test_queue_file_names_parse(self):
-        from queue_bot.bot_parsers import parse_valid_queue_names
-        from queue_bot.queues_manager import QueuesManager
+        from queue_bot.bot.parsers import parse_valid_queue_names
+        from queue_bot.objects.queues_manager import QueuesManager
 
         bot = MagicMock()
 

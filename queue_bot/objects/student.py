@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from queue_bot.bot_access_levels import AccessLevel
+from queue_bot.objects.access_level import AccessLevel
 
 
 @dataclass

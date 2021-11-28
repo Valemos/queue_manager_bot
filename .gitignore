@@ -1,8 +1,8 @@
 **/__pycache__/
 file.txt
-misc/serializer.py
+tools/serializer.py
 /.pylint.d/
-misc/show_data.py
+tools/show_data.py
 queue-bot-key.json
 /drive_data/
 /DataReformatter.ipynb

@@ -1,6 +1,6 @@
 import unittest
 
-from queue_bot.student import Student
+from queue_bot.objects.student import Student
 
 
 class TestQueueObjects(unittest.TestCase):

@@ -1,9 +1,9 @@
 from telegram import InputFile
 
-from queue_bot.student import Student
-from queue_bot.bot_access_levels import AccessLevel
-from queue_bot.students_queue import StudentsQueue
-import queue_bot.bot_parsers as parsers
+from queue_bot.objects.student import Student
+from queue_bot.objects.access_level import AccessLevel
+from queue_bot.objects.students_queue import StudentsQueue
+import queue_bot.bot.parsers as parsers
 
 import queue_bot.languages.command_descriptions_rus as commands_descriptions
 

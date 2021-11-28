@@ -1,9 +1,9 @@
 from pathlib import Path
 from pyjarowinkler import distance  # string similarity
 from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
-from queue_bot.savable_interface import Savable
-from queue_bot.student import Student
-from queue_bot.bot_access_levels import AccessLevel
+from queue_bot.objects.savable_interface import Savable
+from queue_bot.objects.student import Student
+from queue_bot.objects.access_level import AccessLevel
 
 from telegram import Chat
 

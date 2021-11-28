@@ -2,10 +2,10 @@
 from pathlib import Path
 
 from queue_bot.misc.object_file_saver import FolderType
-from queue_bot.misc.gdrive_saver import DriveFolder, DriveFolderType
-from queue_bot.savable_interface import Savable
+from queue_bot.misc.gdrive_saver import DriveFolderType
+from queue_bot.objects.savable_interface import Savable
 from queue_bot import bot_keyboards, bot_parsers as parsers
-from queue_bot.students_queue import StudentsQueue
+from queue_bot.objects.students_queue import StudentsQueue
 
 
 class QueuesManager(Savable):

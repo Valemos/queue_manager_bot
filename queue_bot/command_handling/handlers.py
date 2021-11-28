@@ -1,4 +1,4 @@
-from queue_bot import bot_commands
+from queue_bot.commands import commands
 
 
 # this function requires callback query to be present

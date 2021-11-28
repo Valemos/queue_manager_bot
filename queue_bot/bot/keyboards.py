@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from queue_bot import bot_commands as commands
+from queue_bot.commands import commands as commands
 import queue_bot.languages.keyboard_names_rus as kb_names
 
 

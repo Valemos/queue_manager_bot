@@ -1,7 +1,7 @@
-from queue_bot.student import Student
-from parse import parse, search
+from queue_bot.objects.student import Student
+from parse import parse
 
-from queue_bot.students_queue import StudentsQueue
+from queue_bot.objects.students_queue import StudentsQueue
 
 
 def parse_positions_list(string, min_index, max_index):

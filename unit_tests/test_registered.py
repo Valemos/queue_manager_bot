@@ -1,9 +1,6 @@
-from unittest.mock import MagicMock
-import mock
 import unittest
 
-from queue_bot import bot_commands
-from queue_bot.bot_access_levels import AccessLevel
+from queue_bot.objects.access_level import AccessLevel
 from unit_tests.shared_test_functions import *
 
 class TestRegisteredManager(unittest.TestCase):
