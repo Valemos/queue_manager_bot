@@ -2,6 +2,8 @@ from queue_bot.commands.command import Command
 from queue_bot.commands.misc.logging import log_bot_user
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 from queue_bot.objects.access_level import AccessLevel
+from queue_bot import language_pack
+from queue_bot.objects.queues_manager import get_chat_queues
 
 
 class Delete(Command):
@@ -13,21 +15,24 @@ class Delete(Command):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        keyboard = bot.queues_manager.generate_choice_keyboard(cls)
-        update.message.reply_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
+        keyboard = get_chat_queues(update.effective_chat.id).generate_choice_keyboard(cls)
+        update.message.reply_text(language_pack.title_select_queue, reply_markup=keyboard)
 
     @classmethod
-    def handle_keyboard(cls, update, bot):
+    def handle_request(cls, update, bot):
         queue_name = Command.get_arguments(update.callback_query.data)
-        if queue_name is not None:
-            if bot.queues_manager.remove_queue(queue_name):
-                update.effective_chat.send_message(bot.language_pack.queue_removed.format(queue_name))
-                bot.refresh_last_queue_msg(update)
+        if queue_name is None:
+            log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data,
+                         cls.__qualname__)
+            return
 
-                # update keyboard
-                keyboard = bot.queues_manager.generate_choice_keyboard(cls)
-                update.effective_message.edit_text(bot.language_pack.title_select_queue, reply_markup=keyboard)
-            else:
-                log_bot_user(update, bot, 'queue not found, query: {0}', update.callback_query.data)
-        else:
-            log_bot_user(update, bot, 'request {0} in {1} has no arguments', update.callback_query.data, cls.__qualname__)
+        try:
+            get_chat_queues(update.effective_chat.id).remove_queue(queue_name)
+            update.effective_chat.send_message(language_pack.queue_removed.format(queue_name))
+            bot.refresh_last_queue_msg(update)
+
+            # update keyboard
+            keyboard = get_chat_queues(update.effective_chat.id).generate_choice_keyboard(cls)
+            update.effective_message.edit_text(language_pack.title_select_queue, reply_markup=keyboard)
+        except ValueError as err:
+            log_bot_user(update, bot, '{0}: {1}', err.args, update.callback_query.data)

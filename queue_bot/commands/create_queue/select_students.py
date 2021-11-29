@@ -3,6 +3,7 @@ from queue_bot.bot import parsers as parsers
 from queue_bot.commands.command import Command
 from queue_bot.commands.create_queue.queue_creation_state import QueueCreateDialogState
 from queue_bot.objects.access_level import AccessLevel
+from queue_bot import language_pack
 
 
 class SelectStudents(Command):
@@ -10,7 +11,7 @@ class SelectStudents(Command):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        update.effective_chat.send_message(bot.language_pack.enter_students_list,
+        update.effective_chat.send_message(language_pack.enter_students_list,
                                            reply_markup=bot.keyboards.set_empty_queue)
         bot.request_set(cls)
 

@@ -1,70 +1,77 @@
 from pathlib import Path
+from typing import Optional
+
 from pyjarowinkler import distance  # string similarity
-from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
-from queue_bot.objects.savable_interface import Savable
+from sqlalchemy import Column, Integer
+from sqlalchemy.orm import relationship
+
+from queue_bot.database import Base, Session
+from queue_bot.objects.queue_user_info import QueueUserInfo
 from queue_bot.objects.student import Student
 from queue_bot.objects.access_level import AccessLevel
+from queue_bot import language_pack
 
-from telegram import Chat
 
+# todo finish persistence
+class RegisteredManager(Base):
+    __tablename__ = 'registered'
 
-class StudentsRegisteredManager(Savable):
+    chat_id = Column(Integer, primary_key=True, default=0)
+    students = relationship("Student")
 
-    _file_registered_users = FolderType.Data.value / Path('registered.json')
+    def __init__(self, chat_id, students=None):
+        if chat_id is None:
+            raise ValueError('Cannot create registered manager without chat id')
 
-    # dictionary with id`s as keys and levels as values stored in file
-    _file_access_levels = FolderType.Data.value / Path('access_levels.json')
-    students_reg = []
-
-    def __init__(self, main_bot, students=None):
-        if students is None:
-            self.students_reg = []
-        self.main_bot = main_bot
+        self.chat_id = chat_id
+        self.students = students if students is not None else []
 
     def __len__(self):
-        return len(self.students_reg)
+        return len(self.students)
 
     def __contains__(self, item):
-        return item in self.students_reg
+        return item in self.students
 
     def get_users(self):
-        return self.students_reg
+        return self.students
 
-    def append_new_user(self, name, telegram_id):
-        new_student = Student(name, telegram_id)
-        self.students_reg.append(new_student)
-        return new_student
+    def add_new_user(self, name, telegram_id):
+        with Session.begin() as session:
+            new_student = Student(name, telegram_id)
+            new_student.chat_id = self.chat_id
+            session.add(new_student)
+            return new_student
 
     def append_users(self, users):
         if isinstance(users, Student):
-            self.students_reg.append(users)
+            self.students.append(users)
         else:
             for user in users:
-                if user not in self.students_reg:
-                    self.students_reg.append(user)
+                if user not in self.students:
+                    self.students.append(user)
 
     def rename_user(self, student, new_name):
-        if student in self.students_reg:
-            self.students_reg[self.students_reg.index(student)].name = new_name
+        if student in self.students:
+            self.students[self.students.index(student)].name = new_name
 
     def remove_by_index(self, index):
         if isinstance(index, int):
-            self.students_reg.pop(index)
+            self.students.pop(index)
         else:
             to_delete = []
             for i in index:
-                to_delete.append(self.students_reg[i])
+                to_delete.append(self.students[i])
 
             deleted = False
             for elem in to_delete:
-                self.students_reg.remove(elem)
+                self.students.remove(elem)
                 deleted = True
             return deleted
 
     def remove_by_id(self, remove_id: int):
-        for i in range(len(self.students_reg)):
-            if self.students_reg[i].telegram_id == remove_id:
-                self.students_reg.pop(i)
+        for i in range(len(self.students)):
+            if self.students[i].telegram_id == remove_id:
+                self.students.pop(i)
                 return True
         return False
 
@@ -72,7 +79,7 @@ class StudentsRegisteredManager(Savable):
     def get_registered_students(self, names: list):
         students = []
         for name in names:
-            student = self.get_user_by_name(name)
+            student = self.get_by_name(name)
             if student is None:
                 student = self.find_similar_student(name)
             elif student is None:
@@ -81,20 +88,20 @@ class StudentsRegisteredManager(Savable):
 
         return students
 
-    def get_user_by_update(self, update):
-        student = self.get_user_by_id(update.effective_user.id)
+    def get_from_update(self, update):
+        student = self.get_by_id(update.effective_user.id)
         if student is None:
-            return Student(update.effective_user.full_name, None)
-        return student
+            return QueueUserInfo(update.effective_user.full_name, None, AccessLevel.USER)
+        return QueueUserInfo.from_student(student)
 
-    def get_user_by_name(self, name: int):
-        for student in self.students_reg:
+    def get_by_name(self, name: int) -> Optional[Student]:
+        for student in self.students:
             if student.name == name:
                 return student
         return None
 
-    def get_user_by_id(self, search_id: int):
-        for student in self.students_reg:
+    def get_by_id(self, search_id: int) -> Optional[Student]:
+        for student in self.students:
             if student.telegram_id == search_id:
                 return student
         return None
@@ -102,21 +109,21 @@ class StudentsRegisteredManager(Savable):
     def get_users_str(self):
         str_list = []
         i = 1
-        for student in self.students_reg:
+        for student in self.students:
             str_list.append('{0}. {1}-{2}'.format(i, student.name, str(student.telegram_id)))
             i += 1
 
-        return self.main_bot.language_pack.all_known_users.format('\n'.join(str_list))
+        return language_pack.all_known_users.format('\n'.join(str_list))
 
     def get_users_keyboard(self, command):
         return self.main_bot.keyboards.generate_keyboard(
             command,
-            [s.name for s in self.students_reg],
-            [s.str_name_id() for s in self.students_reg])
+            [s.name for s in self.students],
+            [s.str_name_id() for s in self.students])
 
     def get_admins_keyboard(self, command):
         admins = []
-        for user in self.students_reg:
+        for user in self.students:
             if user.access_level is AccessLevel.ADMIN:
                 admins.append(user)
 
@@ -126,35 +133,35 @@ class StudentsRegisteredManager(Savable):
             [s.str_name_id() for s in admins])
 
     def exists_user_access(self, access_level):
-        for user in self.students_reg:
+        for user in self.students:
             if user.access_level is access_level:
                 return True
         return False
 
     def set_god(self, god_id: int):
-        user = self.get_user_by_id(god_id)
+        user = self.get_by_id(god_id)
         if user is not None:
             user.access_level = AccessLevel.GOD
             return True
         return False
 
     def set_admin(self, admin_id: int):
-        user = self.get_user_by_id(admin_id)
+        user = self.get_by_id(admin_id)
         if user is not None:
             user.access_level = AccessLevel.ADMIN
             return True
         return False
 
     def set_user(self, user_id: int):
-        user = self.get_user_by_id(user_id)
+        user = self.get_by_id(user_id)
         if user is not None:
             user.access_level = AccessLevel.USER
             return True
         return False
 
     def find_similar_student(self, name: str):
-        for student in self.students_reg:
-            if StudentsRegisteredManager.is_similar(name, student.name):
+        for student in self.students:
+            if RegisteredManager.is_similar(name, student.name):
                 return student
         return Student(name, None)
 
@@ -163,45 +170,17 @@ class StudentsRegisteredManager(Savable):
         dist = distance.get_jaro_distance(first, second)
         return dist > 0.9
 
-    def update_access_levels(self, saver: ObjectSaver):
-        access_level_updates = saver.load(self._file_access_levels)
-        if access_level_updates is not None:
-            for student in self.students_reg:
-                if student.telegram_id in access_level_updates:
-                    student.access_level = AccessLevel(access_level_updates[student.telegram_id])
-            self.save_to_file(saver)
-
-    def save_to_file(self, saver: ObjectSaver):
-        saved_values = []
-        for student in self.students_reg:
-            if student.telegram_id is not None:
-                saved_values.append({
-                    'name': student.name,
-                    'id': student.telegram_id,
-                    'access': student.access_level.value,
-                })
-        saver.save(saved_values, self._file_registered_users)
-
-    def load_file(self, loader: ObjectSaver):
-        loaded_values = loader.load(self._file_registered_users)
-        if loaded_values is not None:
-            self.students_reg = []
-            for student_dict in loaded_values:
-                self.students_reg.append(Student(
-                    student_dict['name'],
-                    student_dict['id'],
-                    AccessLevel(student_dict['access']),
-                ))
-
-    def get_save_files(self):
-        return [self._file_registered_users, self._file_access_levels]
-
     # by default this function requires private chat to allow commands
-    def check_access(self, update, level_requirement=AccessLevel.ADMIN, check_chat_private=True):
-        student = self.get_user_by_update(update)
+    def check_access(self, update, level_requirement=AccessLevel.ADMIN):
+        info = self.get_from_update(update)
+        return info.access_level.value <= level_requirement.value
 
-        if check_chat_private:
-            if update.effective_chat.type != Chat.PRIVATE:
-                return False
 
-        return student.access_level.value <= level_requirement.value
+def get_chat_registered(chat_id) -> RegisteredManager:
+    with Session() as session:
+        registered = session.query(RegisteredManager).filter_by(chat_id=chat_id).first()
+        if registered is None:
+            with session.begin():
+                registered = RegisteredManager(chat_id)
+                session.add(registered)
+        return registered

@@ -4,6 +4,7 @@ from queue_bot.commands.create_queue.queue_creation_state import QueueCreateDial
 from queue_bot.commands.misc.logging import log_bot_queue
 from queue_bot.commands.command import Command
 from queue_bot.objects.access_level import AccessLevel
+from queue_bot import language_pack
 
 
 class SetQueueName(Command):
@@ -14,7 +15,7 @@ class SetQueueName(Command):
         # todo check for dialogs to resume
         state: QueueCreateDialogState
 
-        update.effective_chat.send_message(bot.language_pack.enter_queue_name,
+        update.effective_chat.send_message(language_pack.enter_queue_name,
                                            reply_markup=bot.keyboards.set_default_queue_name)
         bot.request_set(cls)
 
@@ -26,7 +27,7 @@ class SetQueueName(Command):
             state.new_queue_name = update.message.text
             queue_bot.commands.create_queue.finish_creation.FinishCreation.handle_request(update, bot)
         else:
-            update.effective_chat.send_message(bot.language_pack.name_incorrect)
+            update.effective_chat.send_message(language_pack.name_incorrect)
             cls.handle_reply(update, bot)
 
         log_bot_queue(update, bot, 'queue name set {0}', update.message.text)

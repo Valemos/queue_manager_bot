@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from sqlalchemy import Column, String, Integer, Enum
+from sqlalchemy import Column, String, Integer, Enum, ForeignKey
 
 from queue_bot.database import Base
 from queue_bot.objects.access_level import AccessLevel
@@ -11,6 +11,7 @@ class Student(Base):
     __tablename__ = 'student'
 
     name = Column(String)
+    chat_id = Column(Integer, ForeignKey("registered.chat_id"), primary_key=True)
     telegram_id = Column(Integer, primary_key=True)
     access_level = Column(Enum(AccessLevel))
 
@@ -21,7 +22,7 @@ class Student(Base):
 
     def __eq__(self, other):
         if not isinstance(other, Student):
-            print("Programmer error compairing students")
+            print("Programmer error comparing students")
             return False
 
         if self.telegram_id is not None and other.telegram_id is not None:
@@ -53,6 +54,3 @@ class Student(Base):
             return str(None) + self.name
         else:
             return '{:0>8}'.format(hex(self.telegram_id)[2:]) + self.name
-
-
-EmptyStudent = Student('Пусто', None)

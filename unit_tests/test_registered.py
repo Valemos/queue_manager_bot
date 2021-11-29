@@ -39,16 +39,16 @@ class TestRegisteredManager(unittest.TestCase):
     def test_get_user(self):
         bot = setup_test_bot(self)
 
-        user = bot.registered_manager.get_user_by_name('0')
+        user = bot.registered_manager.get_by_name('0')
         self.assertEqual(user, Student('0', 0))
 
-        user = bot.registered_manager.get_user_by_name('NoSuchName')
+        user = bot.registered_manager.get_by_name('NoSuchName')
         self.assertIsNone(user)
 
-        user = bot.registered_manager.get_user_by_id(4)
+        user = bot.registered_manager.get_by_id(4)
         self.assertEqual(Student('4', 4), user)
 
-        user = bot.registered_manager.get_user_by_id(100)
+        user = bot.registered_manager.get_by_id(100)
         self.assertIsNone(user)
 
     def test_name_similarity(self):
@@ -101,22 +101,22 @@ class TestRegisteredManager(unittest.TestCase):
         bot.handle_keyboard_chosen(update, context)
         tg_forward_message(update, 100, '100')
         bot.handle_message_reply_command(update, context)
-        self.assertIs(bot.registered_manager.get_user_by_id(100).access_level, AccessLevel.ADMIN)
+        self.assertIs(bot.registered_manager.get_by_id(100).access_level, AccessLevel.ADMIN)
 
         tg_select_command(update, commands.manage_access.AddAdmin)
         bot.handle_keyboard_chosen(update, context)
         tg_forward_message(update, 3, '3')
         bot.handle_message_reply_command(update, context)
-        self.assertIs(bot.registered_manager.get_user_by_id(3).access_level, AccessLevel.ADMIN)
+        self.assertIs(bot.registered_manager.get_by_id(3).access_level, AccessLevel.ADMIN)
 
-        test_st = bot.registered_manager.get_user_by_id(100)
+        test_st = bot.registered_manager.get_by_id(100)
         tg_select_command(update, commands.manage_access.RemoveAdmin, test_st)
         bot.handle_keyboard_chosen(update, context)
         self.assertIn(test_st, bot.registered_manager)
-        self.assertIs(bot.registered_manager.get_user_by_id(100).access_level, AccessLevel.USER)
+        self.assertIs(bot.registered_manager.get_by_id(100).access_level, AccessLevel.USER)
 
-        test_st = bot.registered_manager.get_user_by_id(3)
+        test_st = bot.registered_manager.get_by_id(3)
         tg_select_command(update, commands.manage_access.RemoveAdmin, test_st)
         bot.handle_keyboard_chosen(update, context)
         self.assertIn(test_st, bot.registered_manager)
-        self.assertIs(bot.registered_manager.get_user_by_id(3).access_level, AccessLevel.USER)
+        self.assertIs(bot.registered_manager.get_by_id(3).access_level, AccessLevel.USER)

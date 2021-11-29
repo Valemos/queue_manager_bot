@@ -1,5 +1,6 @@
 from queue_bot import commands
 from queue_bot.commands import command
+from queue_bot import language_pack
 
 
 # this function requires callback query to be present
@@ -23,6 +24,6 @@ def handle_text_command(update, command_entity, bot):
     cmd = commands.command.Command.get_command_by_name(command_string)
 
     if cmd is None:
-        update.effective_message.reply_text(bot.language_pack.unknown_command)
+        update.effective_message.reply_text(language_pack.unknown_command)
     else:
         cmd.handle_reply_access(update, bot)

@@ -2,6 +2,7 @@ from queue_bot.bot import parsers as parsers
 from queue_bot.commands.misc.logging import log_bot_queue, log_bot_user
 from queue_bot.commands.command import Command
 from queue_bot.objects.access_level import AccessLevel
+from queue_bot import language_pack
 
 
 class RemoveListUsers(Command):
@@ -10,7 +11,7 @@ class RemoveListUsers(Command):
     @classmethod
     def handle_reply(cls, update, bot):
         keyboard = bot.registered_manager.get_users_keyboard(cls)
-        update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+        update.effective_chat.send_message(language_pack.select_students, reply_markup=keyboard)
 
     @classmethod
     def handle_keyboard(cls, update, bot):
@@ -18,7 +19,7 @@ class RemoveListUsers(Command):
         keyboard = bot.registered_manager.get_users_keyboard(cls)
         # if keyboards not equal
         if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
-            update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+            update.effective_chat.send_message(language_pack.select_students, reply_markup=keyboard)
 
     @classmethod
     def handle_request(cls, update, bot):

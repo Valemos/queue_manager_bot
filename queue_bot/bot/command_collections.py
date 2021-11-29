@@ -1,7 +1,7 @@
 import queue_bot.commands as commands
 
 # these commands will be included in telegram command preview
-# to generate help message for BotFather, print in telegram /help (for AcessLevel.GOD user)
+# to generate help message for BotFather, use PreviewCommands for GOD user
 
 user_commands = [
     commands.modify_queue.student_finished.StudentFinished,

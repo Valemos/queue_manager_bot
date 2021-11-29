@@ -2,6 +2,8 @@ from queue_bot.bot import parsers as parsers
 from queue_bot.commands.command import Command
 from queue_bot.commands.misc.logging import log_bot_queue
 from queue_bot.objects.access_level import AccessLevel
+from queue_bot import language_pack
+from queue_bot.objects.queues_manager import get_chat_queues
 
 
 class SwapStudentsState:
@@ -28,18 +30,18 @@ class MoveSwapStudents(Command):
     @classmethod
     def handle_reply(cls, update, bot):
         if not bot.check_queue_selected():
-            update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+            update.effective_chat.send_message(language_pack.queue_not_selected)
             return
         # todo check for previous dialogs
         dialog_state = SwapStudentsState(update.effective_chat.id)
-        keyboard = bot.get_queue().get_students_keyboard_with_position(cls)
-        update.effective_chat.send_message(bot.language_pack.select_students, reply_markup=keyboard)
+        keyboard = get_chat_queues(update.effective_chat.id).get_queue().get_keyboard_with_position(cls)
+        update.effective_chat.send_message(language_pack.select_students, reply_markup=keyboard)
         bot.request_set(cls)
 
     @classmethod
     def handle_keyboard(cls, update, bot):
         if not bot.check_queue_selected():
-            update.effective_chat.send_message(bot.language_pack.queue_not_selected)
+            update.effective_chat.send_message(language_pack.queue_not_selected)
             return
 
         student_str = cls.get_arguments(update.callback_query.data)
@@ -51,14 +53,14 @@ class MoveSwapStudents(Command):
         if dialog_state.is_ready():
             cls.handle_request(update, bot)
         else:
-            update.effective_chat.send_message(bot.language_pack.selected_object.format(student.str()))
+            update.effective_chat.send_message(language_pack.selected_object.format(student.str()))
 
     @classmethod
     def handle_request(cls, update, bot):
         dialog_state
-        bot.get_queue().swap_students(dialog_state.first_student, dialog_state.second_student)
+        get_chat_queues(update.effective_chat.id).get_queue().swap_students(dialog_state.first_student, dialog_state.second_student)
         update.effective_chat.send_message(
-            bot.language_pack.students_swapped.format(
+            language_pack.students_swapped.format(
                 dialog_state.first_student.str(),
                 dialog_state.second_student.str()))
 

@@ -1,7 +1,8 @@
 import unittest
 
-from queue_bot.database import SessionFactory, Session, create_all_tables, drop_all_tables
-from queue_bot.objects.student import Student
+from queue_bot.database import Session, create_all_tables, drop_all_tables
+from queue_bot.objects import Student, Queue
+from queue_bot.objects.registered_manager import get_chat_registered
 
 
 class TestDatabase(unittest.TestCase):
@@ -13,13 +14,17 @@ class TestDatabase(unittest.TestCase):
         drop_all_tables()
 
     def test_student_inserted(self):
-        with SessionFactory() as session:
-            student = Student("Name", 1)
-            session.add(student)
-            session.commit()
+        with Session() as session:
+            reg = get_chat_registered(1)
+            session.add(reg)
+            reg.add_new_user('Petyr', 1)
 
-        with SessionFactory() as session:
+        with Session() as session:
             result = session.query(Student).first()
 
-            self.assertEqual("Name", result.name)
+            self.assertEqual("Petyr", result.name)
             self.assertEqual(1, result.telegram_id)
+
+    def test_queue_inserted(self):
+        # queue = StudentsQueue("science", [QueueMember])
+        pass

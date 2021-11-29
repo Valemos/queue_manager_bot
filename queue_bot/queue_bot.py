@@ -1,51 +1,30 @@
-import signal
 import os
+import signal
 import threading
 
-from queue_bot.misc.logger import Logger
-from queue_bot.misc.object_file_saver import ObjectSaver, FolderType
-from queue_bot.misc.gdrive_saver import DriveFolderType
+from telegram import MessageEntity
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
 
 import queue_bot.command_handling.handlers as command_handler
-
-from queue_bot.objects.registered_manager import StudentsRegisteredManager
-from queue_bot.objects.queues_manager import QueuesManager
-from queue_bot.objects.students_queue import StudentsQueue
+from queue_bot.bot import command_collections, keyboards
 from queue_bot.bot.updatable_message import UpdatableMessage
-import queue_bot.bot.command_collections
-
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Filters, MessageHandler
-from telegram import MessageEntity
+from queue_bot.objects.queues_manager import get_chat_queues
 
 
 class QueueBot:
-    language_pack = queue_bot.language_pack
-    keyboards = queue_bot.keyboards
-    available_commands = queue_bot.available_commands
-
     last_queue_message = UpdatableMessage(default_keyboard=keyboards.move_queue)
     cur_students_message = UpdatableMessage()
     command_requested_answer = None
 
     def __init__(self, bot_token=None):
-        # logger contains drive saver
-        # and drive saver uses logger
-        self.logger = Logger()
-        self.object_saver = ObjectSaver(logger=self.logger)
-        self.gdrive_saver = self.logger.drive_saver
-
         # this bot object passed for access to both classes inside one another
-        self.registered_manager = StudentsRegisteredManager(self)
-        self.queues_manager = QueuesManager(self)
-
-        if bot_token is None:
-            bot_token = self.get_token()
+        bot_token = bot_token if bot_token is not None else os.environ['TELEGRAM_TOKEN']
 
         self.updater = Updater(bot_token, use_context=True, user_sig_handler=self.handler_signal)
         self.init_updater_commands()
 
     def init_updater_commands(self):
-        for command in self.available_commands.all_commands:
+        for command in command_collections.all_commands:
             self.updater.dispatcher.add_handler(CommandHandler(command.command_name, self.handle_text_command))
 
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message_reply_command))
@@ -53,13 +32,16 @@ class QueueBot:
         self.updater.dispatcher.add_error_handler(self.handle_error)
 
     def refresh_last_queue_msg(self, update):
-        err_msg = self.last_queue_message.update_contents(self.queues_manager.get_queue_str(), update.effective_chat)
-        if err_msg is not None:
-            self.logger.log('message failed to update | ' + err_msg)
+
+        try:
+            self.last_queue_message.update_contents(
+                get_chat_queues(update.effective_chat.id).get_queue_str(),
+                update.effective_chat
+            )
+        except Exception as exc:
+            self.logger.log('message failed to update | ' + str(exc.args))
 
     def start(self):
-        self.logger.log('start')
-        self.load_drive_config()
         self.updater.start_polling()
         self.updater.idle()
 
@@ -69,9 +51,6 @@ class QueueBot:
         exit_thread.join()
 
     def handler_stop(self):
-        self.queues_manager.clear_finished_queues()
-        self.queues_manager.save_to_file(self.object_saver)
-        self.save_to_cloud()
         self.updater.stop()
 
     def handler_signal(self, signum, frame):
@@ -79,55 +58,11 @@ class QueueBot:
         if signum in (signal.SIGTERM, signal.SIGINT):
             self.handler_stop()
 
-    def save_queue_to_file(self):
-        self.queues_manager.save_current_to_file()
-
-    # paths inside .get_save_files() must match
-    # with paths in load_from_cloud by folders to load correctly
-    def save_to_cloud(self):
-        self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolderType.Root)
-        self.gdrive_saver.update_file_list(self.queues_manager.get_save_files(), DriveFolderType.Queues)
-
-        dump_path = self.logger.dump_to_file()
-        self.gdrive_saver.update_file_list([dump_path], DriveFolderType.Log)
-        self.logger.delete_logs()
-
-    def load_drive_config(self):
-        name_save_path_map = {p.name: p for p in self.registered_manager.get_save_files()}
-        self.gdrive_saver.get_folder_files(name_save_path_map, DriveFolderType.Root)
-        self.gdrive_saver.get_all_folder_files(DriveFolderType.Queues, FolderType.QueuesData)
-
-        self.registered_manager.load_file(self.object_saver)
-        self.queues_manager.load_file(self.object_saver)
-
-    # loads default values from external file
-    def save_registered_to_file(self):
-        self.registered_manager.save_to_file(self.object_saver)
-        self.gdrive_saver.update_file_list(self.registered_manager.get_save_files(), DriveFolderType.Queues)
-
-    def get_token(self, path=None):
-        if path is None:
-            token = os.environ.get('TELEGRAM_TOKEN')
-        else:
-            token = self.object_saver.load(path)
-
-        if token is None:
-            self.logger.log('Fatal error: token is empty')
-            raise ValueError('Fatal error: token is empty')
-
-        return token
-
     def request_set(self, cls):
         self.command_requested_answer = cls
 
     def request_del(self):
         self.command_requested_answer = None
-
-    def check_queue_selected(self):
-        return self.queues_manager.get_queue() is not None
-
-    def get_queue(self) -> StudentsQueue:
-        return self.queues_manager.get_queue()
 
     def handle_text_command(self, update, context):
         for entity in update.message.entities:
@@ -144,7 +79,6 @@ class QueueBot:
 
     def handle_error(self, update, context):
         self.logger.log_err(context.error)
-        self.save_to_cloud()
 
         # repeat error message to empty log file
         self.logger.log_err(context.error)

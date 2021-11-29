@@ -3,29 +3,11 @@ from unittest.mock import MagicMock
 
 from queue_bot.bot import parsers
 from queue_bot.objects.student import Student
-from queue_bot.objects.students_queue import StudentsQueue
+from queue_bot.objects.queue import Queue
 from unit_tests.shared_test_functions import students_compare
 
 
 class TestParsers(unittest.TestCase):
-
-
-    def test_queue_file_names_parse(self):
-        from queue_bot.bot.parsers import parse_valid_queue_names
-        from queue_bot.objects.queues_manager import QueuesManager
-
-        bot = MagicMock()
-
-        names = ['name1', 'name2', 'name3']
-        test_queues = QueuesManager(bot, [StudentsQueue(bot, name) for name in names])
-        save_files = test_queues.get_save_files()
-
-        file_names = []
-        for path in save_files:
-            file_names.append(path.name)
-
-        queue_names = parse_valid_queue_names(file_names)
-        self.assertListEqual(names, queue_names)
 
     def test_students_formats(self):
         self.addTypeEqualityFunc(Student, students_compare)

@@ -9,7 +9,7 @@ class RenameAllUsers(Command):
 
     @classmethod
     def handle_reply(cls, update, bot):
-        update.effective_chat.send_message(bot.language_pack.enter_new_list_in_order)
+        update.effective_chat.send_message(language_pack.enter_new_list_in_order)
         bot.request_set(cls)
 
     def handle_request(cls, update, bot):
@@ -18,7 +18,7 @@ class RenameAllUsers(Command):
             for i in range(len(names)):
                 bot.registered_manager.rename_user(i, names[i])
         else:
-            update.effective_chat.send_message(bot.language_pack.names_more_than_users)
+            update.effective_chat.send_message(language_pack.names_more_than_users)
             bot.logger.log('names more than users - {0}'
-                           .format(bot.registered_manager.get_user_by_update(update)))
+                           .format(bot.registered_manager.get_from_update(update)))
         bot.request_del()

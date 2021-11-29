@@ -1,8 +1,11 @@
 from abc import abstractmethod
 
+from telegram import Chat
+
 from queue_bot.commands.command_mapping_meta import CommandMappingMeta
 from queue_bot.commands.misc.logging import log_bot_user
 from queue_bot.objects.access_level import AccessLevel
+from queue_bot import language_pack
 
 
 class Command(metaclass=CommandMappingMeta):
@@ -46,14 +49,16 @@ class Command(metaclass=CommandMappingMeta):
 
     @classmethod
     def check_access(cls, update, bot):
-        if bot.registered_manager.check_access(update, cls.access_requirement, cls.check_chat_private):
+        if cls.check_chat_private:
+            if update.effective_chat.type != Chat.PRIVATE:
+                update.message.reply_text(language_pack.command_for_private_chat)
+                return False
+
+        if bot.registered_manager.check_access(update, cls.access_requirement):
             return True
         else:
             log_bot_user(update, bot, 'tried to get access to {0} command', cls.access_requirement.name)
-            if cls.check_chat_private:
-                update.message.reply_text(bot.language_pack.command_for_private_chat)
-            else:
-                update.message.reply_text(bot.language_pack.permission_denied)
+            update.message.reply_text(language_pack.permission_denied)
             return False
 
     # used as starting point and it checks for user access rights

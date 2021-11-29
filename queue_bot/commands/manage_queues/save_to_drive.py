@@ -1,6 +1,7 @@
 from queue_bot.commands.command import Command
 from queue_bot.languages import command_descriptions_rus as commands_descriptions
 from queue_bot.objects.access_level import AccessLevel
+from queue_bot import language_pack
 
 
 class SaveToDrive(Command):
@@ -11,4 +12,4 @@ class SaveToDrive(Command):
     @classmethod
     def handle_request(cls, update, bot):
         bot.save_to_cloud()
-        update.effective_chat.send_message(bot.language_pack.queues_saved_to_cloud)
+        update.effective_chat.send_message(language_pack.queues_saved_to_cloud)

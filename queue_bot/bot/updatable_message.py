@@ -26,14 +26,10 @@ class UpdatableMessage:
 
     def update_contents(self, contents, chat, keyboard=None):
         """Returns error message if update was not successful"""
-        try:
-            if chat.id not in self.chat_message:
-                self.resend(contents, chat, keyboard)
+        if chat.id not in self.chat_message:
+            self.resend(contents, chat, keyboard)
 
-            for chat_id in self.chat_message.keys():
-                if self.chat_message[chat_id].text != contents:
-                    self.chat_message[chat_id] = \
-                        self.chat_message[chat_id].edit_text(contents, reply_markup=self.chat_message[chat_id].reply_markup)
-            return None
-        except Exception as exc:
-            return f"ERROR {str(type(exc))}: {exc.args}"
+        for chat_id in self.chat_message.keys():
+            if self.chat_message[chat_id].text != contents:
+                self.chat_message[chat_id] = \
+                    self.chat_message[chat_id].edit_text(contents, reply_markup=self.chat_message[chat_id].reply_markup)

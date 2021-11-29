@@ -3,9 +3,11 @@ from unittest.mock import MagicMock
 
 from telegram import MessageEntity, Chat
 
+from queue_bot.objects.queues_manager import get_chat_queues
 from queue_bot.queue_bot import QueueBot
 from queue_bot.objects.student import Student
-from queue_bot.objects.students_queue import StudentsQueue
+from queue_bot.objects.queue import Queue
+from queue_bot.objects.registered_manager import get_chat_registered
 
 
 # generate patched test bot
@@ -15,14 +17,14 @@ from queue_bot.objects.students_queue import StudentsQueue
 @mock.patch('queue_bot.queue_bot.Updater')
 def setup_test_bot(unit_test, *mocks) -> QueueBot:
     bot = QueueBot('0')
-    bot.registered_manager.append_new_user('0', 0)  # god
-    bot.registered_manager.set_god(0)
-    bot.registered_manager.append_new_user('1', 1)  # admin
-    bot.registered_manager.set_admin(1)
-    bot.registered_manager.append_new_user('2', 2)  # user
-    bot.registered_manager.append_new_user('3', 3)  # user
-    bot.registered_manager.append_new_user('4', 4)  # user
-    bot.registered_manager.append_new_user('5', 5)  # user
+    get_chat_registered(1).add_new_user('0', 0)  # god
+    get_chat_registered(1).set_god(0)
+    get_chat_registered(1).add_new_user('1', 1)  # admin
+    get_chat_registered(1).set_admin(1)
+    get_chat_registered(1).add_new_user('2', 2)  # user
+    get_chat_registered(1).add_new_user('3', 3)  # user
+    get_chat_registered(1).add_new_user('4', 4)  # user
+    get_chat_registered(1).add_new_user('5', 5)  # user
 
     unit_test.addTypeEqualityFunc(Student, students_compare)
 
@@ -35,12 +37,12 @@ def students_compare(f, s, msg=None):
            f.access_level == s.access_level
 
 
-def setup_test_queue(bot, name, students):
+def setup_test_queue(bot, name, students, chat_id=1):
     # be aware of list reference copy in students !
-    queue = StudentsQueue(bot)
+    queue = Queue(bot)
     queue.name = name
     queue.set_students(list(students))
-    bot.queues_manager.add_queue(queue)
+    get_chat_queues(chat_id).add_queue(queue)
     return bot
 
 
