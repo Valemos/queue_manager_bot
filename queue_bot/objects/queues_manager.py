@@ -60,12 +60,9 @@ class QueuesManager(Base):
         return len(self.queues) < self.queues_count_limit
 
     def add_queue(self, queue):
-        if self.can_add_queue():
-            self.queues[queue.name] = queue
-            self.selected_id = queue
-            self.save_current_to_file()
-            return True
-        return False
+        self.queues[queue.name] = queue
+        self.selected_id = queue
+        self.save_current_to_file()
 
     def clear_current_queue(self):
         if self.selected_id is not None:
@@ -82,9 +79,9 @@ class QueuesManager(Base):
         with Session.begin() as session:
             return session.query(Queue).filter_by(id=self.selected_id).first()
 
-    def get_queue_str(self):
+    def get_queue_message(self):
         if self.selected_id is not None:
-            return self.get_queue().str()
+            return self.get_queue().description()
         else:
             return language_pack.queue_not_selected
 

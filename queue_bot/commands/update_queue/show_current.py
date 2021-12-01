@@ -9,14 +9,15 @@ class ShowCurrent(Command):
     description = commands_descriptions.get_queue_descr
 
     @classmethod
-    def handle_reply(cls, update, bot):
+    def handle_request(cls, update, bot):
         # if queue not selected, but it exists
         # todo refactor
-        if get_chat_queues(update.effective_chat.id).selected_id is None and len(get_chat_queues(update.effective_chat.id)) > 0:
+        queues = get_chat_queues(update.effective_chat.id)
+        if queues.selected_id is None and len(queues) > 0:
             update.effective_chat.send_message(language_pack.select_queue_or_create_new)
         else:
             bot.last_queue_message.resend(
-                get_chat_queues(update.effective_chat.id).get_queue_str(),
+                queues.get_queue_message(),
                 update.effective_chat,
                 bot.keyboards.move_queue)
 

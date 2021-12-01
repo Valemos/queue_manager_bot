@@ -1,8 +1,9 @@
-from queue_bot.bot import parsers as parsers
+from queue_bot.bot import parsers as parsers, keyboards
 from queue_bot.commands.misc.logging import log_bot_queue
 from queue_bot.commands.command import Command
 from queue_bot.objects.access_level import AccessLevel
 from queue_bot import language_pack
+from queue_bot.objects.queues_manager import get_chat_queues
 
 
 class RemoveListStudents(Command):
@@ -15,7 +16,8 @@ class RemoveListStudents(Command):
             update.effective_chat.send_message(language_pack.queue_not_selected)
             return
 
-        keyboard = get_chat_queues(update.effective_chat.id).get_queue().get_students_keyboard(cls)
+        queue = get_chat_queues(update.effective_chat.id).get_queue()
+        keyboard = keyboards.generate_keyboard(cls, queue.get_member_names())
         update.effective_chat.send_message(language_pack.select_students, reply_markup=keyboard)
 
     @classmethod
@@ -27,10 +29,11 @@ class RemoveListStudents(Command):
         cls.handle_request(update, bot)
 
         # after student deleted, message updates
-        keyboard = get_chat_queues(update.effective_chat.id).get_queue().get_students_keyboard(cls)
-        # keyboards not equal
+        queue = get_chat_queues(update.effective_chat.id).get_queue()
+        keyboard = keyboards.generate_keyboard(cls, queue.get_member_names())
+
         if len(keyboard.inline_keyboard) != len(update.effective_message.reply_markup.inline_keyboard):
-            update.effective_chat.send_message(language_pack.select_students, reply_markup=keyboard)
+            update.effective_message.edit_text(language_pack.select_students, reply_markup=keyboard)
 
     @classmethod
     def handle_request(cls, update, bot):

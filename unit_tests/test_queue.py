@@ -1,6 +1,7 @@
 import unittest
 
 import queue_bot.commands as commands
+import queue_bot.commands.modify_queue.move_student_position
 from queue_bot.objects.queues_manager import get_chat_queues
 from unit_tests.shared_test_functions import *
 
@@ -148,12 +149,12 @@ class TestQueue(unittest.TestCase):
         queue.append_by_name('Unknown')
         self.assertEqual(queue.members[-1], Student('Unknown', None))
 
-        queue.append_member(Student('0', 4))  # different name, id the same
+        queue.append_info(Student('0', 4))  # different name, id the same
         self.assertEqual(queue.members[2], Student('4', 4))
 
         prev_list = queue.members
 
-        queue.append_member(Student('0', 0))
+        queue.append_info(Student('0', 0))
         self.assertCountEqual(prev_list, queue.members)
         self.assertEqual(Student('0', 0), queue.get_last())
 
@@ -249,8 +250,10 @@ class TestQueue(unittest.TestCase):
         s1 = prev_students[pos1 - 1]
         s2 = prev_students[pos2 - 1]
 
-        bot_handle_keyboard(self.bot, *self.uc, commands.modify_queue.move_position.MoveStudentPosition, str(s1))
-        bot_handle_keyboard(self.bot, *self.uc, commands.modify_queue.move_position.MoveStudentPosition, str(s2))
+        bot_handle_keyboard(self.bot, *self.uc,
+                            queue_bot.commands.modify_queue.move_student_position.MoveStudentPosition, str(s1))
+        bot_handle_keyboard(self.bot, *self.uc,
+                            queue_bot.commands.modify_queue.move_student_position.MoveStudentPosition, str(s2))
 
         self.assertCountEqual(prev_students, self.bot.get_queue().members)
         self.assertEqual(self.bot.get_queue().members[pos2 - 1], s1)

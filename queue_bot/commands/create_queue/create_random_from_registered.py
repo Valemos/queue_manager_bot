@@ -12,19 +12,18 @@ class CreateRandomFromRegistered(Command):
     access_requirement = AccessLevel.ADMIN
 
     @classmethod
-    def handle_reply(cls, update, bot):
-        queue = Queue(bot)
-        queue.generate_random(bot.registered_manager.get_users())  # we specify parameter in "self"
+    def handle_request(cls, update, bot):
+        new_queue = Queue(bot)
+        new_queue.generate_random(bot.registered_manager.get_users())  # we specify parameter in "self"
+        queues = get_chat_queues(update.effective_chat.id)
 
-        if not get_chat_queues(update.effective_chat.id)add_queue(queue):
+        if not queues.can_add_queue():
             update.effective_chat.send_message(language_pack.queue_limit_reached)
             bot.request_del()
             log_bot_queue(update, bot, 'queue limit reached')
         else:
-            err_msg = bot.last_queue_message.update_contents(get_chat_queues(update.effective_chat.id)get_queue_str(), update.effective_chat)
-            if err_msg is not None:
-                log_bot_queue(update, bot, err_msg)
-
+            queues.add_queue(new_queue)
+            bot.last_queue_message.update_contents(queues.get_queue_message(), update.effective_chat)
             update.effective_chat.send_message(language_pack.queue_set)
             log_bot_queue(update, bot, 'queue added')
-            queue_bot.commands.create_queue.add_queue_name.SetQueueName.handle_reply(update, bot)
+            queue_bot.commands.create_queue.SetQueueName.handle_reply(update, bot)

@@ -16,18 +16,18 @@ class StudentFinished(Command):
             update.effective_chat.send_message(language_pack.queue_not_selected)
             return
 
-        student_finished = bot.registered_manager.get_from_update(update)
+        student_finished = bot.registered_manager.get_update_user_info(update)
 
         if student_finished == get_chat_queues(update.effective_chat.id).get_queue().get_current():  # finished user currently first
             get_chat_queues(update.effective_chat.id).get_queue().move_next()
             queue_bot.commands.update_queue.show_status.ShowStatus.handle_request(update, bot)
         else:
             update.message.reply_text(language_pack.your_turn_not_now.format(
-                bot.registered_manager.get_from_update(update).str()
+                bot.registered_manager.get_update_user_info(update).description()
             ))
 
         err_msg = bot.last_queue_message.update_contents(
-            get_chat_queues(update.effective_chat.id).get_queue_str(),
+            get_chat_queues(update.effective_chat.id).get_queue_message(),
             update.effective_chat
         )
         if err_msg is not None:

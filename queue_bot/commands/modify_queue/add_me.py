@@ -12,14 +12,17 @@ class AddMe(Command):
 
     @classmethod
     def handle_request(cls, update, bot):
+        chat = update.effective_chat
         if not bot.check_queue_selected():
-            update.effective_chat.send_message(language_pack.queue_not_selected)
+            chat.send_message(language_pack.queue_not_selected)
             return
 
-        info = get_chat_registered(update.effective_chat.id).get_from_update(update)
-        get_chat_queues(update.effective_chat.id).get_queue().append_member(name, telegram_id)
+        info = get_chat_registered(chat.id).get_update_user_info(update)
+        queues = get_chat_queues(chat.id)
+        queues.get_queue().append_info(info)
 
-        err_msg = bot.last_queue_message.update_contents(get_chat_queues(update.effective_chat.id).get_queue_str(), update.effective_chat)
+        new_queue_str = queues.get_queue_message()
+        err_msg = bot.last_queue_message.update_contents(new_queue_str, chat)
         if err_msg is not None:
             log_bot_queue(update, bot, err_msg)
 

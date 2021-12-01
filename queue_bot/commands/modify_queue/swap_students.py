@@ -34,6 +34,7 @@ class MoveSwapStudents(Command):
             return
         # todo check for previous dialogs
         dialog_state = SwapStudentsState(update.effective_chat.id)
+        # todo change keyboard
         keyboard = get_chat_queues(update.effective_chat.id).get_queue().get_keyboard_with_position(cls)
         update.effective_chat.send_message(language_pack.select_students, reply_markup=keyboard)
         bot.request_set(cls)
@@ -53,7 +54,7 @@ class MoveSwapStudents(Command):
         if dialog_state.is_ready():
             cls.handle_request(update, bot)
         else:
-            update.effective_chat.send_message(language_pack.selected_object.format(student.str()))
+            update.effective_chat.send_message(language_pack.selected_object.format(student.description()))
 
     @classmethod
     def handle_request(cls, update, bot):
@@ -61,8 +62,8 @@ class MoveSwapStudents(Command):
         get_chat_queues(update.effective_chat.id).get_queue().swap_students(dialog_state.first_student, dialog_state.second_student)
         update.effective_chat.send_message(
             language_pack.students_swapped.format(
-                dialog_state.first_student.str(),
-                dialog_state.second_student.str()))
+                dialog_state.first_student.description(),
+                dialog_state.second_student.description()))
 
         bot.refresh_last_queue_msg(update)
         bot.request_del()

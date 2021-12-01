@@ -16,25 +16,25 @@ class TestRegisteredManager(unittest.TestCase):
         mock_update.effective_chat.type = Chat.SUPERGROUP
 
         mock_update.effective_user.id = 0
-        self.assertFalse(bot.registered_manager.check_access(mock_update))
+        self.assertFalse(bot.registered_manager.check_access_or_throw(mock_update))
 
         mock_update.effective_user.id = 1
-        self.assertFalse(bot.registered_manager.check_access(mock_update))
+        self.assertFalse(bot.registered_manager.check_access_or_throw(mock_update))
 
         mock_update.effective_user.id = 2
-        self.assertFalse(bot.registered_manager.check_access(mock_update))
+        self.assertFalse(bot.registered_manager.check_access_or_throw(mock_update))
 
         # for private chat
         mock_update.effective_chat.type = Chat.PRIVATE
 
         mock_update.effective_user.id = 0
-        self.assertTrue(bot.registered_manager.check_access(mock_update))
+        self.assertTrue(bot.registered_manager.check_access_or_throw(mock_update))
 
         mock_update.effective_user.id = 1
-        self.assertTrue(bot.registered_manager.check_access(mock_update))
+        self.assertTrue(bot.registered_manager.check_access_or_throw(mock_update))
 
         mock_update.effective_user.id = 2
-        self.assertFalse(bot.registered_manager.check_access(mock_update))
+        self.assertFalse(bot.registered_manager.check_access_or_throw(mock_update))
 
     def test_get_user(self):
         bot = setup_test_bot(self)

@@ -88,7 +88,7 @@ class RegisteredManager(Base):
 
         return students
 
-    def get_from_update(self, update):
+    def get_update_user_info(self, update):
         student = self.get_by_id(update.effective_user.id)
         if student is None:
             return QueueUserInfo(update.effective_user.full_name, None, AccessLevel.USER)
@@ -101,10 +101,10 @@ class RegisteredManager(Base):
         return None
 
     def get_by_id(self, search_id: int) -> Optional[Student]:
-        for student in self.students:
-            if student.telegram_id == search_id:
-                return student
-        return None
+        with Session() as session:
+            return session.query(Student).filter_by(
+                chat_id=self.chat_id,
+                telegram_id=search_id).first()
 
     def get_users_str(self):
         str_list = []
@@ -163,7 +163,7 @@ class RegisteredManager(Base):
         for student in self.students:
             if RegisteredManager.is_similar(name, student.name):
                 return student
-        return Student(name, None)
+        return None
 
     @staticmethod
     def is_similar(first: str, second: str):
@@ -172,7 +172,7 @@ class RegisteredManager(Base):
 
     # by default this function requires private chat to allow commands
     def check_access(self, update, level_requirement=AccessLevel.ADMIN):
-        info = self.get_from_update(update)
+        info = self.get_update_user_info(update)
         return info.access_level.value <= level_requirement.value
 
 

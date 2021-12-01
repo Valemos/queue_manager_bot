@@ -17,12 +17,12 @@ class RemoveMe(Command):
             return
 
         queues = get_chat_queues(update.effective_chat.id)
-        student = get_chat_registered(update.effective_chat.id).get_from_update(update)
+        student = get_chat_registered(update.effective_chat.id).get_update_user_info(update)
         if student in queues:
             get_chat_queues(update.effective_chat.id).get_queue().remove_student(student)
 
             err_msg = bot.last_queue_message.update_contents(
-                get_chat_queues(update.effective_chat.id).get_queue_str(),
+                get_chat_queues(update.effective_chat.id).get_queue_message(),
                 update.effective_chat
             )
             if err_msg is not None:

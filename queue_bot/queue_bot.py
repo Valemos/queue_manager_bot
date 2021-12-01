@@ -35,7 +35,7 @@ class QueueBot:
 
         try:
             self.last_queue_message.update_contents(
-                get_chat_queues(update.effective_chat.id).get_queue_str(),
+                get_chat_queues(update.effective_chat.id).get_queue_message(),
                 update.effective_chat
             )
         except Exception as exc:

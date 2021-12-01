@@ -6,6 +6,7 @@ from queue_bot.commands.command_mapping_meta import CommandMappingMeta
 from queue_bot.commands.misc.logging import log_bot_user
 from queue_bot.objects.access_level import AccessLevel
 from queue_bot import language_pack
+from queue_bot.objects.registered_manager import get_chat_registered
 
 
 class Command(metaclass=CommandMappingMeta):
@@ -48,34 +49,31 @@ class Command(metaclass=CommandMappingMeta):
             return None
 
     @classmethod
-    def check_access(cls, update, bot):
+    def check_access_or_throw(cls, update, bot):
         if cls.check_chat_private:
             if update.effective_chat.type != Chat.PRIVATE:
                 update.message.reply_text(language_pack.command_for_private_chat)
                 return False
 
-        if bot.registered_manager.check_access(update, cls.access_requirement):
-            return True
-        else:
-            log_bot_user(update, bot, 'tried to get access to {0} command', cls.access_requirement.name)
-            update.message.reply_text(language_pack.permission_denied)
-            return False
+        registered = get_chat_registered(update.effective_chat.id)
+        if not registered.check_access(update, cls.access_requirement):
+            raise
 
     # used as starting point and it checks for user access rights
     @classmethod
     def handle_reply_access(cls, update, bot):
-        if cls.check_access(update, bot):
-            cls.handle_reply(update, bot)
+        cls.check_access_or_throw(update, bot)
+        cls.handle_reply(update, bot)
 
     @classmethod
     def handle_keyboard_access(cls, update, bot):
-        if cls.check_access(update, bot):
-            cls.handle_keyboard(update, bot)
+        cls.check_access_or_throw(update, bot)
+        cls.handle_keyboard(update, bot)
 
     @classmethod
     def handle_request_access(cls, update, bot):
-        if cls.check_access(update, bot):
-            cls.handle_request(update, bot)
+        cls.check_access_or_throw(update, bot)
+        cls.handle_request(update, bot)
 
     # used to generate message, keyboard and handle_request properly
     @classmethod
@@ -90,6 +88,5 @@ class Command(metaclass=CommandMappingMeta):
 
     # used for main request handling
     @classmethod
-    @abstractmethod
     def handle_request(cls, update, bot):
         pass

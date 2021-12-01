@@ -20,5 +20,5 @@ class RenameAllUsers(Command):
         else:
             update.effective_chat.send_message(language_pack.names_more_than_users)
             bot.logger.log('names more than users - {0}'
-                           .format(bot.registered_manager.get_from_update(update)))
+                           .format(bot.registered_manager.get_update_user_info(update)))
         bot.request_del()

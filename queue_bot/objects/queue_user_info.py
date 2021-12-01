@@ -7,7 +7,7 @@ from queue_bot.objects import AccessLevel
 @dataclass
 class QueueUserInfo:
     name: str
-    telegram_id: Optional[int]
+    telegram_id: Optional[int] = None
     access_level: AccessLevel = AccessLevel.USER
 
     @classmethod
